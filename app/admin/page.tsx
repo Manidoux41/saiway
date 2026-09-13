@@ -17,12 +17,14 @@ const stats = [
 
 export default function AdminPage() {
   const { t } = useLanguage();
-  const { user, register } = useAuth();
+  const { user } = useAuth();
   const [drivers, setDrivers] = useState([{ name: "Sokha", email: "sokha@saiway.local", status: "Active" }]);
   const [vehicles, setVehicles] = useState([{ name: "Toyota Alphard", plate: "2B-4567", seats: 6 }]);
   const [fare, setFare] = useState("35");
-  const [driverForm, setDriverForm] = useState({ name: "", email: "" });
+  const [driverForm, setDriverForm] = useState({ name: "", email: "", password: "" });
   const [vehicleForm, setVehicleForm] = useState({ name: "", plate: "", seats: "4" });
+  const [adminForm, setAdminForm] = useState({ name: "", email: "", password: "" });
+  const [adminMessage, setAdminMessage] = useState("");
   const [heroBackground, setHeroBackground] = useState(() => {
     if (typeof window === "undefined") return defaultHeroBackground;
     const storedBackground = window.localStorage.getItem("saiway-hero-background");
@@ -35,10 +37,20 @@ export default function AdminPage() {
 
   function createDriver(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const driverId = `driver-${Date.now()}`;
-    register({ id: driverId, name: driverForm.name, email: driverForm.email, role: "driver" });
-    setDrivers((current) => [...current, { ...driverForm, status: "Active" }]);
-    setDriverForm({ name: "", email: "" });
+    fetch("/api/admin/users", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...driverForm, role: "DRIVER" }) }).then(async (response) => {
+      if (response.ok) {
+        setDrivers((current) => [...current, { name: driverForm.name, email: driverForm.email, status: "Active" }]);
+        setDriverForm({ name: "", email: "", password: "" });
+      }
+    });
+  }
+
+  async function createAdmin(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const response = await fetch("/api/admin/users", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(adminForm) });
+    const data = await response.json() as { error?: string };
+    setAdminMessage(response.ok ? "Administrator created successfully." : data.error || "Unable to create administrator.");
+    if (response.ok) setAdminForm({ name: "", email: "", password: "" });
   }
 
   function addVehicle(event: FormEvent<HTMLFormElement>) {
@@ -120,9 +132,22 @@ export default function AdminPage() {
           <div className="mt-5 space-y-3"><div className="flex items-center justify-between rounded-2xl bg-[var(--color-input)] p-4"><div><div className="font-semibold text-[var(--color-text)]">Nary Chan</div><div className="text-sm text-slate-500">nary@example.com</div></div><span className="text-xs font-semibold text-emerald-700">Active</span></div><div className="flex items-center justify-between rounded-2xl bg-[var(--color-input)] p-4"><div><div className="font-semibold text-[var(--color-text)]">David Morgan</div><div className="text-sm text-slate-500">david@example.com</div></div><span className="text-xs font-semibold text-emerald-700">Active</span></div></div>
         </section>
 
+        <section className="rounded-[28px] border border-black/5 bg-white p-6 shadow-sm lg:col-span-2">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-accent)]">Security</p>
+          <h2 className="mt-2 text-xl font-bold text-[var(--color-text)]">Create an administrator</h2>
+          <p className="mt-2 text-sm text-slate-600">Only an authenticated administrator can create another administrator account.</p>
+          <form onSubmit={createAdmin} className="mt-5 grid gap-3 md:grid-cols-3">
+            <input required value={adminForm.name} onChange={(event) => setAdminForm({ ...adminForm, name: event.target.value })} placeholder="Administrator name" className="rounded-2xl border border-slate-200 bg-[var(--color-input)] px-4 py-3 text-sm outline-none focus:border-[var(--color-primary)]" />
+            <input required type="email" value={adminForm.email} onChange={(event) => setAdminForm({ ...adminForm, email: event.target.value })} placeholder="Administrator email" className="rounded-2xl border border-slate-200 bg-[var(--color-input)] px-4 py-3 text-sm outline-none focus:border-[var(--color-primary)]" />
+            <input required minLength={8} type="password" value={adminForm.password} onChange={(event) => setAdminForm({ ...adminForm, password: event.target.value })} placeholder="Temporary password" className="rounded-2xl border border-slate-200 bg-[var(--color-input)] px-4 py-3 text-sm outline-none focus:border-[var(--color-primary)]" />
+            <button type="submit" className="rounded-full bg-[var(--color-primary)] px-4 py-3 text-sm font-semibold text-white md:col-span-3">Create administrator account</button>
+          </form>
+          {adminMessage && <p className="mt-3 text-sm font-semibold text-[var(--color-primary)]">{adminMessage}</p>}
+        </section>
+
         <section className="rounded-[28px] border border-black/5 bg-white p-6 shadow-sm">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-accent)]">Admin only</p><h2 className="mt-2 text-xl font-bold text-[var(--color-text)]">Create a driver</h2><p className="mt-2 text-sm text-slate-600">Drivers cannot self-register. Create their account here and send their credentials securely.</p>
-          <form onSubmit={createDriver} className="mt-5 grid gap-3 sm:grid-cols-2"><input required value={driverForm.name} onChange={(event) => setDriverForm({ ...driverForm, name: event.target.value })} placeholder="Driver name" className="rounded-2xl border border-slate-200 bg-[var(--color-input)] px-4 py-3 text-sm outline-none focus:border-[var(--color-primary)]" /><input required type="email" value={driverForm.email} onChange={(event) => setDriverForm({ ...driverForm, email: event.target.value })} placeholder="Driver email" className="rounded-2xl border border-slate-200 bg-[var(--color-input)] px-4 py-3 text-sm outline-none focus:border-[var(--color-primary)]" /><button type="submit" className="rounded-full bg-[var(--color-primary)] px-4 py-3 text-sm font-semibold text-white sm:col-span-2">Create driver account</button></form>
+          <form onSubmit={createDriver} className="mt-5 grid gap-3 sm:grid-cols-3"><input required value={driverForm.name} onChange={(event) => setDriverForm({ ...driverForm, name: event.target.value })} placeholder="Driver name" className="rounded-2xl border border-slate-200 bg-[var(--color-input)] px-4 py-3 text-sm outline-none focus:border-[var(--color-primary)]" /><input required type="email" value={driverForm.email} onChange={(event) => setDriverForm({ ...driverForm, email: event.target.value })} placeholder="Driver email" className="rounded-2xl border border-slate-200 bg-[var(--color-input)] px-4 py-3 text-sm outline-none focus:border-[var(--color-primary)]" /><input required minLength={8} type="password" value={driverForm.password} onChange={(event) => setDriverForm({ ...driverForm, password: event.target.value })} placeholder="Temporary password" className="rounded-2xl border border-slate-200 bg-[var(--color-input)] px-4 py-3 text-sm outline-none focus:border-[var(--color-primary)]" /><button type="submit" className="rounded-full bg-[var(--color-primary)] px-4 py-3 text-sm font-semibold text-white sm:col-span-3">Create driver account</button></form>
           <div className="mt-5 space-y-2">{drivers.map((driver) => <div key={driver.email} className="flex items-center justify-between border-t border-slate-100 pt-3 text-sm"><span className="font-semibold text-[var(--color-text)]">{driver.name}<span className="ml-2 font-normal text-slate-500">{driver.email}</span></span><span className="text-emerald-700">{driver.status}</span></div>)}</div>
         </section>
 

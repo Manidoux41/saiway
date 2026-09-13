@@ -1,5 +1,6 @@
 import { scryptSync, timingSafeEqual } from "node:crypto";
 import { prisma } from "@/lib/prisma";
+import { createSession, sessionCookie } from "@/lib/auth-session";
 
 export const runtime = "nodejs";
 
@@ -36,9 +37,10 @@ export async function POST(request: Request) {
       return Response.json({ error: "Invalid credentials" }, { status: 401 });
     }
 
+    const session = createSession({ id: account.id, email: account.email, role: account.role });
     return Response.json(
       { user: { id: account.id, name: account.name, email: account.email, role: roleName(account.role) } },
-      { headers: { "Cache-Control": "no-store" } },
+      { headers: { "Cache-Control": "no-store", "Set-Cookie": sessionCookie(session) } },
     );
   } catch {
     return Response.json({ error: "Authentication service unavailable" }, { status: 503 });
