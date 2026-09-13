@@ -10,7 +10,7 @@ export default function AuthPage() {
   const [mode, setMode] = useState<UserRole>("customer");
   const [isRegistering, setIsRegistering] = useState(true);
   const router = useRouter();
-  const { register, authenticate, signIn } = useAuth();
+  const { signIn } = useAuth();
   const { t } = useLanguage();
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -18,38 +18,19 @@ export default function AuthPage() {
     const formData = new FormData(event.currentTarget);
     const email = String(formData.get("email")).trim().toLowerCase();
     const password = String(formData.get("password"));
-    const account = {
-      id: `${mode}-${Date.now()}`,
-      name: String(formData.get("name") || (mode === "admin" ? "SAIWAY Administrator" : mode === "driver" ? "Assigned Driver" : "SAIWAY Customer")),
-      email,
-      role: mode,
-    } as const;
-    let authenticatedAccount = isRegistering ? account : authenticate(account.email, mode);
-
-    if (!isRegistering && (mode === "admin" || mode === "driver")) {
-      const response = await fetch("/api/auth/login", {
+    const response = await fetch(isRegistering ? "/api/auth/register" : "/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, role: mode }),
+        body: JSON.stringify(isRegistering ? { name: String(formData.get("name")), email, password } : { email, password, role: mode }),
       });
-      if (response.ok) {
-        const data = await response.json() as { user: typeof account };
-        authenticatedAccount = data.user;
-      } else {
-        authenticatedAccount = null;
-      }
-    }
-
-    if (!authenticatedAccount) {
-      window.alert(mode === "customer" ? t("auth.registerRequired") : t("auth.accountMissing"));
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({})) as { error?: string };
+      window.alert(data.error || t("auth.accountMissing"));
       return;
     }
-    if (isRegistering) {
-      register(account);
-      signIn(account);
-    } else {
-      signIn(authenticatedAccount);
-    }
+
+    const data = await response.json() as { user: { id: string; name: string; email: string; role: UserRole } };
+    signIn(data.user);
     if (mode === "admin") {
       window.location.assign("/admin");
       return;

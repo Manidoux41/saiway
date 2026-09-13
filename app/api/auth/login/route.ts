@@ -27,7 +27,7 @@ export async function POST(request: Request) {
     const password = body.password ?? "";
     const requestedRole = body.role?.toUpperCase();
 
-    if (!email || !password || !["ADMIN", "DRIVER"].includes(requestedRole ?? "")) {
+    if (!email || !password || !["ADMIN", "DRIVER", "CUSTOMER"].includes(requestedRole ?? "")) {
       return Response.json({ error: "Invalid credentials" }, { status: 400 });
     }
 
