@@ -1,0 +1,211 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  CUSTOMER
+  DRIVER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  INVITED
+}
+
+enum BookingStatus {
+  PENDING_PAYMENT
+  CONFIRMED
+  DRIVER_ASSIGNMENT_PENDING
+  DRIVER_ASSIGNED
+  DRIVER_ACCEPTED
+  DRIVER_EN_ROUTE
+  DRIVER_ARRIVED
+  TRIP_STARTED
+  TRIP_COMPLETED
+  CANCELLED
+  NO_SHOW
+  REFUNDED
+}
+
+enum TripDirection {
+  AIRPORT_TO_CITY
+  CITY_TO_AIRPORT
+}
+
+enum TripType {
+  AIRPORT_TRANSFER
+  PRIVATE_TRANSFER
+  HOTEL_TRANSFER
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+model User {
+  id            String       @id @default(cuid())
+  email         String       @unique
+  name          String
+  passwordHash  String
+  phone         String?
+  role          UserRole
+  status        UserStatus   @default(ACTIVE)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  customer      CustomerProfile?
+  driver        DriverProfile?
+  bookings      Booking[]    @relation("CustomerBookings")
+  messages      DriverMessage[]
+  auditLogs     AuditLog[]
+}
+
+model CustomerProfile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model DriverProfile {
+  id           String          @id @default(cuid())
+  userId       String          @unique
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  licenseNo    String?
+  isAvailable  Boolean         @default(true)
+  bookings     Booking[]       @relation("DriverBookings")
+  locations    DriverLocation[]
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+}
+
+model Vehicle {
+  id          String    @id @default(cuid())
+  name        String
+  plate       String    @unique
+  seats       Int
+  active      Boolean   @default(true)
+  bookings    Booking[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Booking {
+  id             String          @id @default(cuid())
+  reference      String          @unique
+  customerId     String
+  customer       User            @relation("CustomerBookings", fields: [customerId], references: [id])
+  driverId       String?
+  driver         DriverProfile?  @relation("DriverBookings", fields: [driverId], references: [id], onDelete: SetNull)
+  vehicleId      String?
+  vehicle        Vehicle?        @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  fromAddress    String
+  toAddress      String
+  direction      TripDirection
+  tripType       TripType
+  pickupAt       DateTime
+  flightNumber   String?
+  passengers     Int
+  luggageCount   Int             @default(0)
+  specialNeeds   String?
+  pickupNotes    String?
+  priceCents     Int
+  currency       String          @default("USD")
+  status         BookingStatus   @default(PENDING_PAYMENT)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  statusHistory  BookingStatusHistory[]
+  payments       Payment[]
+  messages       DriverMessage[]
+}
+
+model BookingStatusHistory {
+  id        String        @id @default(cuid())
+  bookingId String
+  booking   Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  status    BookingStatus
+  note      String?
+  createdAt DateTime      @default(now())
+}
+
+model DriverLocation {
+  id        String        @id @default(cuid())
+  driverId  String
+  driver    DriverProfile @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  bookingId String?
+  latitude  Decimal       @db.Decimal(10, 7)
+  longitude Decimal       @db.Decimal(10, 7)
+  accuracy  Decimal?      @db.Decimal(10, 2)
+  recordedAt DateTime     @default(now())
+
+  @@index([driverId, recordedAt])
+  @@index([bookingId, recordedAt])
+}
+
+model DriverMessage {
+  id         String   @id @default(cuid())
+  bookingId  String
+  booking    Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  senderId   String
+  sender     User     @relation(fields: [senderId], references: [id])
+  reason     String
+  message    String
+  sentAt     DateTime @default(now())
+  readAt     DateTime?
+}
+
+model PricingRule {
+  id          String   @id @default(cuid())
+  name        String
+  direction   TripDirection?
+  tripType    TripType?
+  amountCents Int
+  currency    String   @default("USD")
+  active      Boolean  @default(true)
+  effectiveAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Payment {
+  id          String        @id @default(cuid())
+  bookingId   String
+  booking     Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  provider    String
+  providerRef String?
+  amountCents Int
+  currency    String        @default("USD")
+  status      PaymentStatus @default(PENDING)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([providerRef])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  actor     User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  action    String
+  entity    String
+  entityId  String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+}
+
+model SystemSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
