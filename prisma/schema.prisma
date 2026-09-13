@@ -110,6 +110,50 @@ model Vehicle {
   bookings    Booking[]
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+  contracts   VehicleContract[]
+}
+
+enum AccountingEntryType {
+  REVENUE
+  EXPENSE
+  CREDIT
+  PURCHASE
+}
+
+model AccountingEntry {
+  id          String              @id @default(cuid())
+  type        AccountingEntryType
+  label       String
+  amountCents Int
+  currency    String              @default("USD")
+  dueAt       DateTime?
+  paidAt      DateTime?
+  notes       String?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+}
+
+model VehicleContract {
+  id          String    @id @default(cuid())
+  vehicleId   String
+  vehicle     Vehicle   @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  provider    String
+  monthlyCents Int
+  startsAt    DateTime
+  endsAt      DateTime?
+  status      String    @default("ACTIVE")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model ForecastLine {
+  id          String   @id @default(cuid())
+  month       DateTime
+  expectedRevenueCents Int @default(0)
+  expectedExpenseCents Int @default(0)
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model Booking {

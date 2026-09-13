@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useAuth } from "@/components/auth/auth-provider";
 import { FormEvent, useState } from "react";
 import { defaultHeroBackground, defaultHeroBackgroundCredit } from "@/lib/site";
+import { ManagementPanel } from "@/components/admin/management-panel";
 
 const stats = [
   { label: "Bookings", value: "12" },
@@ -156,6 +157,7 @@ export default function AdminPage() {
 
         <section className="rounded-[28px] border border-black/5 bg-white p-6 shadow-sm"><p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-primary)]">Fleet</p><h2 className="mt-2 text-xl font-bold text-[var(--color-text)]">Vehicles</h2><form onSubmit={addVehicle} className="mt-5 grid gap-3 sm:grid-cols-3"><input required value={vehicleForm.name} onChange={(event) => setVehicleForm({ ...vehicleForm, name: event.target.value })} placeholder="Vehicle" className="rounded-2xl border border-slate-200 bg-[var(--color-input)] px-3 py-3 text-sm outline-none focus:border-[var(--color-primary)]" /><input required value={vehicleForm.plate} onChange={(event) => setVehicleForm({ ...vehicleForm, plate: event.target.value })} placeholder="Plate" className="rounded-2xl border border-slate-200 bg-[var(--color-input)] px-3 py-3 text-sm outline-none focus:border-[var(--color-primary)]" /><input required type="number" min="1" value={vehicleForm.seats} onChange={(event) => setVehicleForm({ ...vehicleForm, seats: event.target.value })} placeholder="Seats" className="rounded-2xl border border-slate-200 bg-[var(--color-input)] px-3 py-3 text-sm outline-none focus:border-[var(--color-primary)]" /><button type="submit" className="rounded-full border border-[var(--color-primary)] px-4 py-3 text-sm font-semibold text-[var(--color-primary)] sm:col-span-3">Add vehicle</button></form><div className="mt-5 space-y-2">{vehicles.map((vehicle) => <div key={vehicle.plate} className="flex justify-between border-t border-slate-100 pt-3 text-sm"><span className="font-semibold text-[var(--color-text)]">{vehicle.name}</span><span className="text-slate-500">{vehicle.plate} · {vehicle.seats} seats</span></div>)}</div></section>
       </div>
+      <ManagementPanel />
     </div>
   );
 }
