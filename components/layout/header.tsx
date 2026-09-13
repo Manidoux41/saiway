@@ -46,7 +46,7 @@ export function Header() {
           <Link href="/booking" className="inline-flex items-center justify-center rounded-full bg-[var(--color-primary)] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--color-primary-dark)]">
             {t("nav.bookNow")}
           </Link>
-          <Link href="/auth" className="text-sm font-semibold text-slate-600 transition hover:text-[var(--color-primary)]">Account</Link>
+          <Link href="/account" className="text-sm font-semibold text-slate-600 transition hover:text-[var(--color-primary)]">Account</Link>
           <Link href="/install" aria-label="Install SAIWAY" title="Install SAIWAY" className="hidden text-sm font-semibold text-[var(--color-accent)] transition hover:text-[var(--color-primary)] lg:inline">Install app</Link>
         </div>
       </div>

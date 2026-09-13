@@ -86,7 +86,12 @@ model CustomerProfile {
   id        String   @id @default(cuid())
   userId    String   @unique
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  address   String?
+  paymentProviderCustomerId String?
+  paymentBrand String?
+  paymentLast4 String?
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model DriverProfile {
