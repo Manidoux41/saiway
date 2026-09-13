@@ -1,6 +1,8 @@
 import { scryptSync, timingSafeEqual } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 
+export const runtime = "nodejs";
+
 function roleName(role: string) {
   return role.toLowerCase() as "customer" | "driver" | "admin";
 }
@@ -34,7 +36,10 @@ export async function POST(request: Request) {
       return Response.json({ error: "Invalid credentials" }, { status: 401 });
     }
 
-    return Response.json({ user: { id: account.id, name: account.name, email: account.email, role: roleName(account.role) } });
+    return Response.json(
+      { user: { id: account.id, name: account.name, email: account.email, role: roleName(account.role) } },
+      { headers: { "Cache-Control": "no-store" } },
+    );
   } catch {
     return Response.json({ error: "Authentication service unavailable" }, { status: 503 });
   }

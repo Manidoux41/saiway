@@ -9,7 +9,6 @@ import { useLanguage } from "@/components/i18n/language-provider";
 export default function AuthPage() {
   const [mode, setMode] = useState<UserRole>("customer");
   const [isRegistering, setIsRegistering] = useState(true);
-  const [submitted, setSubmitted] = useState(false);
   const router = useRouter();
   const { register, authenticate, signIn } = useAuth();
   const { t } = useLanguage();
@@ -42,7 +41,6 @@ export default function AuthPage() {
     }
 
     if (!authenticatedAccount) {
-      setSubmitted(false);
       window.alert(mode === "customer" ? t("auth.registerRequired") : t("auth.accountMissing"));
       return;
     }
@@ -64,7 +62,7 @@ export default function AuthPage() {
       router.push("/booking");
       return;
     }
-    setSubmitted(true);
+    window.location.assign("/booking");
   }
 
   return (
@@ -86,17 +84,13 @@ export default function AuthPage() {
           <h2 className="mt-8 text-3xl font-black text-[var(--color-text)]">{isRegistering ? t("auth.create") : t("auth.welcome")}</h2>
           <p className="mt-2 text-slate-600">{mode === "driver" ? t("auth.driverHelp") : mode === "admin" ? t("auth.adminHelp") : t("auth.customerHelp")}</p>
 
-          {submitted && mode === "customer" ? (
-            <div className="mt-8 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-sm leading-6 text-emerald-800">{t("auth.signedIn")}</div>
-          ) : (
-            <form onSubmit={submit} className="mt-8 space-y-5">
+          <form onSubmit={submit} className="mt-8 space-y-5">
               {(isRegistering || mode === "admin") && <div><label htmlFor="name" className="mb-2 block text-sm font-semibold text-[var(--color-text)]">{t("auth.fullName")}</label><input id="name" name="name" required className="w-full rounded-2xl border border-slate-200 bg-[var(--color-input)] px-4 py-3.5 outline-none focus:border-[var(--color-primary)]" /></div>}
               <div><label htmlFor="auth-email" className="mb-2 block text-sm font-semibold text-[var(--color-text)]">Email</label><input id="auth-email" name="email" type="email" required className="w-full rounded-2xl border border-slate-200 bg-[var(--color-input)] px-4 py-3.5 outline-none focus:border-[var(--color-primary)]" /></div>
               <div><label htmlFor="auth-password" className="mb-2 block text-sm font-semibold text-[var(--color-text)]">{t("auth.password")}</label><input id="auth-password" name="password" type="password" minLength={8} required className="w-full rounded-2xl border border-slate-200 bg-[var(--color-input)] px-4 py-3.5 outline-none focus:border-[var(--color-primary)]" /></div>
               <button type="submit" className="w-full rounded-full bg-[var(--color-primary)] px-5 py-3.5 text-sm font-semibold text-white transition hover:bg-[var(--color-primary-dark)]">{isRegistering ? t("auth.createButton") : t("auth.signIn")}</button>
-            </form>
-          )}
-          {mode === "customer" && <button type="button" onClick={() => { setIsRegistering((current) => !current); setSubmitted(false); }} className="mt-6 text-sm font-semibold text-[var(--color-primary)] hover:underline">{isRegistering ? t("auth.switchSignIn") : t("auth.switchRegister")}</button>}
+          </form>
+          {mode === "customer" && <button type="button" onClick={() => { setIsRegistering((current) => !current); }} className="mt-6 text-sm font-semibold text-[var(--color-primary)] hover:underline">{isRegistering ? t("auth.switchSignIn") : t("auth.switchRegister")}</button>}
           <div className="mt-6"><Link href="/" className="text-sm text-slate-500 hover:text-[var(--color-primary)]">{t("auth.home")}</Link></div>
         </section>
       </div>
