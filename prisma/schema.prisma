@@ -64,9 +64,22 @@ model User {
   updatedAt     DateTime     @updatedAt
   customer      CustomerProfile?
   driver        DriverProfile?
+  administrator AdminProfile?
   bookings      Booking[]    @relation("CustomerBookings")
   messages      DriverMessage[]
   auditLogs     AuditLog[]
+}
+
+model AdminProfile {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  canManageUsers  Boolean  @default(true)
+  canManageFleet  Boolean  @default(true)
+  canManagePrices Boolean  @default(true)
+  canManageBookings Boolean @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }
 
 model CustomerProfile {
