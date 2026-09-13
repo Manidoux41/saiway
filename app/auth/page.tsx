@@ -53,11 +53,11 @@ export default function AuthPage() {
       signIn(authenticatedAccount);
     }
     if (mode === "admin") {
-      router.push("/admin");
+      window.location.assign("/admin");
       return;
     }
     if (mode === "driver") {
-      router.push("/driver");
+      window.location.assign("/driver");
       return;
     }
     if (mode === "customer" && isRegistering) {
@@ -86,8 +86,8 @@ export default function AuthPage() {
           <h2 className="mt-8 text-3xl font-black text-[var(--color-text)]">{isRegistering ? t("auth.create") : t("auth.welcome")}</h2>
           <p className="mt-2 text-slate-600">{mode === "driver" ? t("auth.driverHelp") : mode === "admin" ? t("auth.adminHelp") : t("auth.customerHelp")}</p>
 
-          {submitted ? (
-            <div className="mt-8 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-900">{t("auth.endpoint")}</div>
+          {submitted && mode === "customer" ? (
+            <div className="mt-8 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-sm leading-6 text-emerald-800">{t("auth.signedIn")}</div>
           ) : (
             <form onSubmit={submit} className="mt-8 space-y-5">
               {(isRegistering || mode === "admin") && <div><label htmlFor="name" className="mb-2 block text-sm font-semibold text-[var(--color-text)]">{t("auth.fullName")}</label><input id="name" name="name" required className="w-full rounded-2xl border border-slate-200 bg-[var(--color-input)] px-4 py-3.5 outline-none focus:border-[var(--color-primary)]" /></div>}

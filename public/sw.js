@@ -1,4 +1,4 @@
-const CACHE_NAME = "saiway-shell-v1";
+const CACHE_NAME = "saiway-shell-v2";
 const APP_SHELL = ["/", "/install", "/manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {
