@@ -8,7 +8,7 @@ import { useLanguage } from "@/components/i18n/language-provider";
 
 export default function AuthPage() {
   const [mode, setMode] = useState<UserRole>("customer");
-  const [isRegistering, setIsRegistering] = useState(true);
+  const [isRegistering, setIsRegistering] = useState(false);
   const router = useRouter();
   const { signIn } = useAuth();
   const { t } = useLanguage();
@@ -21,7 +21,7 @@ export default function AuthPage() {
     const response = await fetch(isRegistering && mode === "customer" ? "/api/auth/register" : "/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(isRegistering && mode === "customer" ? { name: String(formData.get("name")), email, password } : { email, password, role: mode.toUpperCase() }),
+      body: JSON.stringify(isRegistering && mode === "customer" ? { name: String(formData.get("name")), email, password } : { email, password }),
       });
     if (!response.ok) {
       const data = await response.json().catch(() => ({})) as { error?: string };
@@ -31,15 +31,15 @@ export default function AuthPage() {
 
     const data = await response.json() as { user: { id: string; name: string; email: string; role: UserRole } };
     signIn(data.user);
-    if (mode === "admin") {
+    if (data.user.role === "admin") {
       window.location.assign("/admin");
       return;
     }
-    if (mode === "driver") {
+    if (data.user.role === "driver") {
       window.location.assign("/driver");
       return;
     }
-    if (mode === "customer" && isRegistering) {
+    if (data.user.role === "customer") {
       router.push("/booking");
       return;
     }

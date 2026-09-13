@@ -28,12 +28,12 @@ export async function POST(request: Request) {
     const password = body.password ?? "";
     const requestedRole = body.role?.toUpperCase();
 
-    if (!email || !password || !["ADMIN", "DRIVER", "CUSTOMER"].includes(requestedRole ?? "")) {
+    if (!email || !password || (requestedRole && !["ADMIN", "DRIVER", "CUSTOMER"].includes(requestedRole))) {
       return Response.json({ error: "Invalid credentials" }, { status: 400 });
     }
 
     const account = await prisma.user.findUnique({ where: { email } });
-    if (!account || account.status !== "ACTIVE" || account.role !== requestedRole || !verifyPassword(password, account.passwordHash)) {
+    if (!account || account.status !== "ACTIVE" || (requestedRole && account.role !== requestedRole) || !verifyPassword(password, account.passwordHash)) {
       return Response.json({ error: "Invalid credentials" }, { status: 401 });
     }
 
