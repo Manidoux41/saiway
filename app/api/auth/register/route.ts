@@ -14,10 +14,11 @@ function hashPassword(password: string) {
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json() as { name?: string; email?: string; password?: string };
+    const body = await request.json() as { name?: string; email?: string; password?: string; role?: string };
     const name = body.name?.trim();
     const email = body.email?.trim().toLowerCase();
     const password = body.password ?? "";
+    const role = body.role?.toUpperCase() === "ADMIN" ? "ADMIN" : "CUSTOMER";
 
     if (!name || !email || password.length < 8) {
       return Response.json({ error: "Name, email and an 8-character password are required" }, { status: 400 });
@@ -31,12 +32,12 @@ export async function POST(request: Request) {
         name,
         email,
         passwordHash: hashPassword(password),
-        role: "CUSTOMER",
-        customer: { create: {} },
+        role,
+        ...(role === "ADMIN" ? { administrator: { create: {} } } : { customer: { create: {} } }),
       },
     });
 
-    return Response.json({ user: { id: user.id, name: user.name, email: user.email, role: "customer" } }, { status: 201, headers: { "Cache-Control": "no-store" } });
+    return Response.json({ user: { id: user.id, name: user.name, email: user.email, role: role.toLowerCase() } }, { status: 201, headers: { "Cache-Control": "no-store" } });
   } catch {
     return Response.json({ error: "Registration service unavailable" }, { status: 503 });
   }
