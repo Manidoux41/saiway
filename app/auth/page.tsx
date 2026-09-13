@@ -14,16 +14,33 @@ export default function AuthPage() {
   const { register, authenticate, signIn } = useAuth();
   const { t } = useLanguage();
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
+    const email = String(formData.get("email")).trim().toLowerCase();
+    const password = String(formData.get("password"));
     const account = {
       id: `${mode}-${Date.now()}`,
       name: String(formData.get("name") || (mode === "admin" ? "SAIWAY Administrator" : mode === "driver" ? "Assigned Driver" : "SAIWAY Customer")),
-      email: String(formData.get("email")),
+      email,
       role: mode,
     } as const;
-    const authenticatedAccount = isRegistering ? account : authenticate(account.email, mode);
+    let authenticatedAccount = isRegistering ? account : authenticate(account.email, mode);
+
+    if (!isRegistering && (mode === "admin" || mode === "driver")) {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, role: mode }),
+      });
+      if (response.ok) {
+        const data = await response.json() as { user: typeof account };
+        authenticatedAccount = data.user;
+      } else {
+        authenticatedAccount = null;
+      }
+    }
+
     if (!authenticatedAccount) {
       setSubmitted(false);
       window.alert(mode === "customer" ? t("auth.registerRequired") : t("auth.accountMissing"));
@@ -35,9 +52,18 @@ export default function AuthPage() {
     } else {
       signIn(authenticatedAccount);
     }
-    if (mode === "admin") router.push("/admin");
-    if (mode === "driver") router.push("/driver");
-    if (mode === "customer" && isRegistering) router.push("/booking");
+    if (mode === "admin") {
+      router.push("/admin");
+      return;
+    }
+    if (mode === "driver") {
+      router.push("/driver");
+      return;
+    }
+    if (mode === "customer" && isRegistering) {
+      router.push("/booking");
+      return;
+    }
     setSubmitted(true);
   }
 
@@ -66,7 +92,7 @@ export default function AuthPage() {
             <form onSubmit={submit} className="mt-8 space-y-5">
               {(isRegistering || mode === "admin") && <div><label htmlFor="name" className="mb-2 block text-sm font-semibold text-[var(--color-text)]">{t("auth.fullName")}</label><input id="name" name="name" required className="w-full rounded-2xl border border-slate-200 bg-[var(--color-input)] px-4 py-3.5 outline-none focus:border-[var(--color-primary)]" /></div>}
               <div><label htmlFor="auth-email" className="mb-2 block text-sm font-semibold text-[var(--color-text)]">Email</label><input id="auth-email" name="email" type="email" required className="w-full rounded-2xl border border-slate-200 bg-[var(--color-input)] px-4 py-3.5 outline-none focus:border-[var(--color-primary)]" /></div>
-              <div><label htmlFor="auth-password" className="mb-2 block text-sm font-semibold text-[var(--color-text)]">{t("auth.password")}</label><input id="auth-password" type="password" minLength={8} required className="w-full rounded-2xl border border-slate-200 bg-[var(--color-input)] px-4 py-3.5 outline-none focus:border-[var(--color-primary)]" /></div>
+              <div><label htmlFor="auth-password" className="mb-2 block text-sm font-semibold text-[var(--color-text)]">{t("auth.password")}</label><input id="auth-password" name="password" type="password" minLength={8} required className="w-full rounded-2xl border border-slate-200 bg-[var(--color-input)] px-4 py-3.5 outline-none focus:border-[var(--color-primary)]" /></div>
               <button type="submit" className="w-full rounded-full bg-[var(--color-primary)] px-5 py-3.5 text-sm font-semibold text-white transition hover:bg-[var(--color-primary-dark)]">{isRegistering ? t("auth.createButton") : t("auth.signIn")}</button>
             </form>
           )}
