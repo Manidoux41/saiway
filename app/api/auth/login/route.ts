@@ -1,6 +1,7 @@
 import { scryptSync, timingSafeEqual } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { createSession, sessionCookie } from "@/lib/auth-session";
+import { activeAccount } from "@/lib/access";
 
 export const runtime = "nodejs";
 
@@ -27,6 +28,8 @@ export async function POST(request: Request) {
     const email = body.email?.trim().toLowerCase();
     const password = body.password ?? "";
     const requestedRole = body.role?.toUpperCase();
+    const current = await activeAccount(request);
+    if (current && current.email !== email) return Response.json({ error: "Sign out before switching accounts" }, { status: 403 });
 
     if (!email || !password || (requestedRole && !["ADMIN", "DRIVER", "CUSTOMER"].includes(requestedRole))) {
       return Response.json({ error: "Invalid credentials" }, { status: 400 });

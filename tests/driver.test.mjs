@@ -7,7 +7,7 @@ test('driver creation, persistence, duplicate rejection, login and suspension', 
     const body = { name: 'Validation Driver', email: `${ctx.prefix}-driver@example.invalid`, password: ctx.password, role: 'DRIVER' };
     assert.equal((await request('/api/admin/users', 'POST', body)).status, 403);
     assert.equal((await request('/api/admin/users', 'POST', { ...body, password: 'short' }, ctx.cookie)).status, 400);
-    assert.equal((await request('/api/admin/users', 'POST', { ...body, role: 'CUSTOMER' }, ctx.cookie)).status, 400);
+    assert.equal((await request('/api/admin/users', 'POST', { ...body, role: 'INVALID' }, ctx.cookie)).status, 400);
     assert.equal((await request('/api/admin/users', 'POST', { ...body, email: 'invalid-email' }, ctx.cookie)).status, 400);
     const created = await request('/api/admin/users', 'POST', { ...body, name: ` ${body.name} `, email: ` ${body.email.toUpperCase()} ` }, ctx.cookie);
     assert.equal(created.status, 201);
@@ -37,5 +37,6 @@ test('driver creation, persistence, duplicate rejection, login and suspension', 
     assert.equal((await request('/api/admin/management', 'DELETE', { entity: 'user', id: stored.id }, ctx.cookie)).status, 200);
     assert.equal((await ctx.prisma.user.findUnique({ where: { id: stored.id } })).status, 'SUSPENDED');
     assert.equal((await request('/api/auth/login', 'POST', body)).status, 401);
+    assert.equal((await request('/api/driver/bookings', 'GET', undefined, login.cookie)).status, 403);
   } finally { await ctx.cleanup(); }
 });

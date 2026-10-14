@@ -1,6 +1,7 @@
 import { randomBytes, scryptSync } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { createSession, sessionCookie } from "@/lib/auth-session";
+import { activeAccount } from "@/lib/access";
 
 export const runtime = "nodejs";
 
@@ -15,11 +16,13 @@ function hashPassword(password: string) {
 
 export async function POST(request: Request) {
   try {
+    if (await activeAccount(request)) return Response.json({ error: "Sign out before registering another account" }, { status: 403 });
     const body = await request.json() as { name?: string; email?: string; password?: string; role?: string };
     const name = body.name?.trim();
     const email = body.email?.trim().toLowerCase();
     const password = body.password ?? "";
     const role = "CUSTOMER" as const;
+    if (body.role && body.role.toUpperCase() !== role) return Response.json({ error: "Only customer registration is allowed" }, { status: 403 });
 
     if (!name || !email || password.length < 8) {
       return Response.json({ error: "Name, email and an 8-character password are required" }, { status: 400 });

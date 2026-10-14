@@ -1,11 +1,13 @@
 import { z } from "zod";
 
 export const managementSchema = z.object({
-  users: z.array(z.object({ id: z.string(), name: z.string(), email: z.string(), role: z.enum(["ADMIN", "DRIVER", "CUSTOMER"]), status: z.enum(["ACTIVE", "SUSPENDED", "INVITED"]) })),
+  users: z.array(z.object({ id: z.string(), name: z.string(), email: z.string(), phone: z.string().nullable(), role: z.enum(["ADMIN", "DRIVER", "CUSTOMER"]), status: z.enum(["ACTIVE", "SUSPENDED", "INVITED"]), driver: z.object({ id: z.string(), isAvailable: z.boolean(), licenseNo: z.string().nullable() }).nullable() })),
   vehicles: z.array(z.object({ id: z.string(), name: z.string(), plate: z.string(), seats: z.number(), active: z.boolean() })),
   entries: z.array(z.object({ id: z.string(), type: z.string(), label: z.string(), amountCents: z.number(), paidAt: z.string().nullable() })),
   forecasts: z.array(z.object({ id: z.string(), month: z.string(), expectedRevenueCents: z.number(), expectedExpenseCents: z.number() })),
-  contracts: z.array(z.object({ id: z.string(), provider: z.string(), monthlyCents: z.number(), status: z.string(), vehicle: z.object({ name: z.string(), plate: z.string() }) })),
+  contracts: z.array(z.object({ id: z.string(), vehicleId: z.string(), provider: z.string(), monthlyCents: z.number(), status: z.string(), startsAt: z.string(), endsAt: z.string().nullable(), vehicle: z.object({ name: z.string(), plate: z.string() }) })),
+  pricing: z.array(z.object({ id: z.string(), name: z.string(), amountCents: z.number(), active: z.boolean(), effectiveAt: z.string(), direction: z.string().nullable(), tripType: z.string().nullable() })),
+  settings: z.array(z.object({ key: z.string(), value: z.string() })),
 });
 
 export type ManagementData = z.infer<typeof managementSchema>;

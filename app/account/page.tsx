@@ -3,8 +3,13 @@
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/components/auth/auth-provider";
+import { CourseDashboard } from "@/components/booking/course-dashboard";
 
 export default function AccountPage() {
+  return <><AccountProfile /><div className="mx-auto max-w-5xl px-4"><CourseDashboard role="customer" /></div></>;
+}
+
+function AccountProfile() {
   const { user } = useAuth();
   const [form, setForm] = useState({ name: "", phone: "", address: "", paymentBrand: "", paymentLast4: "" });
   const [message, setMessage] = useState("");

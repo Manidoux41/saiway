@@ -1,11 +1,13 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { operations } from "@/components/i18n/operations";
 
 export type Language = "en" | "fr" | "km";
 
 const translations = {
   en: {
+    ...operations.en,
     "language.english": "English",
     "language.french": "French",
     "language.khmer": "Khmer",
@@ -242,6 +244,7 @@ const translations = {
     "footer.cancellation": "Cancellation Policy",
   },
   fr: {
+    ...operations.fr,
     "language.english": "Anglais",
     "language.french": "Français",
     "language.khmer": "Khmer",
@@ -478,6 +481,7 @@ const translations = {
     "footer.cancellation": "Politique d'annulation",
   },
   km: {
+    ...operations.km,
     "language.english": "អង់គ្លេស",
     "language.french": "បារាំង",
     "language.khmer": "ខ្មែរ",

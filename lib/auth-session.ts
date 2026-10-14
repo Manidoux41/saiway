@@ -7,7 +7,8 @@ type SessionPayload = { id: string; email: string; role: SessionRole; exp: numbe
 const cookieName = "saiway_session";
 
 function secret() {
-  return process.env.AUTH_SECRET || "development-only-change-me";
+  if (!process.env.AUTH_SECRET) throw new Error("AUTH_SECRET must be configured");
+  return process.env.AUTH_SECRET;
 }
 
 function encode(value: string) {
@@ -29,7 +30,7 @@ export function createSession(payload: Omit<SessionPayload, "exp">) {
 
 export function readSession(request: Request): SessionPayload | null {
   const cookieHeader = request.headers.get("cookie") || "";
-  const match = cookieHeader.match(new RegExp(`${cookieName}=([^;]+)`));
+  const match = cookieHeader.match(new RegExp(`(?:^|;\\s*)${cookieName}=([^;]+)`));
   if (!match) return null;
   const [body, receivedSignature] = match[1].split(".");
   if (!body || !receivedSignature) return null;
@@ -39,10 +40,14 @@ export function readSession(request: Request): SessionPayload | null {
   if (received.length !== expected.length || !timingSafeEqual(received, expected)) return null;
   try {
     const payload = JSON.parse(decode(body)) as SessionPayload;
-    return payload.exp > Date.now() ? payload : null;
+    return typeof payload.id === "string" && typeof payload.email === "string" && ["ADMIN", "DRIVER", "CUSTOMER"].includes(payload.role) && typeof payload.exp === "number" && payload.exp > Date.now() ? payload : null;
   } catch {
     return null;
   }
+}
+
+export function clearSessionCookie() {
+  return `${cookieName}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${process.env.NODE_ENV === "production" ? "; Secure" : ""}`;
 }
 
 export function sessionCookie(value: string) {

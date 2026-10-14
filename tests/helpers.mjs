@@ -31,8 +31,14 @@ async function setup() {
     assert.equal(login.status, 200);
     assert.equal(login.data.user.role, 'admin');
     assert.ok(login.cookie);
-    return { prisma, prefix, email, password, cookie: login.cookie, cleanup: async () => {
-      try { await prisma.user.deleteMany({ where: { email: { startsWith: prefix } } }); }
+    return { prisma, prefix, email, password, id: user.id, cookie: login.cookie, cleanup: async () => {
+      try {
+        await prisma.booking.deleteMany({ where: { customer: { email: { startsWith: prefix } } } });
+        await prisma.vehicle.deleteMany({ where: { plate: { startsWith: prefix } } });
+        await prisma.pricingRule.deleteMany({ where: { name: { startsWith: prefix } } });
+        await prisma.auditLog.deleteMany({ where: { actor: { email: { startsWith: prefix } } } });
+        await prisma.user.deleteMany({ where: { email: { startsWith: prefix } } });
+      }
       finally { await prisma.$disconnect(); }
     } };
   } catch (error) {
@@ -42,4 +48,13 @@ async function setup() {
   }
 }
 
-export { assert, request, setup };
+async function createAccount(ctx, role, suffix = role.toLowerCase()) {
+  const email = `${ctx.prefix}-${suffix}@example.invalid`;
+  const created = await request('/api/admin/users', 'POST', { name: `${ctx.prefix}-${suffix}`, email, password: ctx.password, role }, ctx.cookie);
+  assert.equal(created.status, 201);
+  const login = await request('/api/auth/login', 'POST', { email, password: ctx.password, role });
+  assert.equal(login.status, 200);
+  return { id: created.data.user.id, email, cookie: login.cookie };
+}
+
+export { assert, request, setup, createAccount, base };

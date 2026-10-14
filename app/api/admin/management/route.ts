@@ -1,71 +1,108 @@
-import { prisma } from "@/lib/prisma";
-import { readSession } from "@/lib/auth-session";
 import { Prisma } from "@prisma/client";
+import { z } from "zod";
+import { prisma } from "@/lib/prisma";
+import { authorize } from "@/lib/access";
 
 export const runtime = "nodejs";
 
-function guard(request: Request) {
-  const session = readSession(request);
-  return session?.role === "ADMIN";
-}
+const name = z.string().trim().min(1).max(500);
+const cents = z.number().int().nonnegative().max(100000000);
+const date = z.coerce.date();
+const fields = {
+  user: z.object({ name, email: z.string().trim().toLowerCase().pipe(z.email()), status: z.enum(["ACTIVE", "SUSPENDED", "INVITED"]), phone: z.string().max(50).nullable().optional(), isAvailable: z.boolean().optional(), licenseNo: z.string().max(100).nullable().optional() }),
+  vehicle: z.object({ name, plate: name, seats: z.coerce.number().int().min(1).max(50), active: z.boolean().optional() }),
+  accounting: z.object({ type: z.enum(["REVENUE", "EXPENSE", "CREDIT", "PURCHASE"]), label: name, amountCents: cents, currency: z.literal("USD").optional(), notes: z.string().max(2000).optional(), paidAt: date.nullable().optional() }),
+  forecast: z.object({ month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/).transform((value) => new Date(`${value}-01T00:00:00Z`)), expectedRevenueCents: cents, expectedExpenseCents: cents, notes: z.string().max(2000).optional() }),
+  pricing: z.object({ name, amountCents: cents, currency: z.literal("USD").optional(), direction: z.enum(["AIRPORT_TO_CITY", "CITY_TO_AIRPORT"]).nullable().optional(), tripType: z.enum(["AIRPORT_TRANSFER", "PRIVATE_TRANSFER", "HOTEL_TRANSFER"]).nullable().optional(), active: z.boolean().optional(), effectiveAt: date }),
+  contract: z.object({ vehicleId: name, provider: name, monthlyCents: cents, startsAt: date, endsAt: date.nullable().optional(), status: z.enum(["ACTIVE", "INACTIVE"]) }),
+  setting: z.object({ key: z.literal("heroBackground"), value: z.url().refine((value) => value.startsWith("https://"), "HTTPS image required") }),
+};
+const input = z.object({ entity: z.enum(["user", "vehicle", "accounting", "forecast", "pricing", "contract", "setting"]), id: z.string().optional(), data: z.record(z.string(), z.unknown()).optional() });
 
 export async function GET(request: Request) {
-  if (!guard(request)) return Response.json({ error: "Administrator access required" }, { status: 403 });
   try {
-    const [users, vehicles, entries, forecasts, contracts] = await Promise.all([
-      prisma.user.findMany({ select: { id: true, name: true, email: true, role: true, status: true, createdAt: true }, orderBy: { createdAt: "desc" } }),
-      prisma.vehicle.findMany({ include: { contracts: true }, orderBy: { createdAt: "desc" } }),
+    if (!await authorize(request, "ADMIN")) return Response.json({ error: "Administrator access required" }, { status: 403 });
+    const [users, vehicles, entries, forecasts, contracts, pricing, settings] = await Promise.all([
+      prisma.user.findMany({ select: { id: true, name: true, email: true, role: true, status: true, phone: true, driver: { select: { id: true, isAvailable: true, licenseNo: true } } }, orderBy: { createdAt: "desc" } }),
+      prisma.vehicle.findMany({ orderBy: { createdAt: "desc" } }),
       prisma.accountingEntry.findMany({ orderBy: { createdAt: "desc" } }),
       prisma.forecastLine.findMany({ orderBy: { month: "asc" } }),
       prisma.vehicleContract.findMany({ include: { vehicle: { select: { name: true, plate: true } } }, orderBy: { startsAt: "desc" } }),
+      prisma.pricingRule.findMany({ orderBy: { effectiveAt: "desc" } }),
+      prisma.systemSetting.findMany({ where: { key: "heroBackground" } }),
     ]);
-    return Response.json({ users, vehicles, entries, forecasts, contracts }, { headers: { "Cache-Control": "no-store" } });
-  } catch (error) {
-    console.error("Admin management load failed", { code: error instanceof Prisma.PrismaClientKnownRequestError ? error.code : "UNKNOWN" });
-    return Response.json({ error: "Management service unavailable" }, { status: 503 });
-  }
+    return Response.json({ users, vehicles, entries, forecasts, contracts, pricing, settings }, { headers: { "Cache-Control": "no-store" } });
+  } catch (error) { return failure(error); }
 }
 
-export async function POST(request: Request) {
-  if (!guard(request)) return Response.json({ error: "Administrator access required" }, { status: 403 });
+async function mutate(request: Request) {
   try {
-    const body = await request.json() as { entity?: string; data?: Record<string, unknown> };
-    const data = body.data || {};
-    if (body.entity === "accounting") return Response.json({ item: await prisma.accountingEntry.create({ data: { type: data.type as never, label: String(data.label), amountCents: Number(data.amountCents), currency: String(data.currency || "USD"), dueAt: data.dueAt ? new Date(String(data.dueAt)) : undefined, notes: data.notes ? String(data.notes) : undefined } }) }, { status: 201 });
-    if (body.entity === "forecast") return Response.json({ item: await prisma.forecastLine.create({ data: { month: new Date(String(data.month)), expectedRevenueCents: Number(data.expectedRevenueCents || 0), expectedExpenseCents: Number(data.expectedExpenseCents || 0), notes: data.notes ? String(data.notes) : undefined } }) }, { status: 201 });
-    if (body.entity === "vehicle") return Response.json({ item: await prisma.vehicle.create({ data: { name: String(data.name), plate: String(data.plate), seats: Number(data.seats) } }) }, { status: 201 });
-    return Response.json({ error: "Unsupported management entity" }, { status: 400 });
-  } catch {
-    return Response.json({ error: "Unable to create management record" }, { status: 400 });
-  }
+    const actor = await authorize(request, "ADMIN");
+    if (!actor) return Response.json({ error: "Administrator access required" }, { status: 403 });
+    const parsed = input.safeParse(await request.json());
+    if (!parsed.success) return Response.json({ error: "Invalid management request" }, { status: 400 });
+    const { entity, id, data = {} } = parsed.data;
+    const updating = request.method === "PATCH";
+    const removing = request.method === "DELETE";
+    if ((updating || removing) && !id) return Response.json({ error: "Missing record id" }, { status: 400 });
+    if ((updating || removing) && entity === "user" && id === actor.id) return Response.json({ error: "An administrator cannot modify or suspend their own account here" }, { status: 409 });
+    if (removing && !["user", "vehicle", "pricing", "contract"].includes(entity)) return Response.json({ error: "Financial history cannot be deleted. Edit the record instead." }, { status: 409 });
+    if (!updating && !removing && entity === "user") return Response.json({ error: "Use account creation" }, { status: 400 });
+    const item = await prisma.$transaction(async (tx) => {
+      let result;
+      if (removing) {
+        if (entity === "user") result = await tx.user.update({ where: { id }, data: { status: "SUSPENDED" } });
+        if (entity === "vehicle") result = await tx.vehicle.update({ where: { id }, data: { active: false } });
+        if (entity === "pricing") result = await tx.pricingRule.update({ where: { id }, data: { active: false } });
+        if (entity === "contract") result = await tx.vehicleContract.update({ where: { id }, data: { status: "INACTIVE" } });
+      } else {
+        if (entity === "user") {
+          const { isAvailable, licenseNo, ...value } = fields.user.partial().strict().parse(data);
+          const existing = await tx.user.findUniqueOrThrow({ where: { id } });
+          if ((isAvailable !== undefined || licenseNo !== undefined) && existing.role !== "DRIVER") throw new z.ZodError([{ code: "custom", path: ["isAvailable"], message: "Driver fields require a driver account" }]);
+          result = await tx.user.update({ where: { id }, data: { ...value, ...(isAvailable !== undefined || licenseNo !== undefined ? { driver: { update: { isAvailable, licenseNo } } } : {}) }, select: { id: true, name: true, email: true, role: true, status: true } });
+        }
+        if (entity === "vehicle") {
+          const value = updating ? fields.vehicle.partial().parse(data) : fields.vehicle.parse(data);
+          result = updating ? await tx.vehicle.update({ where: { id }, data: value }) : await tx.vehicle.create({ data: fields.vehicle.parse(data) });
+        }
+        if (entity === "accounting") result = updating ? await tx.accountingEntry.update({ where: { id }, data: fields.accounting.partial().parse(data) }) : await tx.accountingEntry.create({ data: fields.accounting.parse(data) });
+        if (entity === "forecast") result = updating ? await tx.forecastLine.update({ where: { id }, data: fields.forecast.partial().parse(data) }) : await tx.forecastLine.create({ data: fields.forecast.parse(data) });
+        if (entity === "pricing") result = updating ? await tx.pricingRule.update({ where: { id }, data: fields.pricing.partial().parse(data) }) : await tx.pricingRule.create({ data: fields.pricing.parse(data) });
+        if (entity === "contract") {
+          const value = updating ? fields.contract.partial().parse(data) : fields.contract.parse(data);
+          const existing = updating ? await tx.vehicleContract.findUniqueOrThrow({ where: { id } }) : null;
+          const startsAt = value.startsAt ?? existing?.startsAt;
+          const endsAt = value.endsAt === undefined ? existing?.endsAt : value.endsAt;
+          const vehicleId = value.vehicleId ?? existing?.vehicleId;
+          const vehicle = vehicleId ? await tx.vehicle.findUnique({ where: { id: vehicleId } }) : null;
+          if (!vehicle || (!vehicle.active && (!existing || existing.vehicleId !== vehicleId || value.status === "ACTIVE" && existing.status !== "ACTIVE"))) throw new z.ZodError([{ code: "custom", path: ["vehicleId"], message: "Select an active vehicle" }]);
+          if (startsAt && endsAt && endsAt < startsAt) throw new z.ZodError([{ code: "custom", path: ["endsAt"], message: "Contract end must follow start" }]);
+          result = updating ? await tx.vehicleContract.update({ where: { id }, data: value }) : await tx.vehicleContract.create({ data: fields.contract.parse(data) });
+        }
+        if (entity === "setting") {
+          const value = fields.setting.parse(data);
+          result = await tx.systemSetting.upsert({ where: { key: value.key }, create: value, update: { value: value.value } });
+        }
+      }
+      await tx.auditLog.create({ data: { actorId: actor.id, entity, entityId: id ?? null, action: removing ? "ARCHIVE" : updating ? "UPDATE" : "CREATE" } });
+      return result;
+    });
+    return Response.json(removing ? { ok: true } : { item }, { status: updating || removing ? 200 : 201 });
+  } catch (error) { return failure(error); }
 }
 
-export async function PATCH(request: Request) {
-  if (!guard(request)) return Response.json({ error: "Administrator access required" }, { status: 403 });
-  try {
-    const body = await request.json() as { entity?: string; id?: string; data?: Record<string, unknown> };
-    const data = body.data || {};
-    if (!body.id) return Response.json({ error: "Missing record id" }, { status: 400 });
-    if (body.entity === "user") return Response.json({ item: await prisma.user.update({ where: { id: body.id }, data: { name: data.name ? String(data.name) : undefined, status: data.status as never } }) });
-    if (body.entity === "vehicle") return Response.json({ item: await prisma.vehicle.update({ where: { id: body.id }, data: { name: data.name ? String(data.name) : undefined, plate: data.plate ? String(data.plate) : undefined, seats: data.seats ? Number(data.seats) : undefined, active: typeof data.active === "boolean" ? data.active : undefined } }) });
-    if (body.entity === "accounting") return Response.json({ item: await prisma.accountingEntry.update({ where: { id: body.id }, data: { label: data.label ? String(data.label) : undefined, amountCents: data.amountCents ? Number(data.amountCents) : undefined, paidAt: data.paidAt ? new Date(String(data.paidAt)) : undefined, notes: data.notes ? String(data.notes) : undefined } }) });
-    return Response.json({ error: "Unsupported management entity" }, { status: 400 });
-  } catch {
-    return Response.json({ error: "Unable to update management record" }, { status: 400 });
+function failure(error: unknown) {
+  if (error instanceof z.ZodError || error instanceof SyntaxError) return Response.json({ error: "Invalid values" }, { status: 400 });
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    if (error.code === "P2002") return Response.json({ error: "A record already exists with these unique values" }, { status: 409 });
+    if (error.code === "P2025") return Response.json({ error: "Record not found" }, { status: 404 });
+    if (error.code === "P2003") return Response.json({ error: "Invalid related record" }, { status: 400 });
   }
+  console.error("Admin management request failed", { code: error instanceof Prisma.PrismaClientKnownRequestError ? error.code : "UNKNOWN" });
+  return Response.json({ error: "Management service unavailable" }, { status: 503 });
 }
 
-export async function DELETE(request: Request) {
-  if (!guard(request)) return Response.json({ error: "Administrator access required" }, { status: 403 });
-  try {
-    const body = await request.json() as { entity?: string; id?: string };
-    if (!body.id) return Response.json({ error: "Missing record id" }, { status: 400 });
-    if (body.entity === "user") await prisma.user.update({ where: { id: body.id }, data: { status: "SUSPENDED" } });
-    else if (body.entity === "vehicle") await prisma.vehicle.update({ where: { id: body.id }, data: { active: false } });
-    else if (body.entity === "accounting") await prisma.accountingEntry.delete({ where: { id: body.id } });
-    else return Response.json({ error: "Unsupported management entity" }, { status: 400 });
-    return Response.json({ ok: true });
-  } catch {
-    return Response.json({ error: "Unable to delete management record" }, { status: 400 });
-  }
-}
+export const POST = mutate;
+export const PATCH = mutate;
+export const DELETE = mutate;

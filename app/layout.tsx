@@ -6,6 +6,8 @@ import { Footer } from "@/components/layout/footer";
 import { LanguageProvider } from "@/components/i18n/language-provider";
 import { AuthProvider } from "@/components/auth/auth-provider";
 import { ServiceWorkerRegister } from "@/components/pwa/service-worker-register";
+import { currentAccount } from "@/lib/access";
+import type { UserRole } from "@/lib/roles";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -24,12 +26,14 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const account = await currentAccount();
+  const initialUser = account ? { id: account.id, name: account.name, email: account.email, role: account.role.toLowerCase() as UserRole } : null;
   return (
     <html lang="en" className={`${inter.variable} h-full antialiased`}>
       <body className="min-h-full bg-[var(--color-background)] text-[var(--color-text)]">
         <LanguageProvider>
-          <AuthProvider>
+          <AuthProvider initialUser={initialUser}>
             <ServiceWorkerRegister />
             <div className="flex min-h-screen flex-col">
               <Header />

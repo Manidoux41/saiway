@@ -3,6 +3,9 @@
 import Link from "next/link";
 import { Logo } from "@/components/branding/logo";
 import { useLanguage, type Language } from "@/components/i18n/language-provider";
+import { useAuth } from "@/components/auth/auth-provider";
+import { roleHome } from "@/lib/roles";
+import { useState } from "react";
 
 const languageOptions: { code: Language; flag: string; label: string }[] = [
   { code: "en", flag: "🇬🇧", label: "English" },
@@ -12,17 +15,23 @@ const languageOptions: { code: Language; flag: string; label: string }[] = [
 
 export function Header() {
   const { language, setLanguage, t } = useLanguage();
+  const { user, signOut } = useAuth();
+  const [error, setError] = useState(false);
+  const customerNavigation = !user || user.role === "customer";
+  async function logout() {
+    setError(false);
+    try { await signOut(); } catch { setError(true); }
+  }
 
   return (
     <header className="sticky top-0 z-20 border-b-2 border-[var(--color-accent)] bg-white/95 backdrop-blur-sm">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-        <Link href="/" aria-label="SAIWAY home" className="flex items-center">
+        <Link href={user ? roleHome(user.role) : "/"} aria-label="SAIWAY home" className="flex items-center">
           <Logo compact />
         </Link>
 
         <nav className="hidden items-center gap-8 text-sm font-medium text-slate-700 md:flex">
-          <Link href="/" className="transition hover:text-[var(--color-primary)]">{t("nav.book")}</Link>
-          <Link href="/booking/track" className="transition hover:text-[var(--color-primary)]">{t("nav.track")}</Link>
+          {customerNavigation && <><Link href="/" className="transition hover:text-[var(--color-primary)]">{t("nav.book")}</Link><Link href="/booking/track" className="transition hover:text-[var(--color-primary)]">{t("nav.track")}</Link></>}
           <Link href="/about" className="transition hover:text-[var(--color-primary)]">{t("nav.about")}</Link>
           <Link href="/help" className="transition hover:text-[var(--color-primary)]">{t("nav.help")}</Link>
         </nav>
@@ -43,10 +52,12 @@ export function Header() {
               </button>
             ))}
           </div>
-          <Link href="/booking" className="inline-flex items-center justify-center rounded-full bg-[var(--color-primary)] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--color-primary-dark)]">
+          {customerNavigation && <Link href="/booking" className="inline-flex items-center justify-center rounded-full bg-[var(--color-primary)] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--color-primary-dark)]">
             {t("nav.bookNow")}
-          </Link>
-          <Link href="/account" className="text-sm font-semibold text-slate-600 transition hover:text-[var(--color-primary)]">Account</Link>
+          </Link>}
+          <Link href={user ? roleHome(user.role) : "/auth"} className="text-sm font-semibold text-slate-600 transition hover:text-[var(--color-primary)]">{t(user?.role === "admin" ? "nav.adminDashboard" : user?.role === "driver" ? "nav.driverDashboard" : "nav.account")}</Link>
+          {user && <button type="button" onClick={logout} className="text-sm font-semibold text-slate-600">{t("nav.signOut")}</button>}
+          {error && <p role="alert" className="text-sm text-[var(--color-error)]">{t("nav.signOutError")}</p>}
           <Link href="/install" aria-label="Install SAIWAY" title="Install SAIWAY" className="hidden text-sm font-semibold text-[var(--color-accent)] transition hover:text-[var(--color-primary)] lg:inline">Install app</Link>
         </div>
       </div>

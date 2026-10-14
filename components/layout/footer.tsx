@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useAuth } from "@/components/auth/auth-provider";
 import { Logo } from "@/components/branding/logo";
 import { useLanguage } from "@/components/i18n/language-provider";
 
 export function Footer() {
   const { t } = useLanguage();
+  const { user } = useAuth();
 
   return (
     <footer className="mt-20 border-t border-black/5 bg-[var(--color-primary-dark)] text-white">
@@ -21,8 +23,7 @@ export function Footer() {
           <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-white/70">{t("footer.company")}</h3>
           <ul className="mt-4 space-y-3 text-sm text-white/80">
             <li><Link href="/about">{t("nav.about")}</Link></li>
-            <li><Link href="/booking">{t("nav.book")}</Link></li>
-            <li><Link href="/booking/track">{t("nav.track")}</Link></li>
+            {(!user || user.role === "customer") && <><li><Link href="/booking">{t("nav.book")}</Link></li><li><Link href="/booking/track">{t("nav.track")}</Link></li></>}
             <li><Link href="/contact">{t("footer.contact")}</Link></li>
             <li><Link href="/install">Install app</Link></li>
           </ul>

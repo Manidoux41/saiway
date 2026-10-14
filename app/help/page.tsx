@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useLanguage } from "@/components/i18n/language-provider";
+import { useAuth } from "@/components/auth/auth-provider";
 
 const faqKeys = [
   ["help.bookingQuestion", "help.bookingAnswer"],
@@ -14,6 +15,7 @@ const faqKeys = [
 
 export default function HelpPage() {
   const { t } = useLanguage();
+  const { user } = useAuth();
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
@@ -34,7 +36,7 @@ export default function HelpPage() {
 
       <div className="mt-8 flex flex-col items-start justify-between gap-4 rounded-[28px] border border-[var(--color-accent)]/25 bg-[var(--color-accent)]/10 p-6 sm:flex-row sm:items-center">
         <p className="font-semibold text-[var(--color-text)]">{t("help.contact")}</p>
-        <Link href="/booking" className="rounded-full bg-[var(--color-primary)] px-5 py-3 text-sm font-semibold text-white">{t("help.bookNow")}</Link>
+        {(!user || user.role === "customer") && <Link href="/booking" className="rounded-full bg-[var(--color-primary)] px-5 py-3 text-sm font-semibold text-white">{t("help.bookNow")}</Link>}
       </div>
     </div>
   );
