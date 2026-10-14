@@ -1,4 +1,4 @@
-const CACHE_NAME = "saiway-shell-v3";
+const CACHE_NAME = "saiway-shell-v4";
 const APP_SHELL = ["/", "/install", "/manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {
@@ -15,7 +15,8 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
-  if (event.request.url.includes("/api/") || event.request.mode === "navigate") {
+  if (new URL(event.request.url).pathname.startsWith("/api/")) return;
+  if (event.request.mode === "navigate") {
     event.respondWith(
       fetch(event.request).then((response) => {
         const copy = response.clone();

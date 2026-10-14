@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { readSession } from "@/lib/auth-session";
+import { Prisma } from "@prisma/client";
 
 export const runtime = "nodejs";
 
@@ -10,14 +11,19 @@ function guard(request: Request) {
 
 export async function GET(request: Request) {
   if (!guard(request)) return Response.json({ error: "Administrator access required" }, { status: 403 });
-  const [users, vehicles, entries, forecasts, contracts] = await Promise.all([
-    prisma.user.findMany({ select: { id: true, name: true, email: true, role: true, status: true, createdAt: true }, orderBy: { createdAt: "desc" } }),
-    prisma.vehicle.findMany({ include: { contracts: true }, orderBy: { createdAt: "desc" } }),
-    prisma.accountingEntry.findMany({ orderBy: { createdAt: "desc" } }),
-    prisma.forecastLine.findMany({ orderBy: { month: "asc" } }),
-    prisma.vehicleContract.findMany({ include: { vehicle: { select: { name: true, plate: true } } }, orderBy: { startsAt: "desc" } }),
-  ]);
-  return Response.json({ users, vehicles, entries, forecasts, contracts }, { headers: { "Cache-Control": "no-store" } });
+  try {
+    const [users, vehicles, entries, forecasts, contracts] = await Promise.all([
+      prisma.user.findMany({ select: { id: true, name: true, email: true, role: true, status: true, createdAt: true }, orderBy: { createdAt: "desc" } }),
+      prisma.vehicle.findMany({ include: { contracts: true }, orderBy: { createdAt: "desc" } }),
+      prisma.accountingEntry.findMany({ orderBy: { createdAt: "desc" } }),
+      prisma.forecastLine.findMany({ orderBy: { month: "asc" } }),
+      prisma.vehicleContract.findMany({ include: { vehicle: { select: { name: true, plate: true } } }, orderBy: { startsAt: "desc" } }),
+    ]);
+    return Response.json({ users, vehicles, entries, forecasts, contracts }, { headers: { "Cache-Control": "no-store" } });
+  } catch (error) {
+    console.error("Admin management load failed", { code: error instanceof Prisma.PrismaClientKnownRequestError ? error.code : "UNKNOWN" });
+    return Response.json({ error: "Management service unavailable" }, { status: 503 });
+  }
 }
 
 export async function POST(request: Request) {

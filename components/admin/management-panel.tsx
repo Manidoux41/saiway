@@ -1,41 +1,56 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useState } from "react";
+import Link from "next/link";
+import { useLanguage } from "@/components/i18n/language-provider";
+import { adminErrorKey, adminRequest, type ManagementData } from "@/lib/admin-client";
 
-type ManagementData = { users: Array<{ id: string; name: string; email: string; role: string; status: string }>; vehicles: Array<{ id: string; name: string; plate: string; seats: number; active: boolean }>; entries: Array<{ id: string; type: string; label: string; amountCents: number; paidAt: string | null }>; forecasts: Array<{ id: string; month: string; expectedRevenueCents: number; expectedExpenseCents: number }>; contracts: Array<{ id: string; provider: string; monthlyCents: number; status: string; vehicle: { name: string; plate: string } }>; };
-
-export function ManagementPanel() {
-  const [data, setData] = useState<ManagementData | null>(null);
+export function ManagementPanel({ data, loading, loadError, onReload }: { data: ManagementData | null; loading: boolean; loadError: ReturnType<typeof adminErrorKey> | null; onReload: () => void }) {
+  const { t } = useLanguage();
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<ReturnType<typeof adminErrorKey> | null>(null);
+  const [saved, setSaved] = useState(false);
   const [vehicle, setVehicle] = useState({ name: "", plate: "", seats: "4" });
   const [entry, setEntry] = useState({ type: "REVENUE", label: "", amount: "" });
   const [forecast, setForecast] = useState({ month: "", revenue: "", expense: "" });
 
-  function load() {
-    fetch("/api/admin/management", { cache: "no-store" })
-      .then((response) => response.ok ? response.json() as Promise<ManagementData> : null)
-      .then((nextData) => { if (nextData) setData(nextData); });
-  }
-  useEffect(() => { load(); }, []);
-
   async function create(event: FormEvent<HTMLFormElement>, entity: string, payload: Record<string, unknown>, reset: () => void) {
     event.preventDefault();
-    await fetch("/api/admin/management", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ entity, data: payload }) });
-    reset();
-    load();
+    await mutate("POST", { entity, data: payload }, reset);
   }
 
   async function disable(entity: string, id: string) {
-    await fetch("/api/admin/management", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ entity, id }) });
-    load();
+    await mutate("DELETE", { entity, id });
   }
 
-  if (!data) return <section className="mt-8 rounded-[28px] bg-white p-6 shadow-sm">Loading management data...</section>;
+  async function mutate(method: "POST" | "DELETE", body: Record<string, unknown>, reset?: () => void) {
+    if (pending) return;
+    setPending(true);
+    setError(null);
+    setSaved(false);
+    try {
+      await adminRequest("/api/admin/management", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      reset?.();
+      setSaved(true);
+      onReload();
+    } catch (error) {
+      setError(adminErrorKey(error));
+    } finally {
+      setPending(false);
+    }
+  }
+
+  if (!data) return <section className="mt-8 rounded-[28px] bg-white p-6 shadow-sm">{t(loadError ? "admin.dataUnavailable" : "admin.loading")}</section>;
   const revenue = data.entries.filter((item) => item.type === "REVENUE").reduce((sum, item) => sum + item.amountCents, 0);
   const expenses = data.entries.filter((item) => item.type !== "REVENUE").reduce((sum, item) => sum + item.amountCents, 0);
   const forecastRevenue = data.forecasts.reduce((sum, item) => sum + item.expectedRevenueCents, 0);
   const forecastExpenses = data.forecasts.reduce((sum, item) => sum + item.expectedExpenseCents, 0);
 
   return <div className="mt-8 space-y-8">
+    {error && <p role="alert" className="rounded-2xl bg-red-50 p-4 text-sm text-[var(--color-error)]">{t(error)}{error === "admin.sessionExpired" && <> <Link href="/auth" className="underline">{t("admin.openSignIn")}</Link></>}</p>}
+    {saved && <p role="status" className="text-sm font-semibold text-emerald-700">{t("admin.recordSaved")}</p>}
+    {pending && <p role="status" className="text-sm text-slate-500">{t("admin.saving")}</p>}
+    <fieldset disabled={pending || loading || Boolean(loadError)} className="contents">
     <section className="grid gap-4 md:grid-cols-4">
       {[['Actual revenue', revenue], ['Actual expenses', expenses], ['Forecast revenue', forecastRevenue], ['Forecast balance', forecastRevenue - forecastExpenses]].map(([label, value]) => <div key={String(label)} className="rounded-3xl border border-black/5 bg-white p-5 shadow-sm"><div className="text-xs font-semibold uppercase tracking-[0.15em] text-slate-500">{label}</div><div className="mt-3 text-2xl font-black text-[var(--color-primary)]">${(Number(value) / 100).toFixed(2)}</div></div>)}
     </section>
@@ -48,5 +63,6 @@ export function ManagementPanel() {
 
     <section className="rounded-[28px] border border-black/5 bg-white p-6 shadow-sm"><h2 className="text-xl font-bold">Forecast accounts</h2><form onSubmit={(event) => create(event, "forecast", { month: forecast.month, expectedRevenueCents: Number(forecast.revenue) * 100, expectedExpenseCents: Number(forecast.expense) * 100 }, () => setForecast({ month: "", revenue: "", expense: "" }))} className="mt-4 grid gap-3 md:grid-cols-4"><input required type="month" value={forecast.month} onChange={(event) => setForecast({ ...forecast, month: event.target.value })} className="rounded-xl border p-3" /><input required type="number" value={forecast.revenue} onChange={(event) => setForecast({ ...forecast, revenue: event.target.value })} placeholder="Expected revenue" className="rounded-xl border p-3" /><input required type="number" value={forecast.expense} onChange={(event) => setForecast({ ...forecast, expense: event.target.value })} placeholder="Expected expenses" className="rounded-xl border p-3" /><button className="rounded-full bg-[var(--color-primary)] p-3 text-sm font-semibold text-white">Add forecast</button></form><div className="mt-5 grid gap-3 md:grid-cols-3">{data.forecasts.map((item) => <div key={item.id} className="rounded-2xl bg-[var(--color-input)] p-4 text-sm"><div>{new Date(item.month).toLocaleDateString()}</div><div className="mt-2 text-emerald-700">+${(item.expectedRevenueCents / 100).toFixed(2)}</div><div className="text-[var(--color-error)]">-${(item.expectedExpenseCents / 100).toFixed(2)}</div></div>)}</div></section>
     <section className="rounded-[28px] border border-black/5 bg-white p-6 shadow-sm"><h2 className="text-xl font-bold">Active vehicle rentals and financing</h2><div className="mt-5 grid gap-3 md:grid-cols-3">{data.contracts.length === 0 ? <p className="text-sm text-slate-500">No active vehicle contracts recorded.</p> : data.contracts.map((item) => <div key={item.id} className="rounded-2xl bg-[var(--color-input)] p-4 text-sm"><div className="font-semibold">{item.vehicle.name} · {item.vehicle.plate}</div><div className="mt-2 text-slate-600">{item.provider}</div><div className="mt-1 font-bold text-[var(--color-primary)]">${(item.monthlyCents / 100).toFixed(2)} / month</div><div className="mt-1 text-xs text-slate-500">{item.status}</div></div>)}</div></section>
+    </fieldset>
   </div>;
 }

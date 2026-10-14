@@ -6,6 +6,8 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { FormEvent, useState } from "react";
 import { defaultHeroBackground, defaultHeroBackgroundCredit } from "@/lib/site";
 import { ManagementPanel } from "@/components/admin/management-panel";
+import { AccountCreationForm } from "@/components/admin/account-creation-form";
+import { useAdminManagement } from "@/components/admin/use-admin-management";
 
 const stats = [
   { label: "Bookings", value: "12" },
@@ -19,13 +21,10 @@ const stats = [
 export default function AdminPage() {
   const { t } = useLanguage();
   const { user } = useAuth();
-  const [drivers, setDrivers] = useState([{ name: "Sokha", email: "sokha@saiway.local", status: "Active" }]);
-  const [vehicles, setVehicles] = useState([{ name: "Toyota Alphard", plate: "2B-4567", seats: 6 }]);
+  const { data, error, loading, refresh } = useAdminManagement(user?.role === "admin" ? user.id : undefined);
+  const drivers = data?.users.filter((account) => account.role === "DRIVER") ?? [];
+  const customers = data?.users.filter((account) => account.role === "CUSTOMER") ?? [];
   const [fare, setFare] = useState("35");
-  const [driverForm, setDriverForm] = useState({ name: "", email: "", password: "" });
-  const [vehicleForm, setVehicleForm] = useState({ name: "", plate: "", seats: "4" });
-  const [adminForm, setAdminForm] = useState({ name: "", email: "", password: "" });
-  const [adminMessage, setAdminMessage] = useState("");
   const [heroBackground, setHeroBackground] = useState(() => {
     if (typeof window === "undefined") return defaultHeroBackground;
     const storedBackground = window.localStorage.getItem("saiway-hero-background");
@@ -34,30 +33,6 @@ export default function AdminPage() {
 
   if (!user || user.role !== "admin") {
     return <div className="mx-auto max-w-xl px-4 py-20 text-center"><h1 className="text-3xl font-black text-[var(--color-text)]">{t("admin.accessRequired")}</h1><p className="mt-4 text-slate-600">{t("admin.accessText")}</p><Link href="/auth" className="mt-6 inline-flex rounded-full bg-[var(--color-primary)] px-6 py-3 text-sm font-semibold text-white">{t("admin.openSignIn")}</Link></div>;
-  }
-
-  function createDriver(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    fetch("/api/admin/users", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...driverForm, role: "DRIVER" }) }).then(async (response) => {
-      if (response.ok) {
-        setDrivers((current) => [...current, { name: driverForm.name, email: driverForm.email, status: "Active" }]);
-        setDriverForm({ name: "", email: "", password: "" });
-      }
-    });
-  }
-
-  async function createAdmin(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const response = await fetch("/api/admin/users", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(adminForm) });
-    const data = await response.json() as { error?: string };
-    setAdminMessage(response.ok ? "Administrator created successfully." : data.error || "Unable to create administrator.");
-    if (response.ok) setAdminForm({ name: "", email: "", password: "" });
-  }
-
-  function addVehicle(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setVehicles((current) => [...current, { name: vehicleForm.name, plate: vehicleForm.plate, seats: Number(vehicleForm.seats) }]);
-    setVehicleForm({ name: "", plate: "", seats: "4" });
   }
 
   function saveHeroBackground(event: FormEvent<HTMLFormElement>) {
@@ -79,6 +54,8 @@ export default function AdminPage() {
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--color-primary)]">{t("admin.eyebrow")}</p>
         <h1 className="mt-3 text-4xl font-black tracking-[-0.05em] text-[var(--color-text)]">SAIWAY</h1>
       </div>
+      {error && <div role="alert" className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-[var(--color-error)]">{t(error)} <button type="button" onClick={refresh} disabled={loading} className="font-semibold underline">{t("admin.retry")}</button>{error === "admin.sessionExpired" && <> <Link href="/auth" className="font-semibold underline">{t("admin.openSignIn")}</Link></>}</div>}
+      <p className="mb-4 text-sm text-slate-500">{t("admin.demoNotice")}</p>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {stats.map((stat) => (
@@ -92,7 +69,7 @@ export default function AdminPage() {
       <div className="mt-10 rounded-[28px] border border-black/5 bg-white p-6 shadow-sm">
         <div className="mb-5 flex items-center justify-between">
           <h2 className="text-xl font-bold text-[var(--color-text)]">{t("admin.newBookings")}</h2>
-          <button className="rounded-full bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white">
+          <button disabled className="rounded-full bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white opacity-50">
             {t("admin.assign")}
           </button>
         </div>
@@ -129,35 +106,27 @@ export default function AdminPage() {
         </section>
 
         <section className="rounded-[28px] border border-black/5 bg-white p-6 shadow-sm">
-          <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-primary)]">People</p><h2 className="mt-2 text-xl font-bold text-[var(--color-text)]">Customers</h2></div><span className="rounded-full bg-[var(--color-background)] px-3 py-1 text-sm font-semibold text-[var(--color-primary)]">12 registered</span></div>
-          <div className="mt-5 space-y-3"><div className="flex items-center justify-between rounded-2xl bg-[var(--color-input)] p-4"><div><div className="font-semibold text-[var(--color-text)]">Nary Chan</div><div className="text-sm text-slate-500">nary@example.com</div></div><span className="text-xs font-semibold text-emerald-700">Active</span></div><div className="flex items-center justify-between rounded-2xl bg-[var(--color-input)] p-4"><div><div className="font-semibold text-[var(--color-text)]">David Morgan</div><div className="text-sm text-slate-500">david@example.com</div></div><span className="text-xs font-semibold text-emerald-700">Active</span></div></div>
+          <div className="flex items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-primary)]">{t("admin.people")}</p><h2 className="mt-2 text-xl font-bold text-[var(--color-text)]">{t("admin.customers")}</h2></div>{data && <span className="rounded-full bg-[var(--color-background)] px-3 py-1 text-sm font-semibold text-[var(--color-primary)]">{customers.length} {t("admin.registered")}</span>}</div>
+          <div className="mt-5 space-y-3">{!data ? <p className="text-sm text-slate-500">{t(error ? "admin.dataUnavailable" : "admin.loading")}</p> : customers.length === 0 ? <p className="text-sm text-slate-500">{t("admin.noCustomers")}</p> : customers.map((customer) => <div key={customer.id} className="flex items-center justify-between rounded-2xl bg-[var(--color-input)] p-4"><div><div className="font-semibold text-[var(--color-text)]">{customer.name}</div><div className="text-sm text-slate-500">{customer.email}</div></div><span className="text-xs font-semibold">{t(customer.status === "ACTIVE" ? "admin.active" : customer.status === "SUSPENDED" ? "admin.suspended" : "admin.invited")}</span></div>)}</div>
         </section>
 
         <section className="rounded-[28px] border border-black/5 bg-white p-6 shadow-sm lg:col-span-2">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-accent)]">Security</p>
-          <h2 className="mt-2 text-xl font-bold text-[var(--color-text)]">Create an administrator</h2>
-          <p className="mt-2 text-sm text-slate-600">Only an authenticated administrator can create another administrator account.</p>
-          <form onSubmit={createAdmin} className="mt-5 grid gap-3 md:grid-cols-3">
-            <input required value={adminForm.name} onChange={(event) => setAdminForm({ ...adminForm, name: event.target.value })} placeholder="Administrator name" className="rounded-2xl border border-slate-200 bg-[var(--color-input)] px-4 py-3 text-sm outline-none focus:border-[var(--color-primary)]" />
-            <input required type="email" value={adminForm.email} onChange={(event) => setAdminForm({ ...adminForm, email: event.target.value })} placeholder="Administrator email" className="rounded-2xl border border-slate-200 bg-[var(--color-input)] px-4 py-3 text-sm outline-none focus:border-[var(--color-primary)]" />
-            <input required minLength={8} type="password" value={adminForm.password} onChange={(event) => setAdminForm({ ...adminForm, password: event.target.value })} placeholder="Temporary password" className="rounded-2xl border border-slate-200 bg-[var(--color-input)] px-4 py-3 text-sm outline-none focus:border-[var(--color-primary)]" />
-            <button type="submit" className="rounded-full bg-[var(--color-primary)] px-4 py-3 text-sm font-semibold text-white md:col-span-3">Create administrator account</button>
-          </form>
-          {adminMessage && <p className="mt-3 text-sm font-semibold text-[var(--color-primary)]">{adminMessage}</p>}
+          <h2 className="mt-2 text-xl font-bold text-[var(--color-text)]">{t("admin.administratorTitle")}</h2>
+          <p className="mt-2 text-sm text-slate-600">{t("admin.administratorHelp")}</p>
+          <AccountCreationForm role="ADMIN" disabled={loading || Boolean(error)} onCreated={refresh} />
         </section>
 
         <section className="rounded-[28px] border border-black/5 bg-white p-6 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-accent)]">Admin only</p><h2 className="mt-2 text-xl font-bold text-[var(--color-text)]">Create a driver</h2><p className="mt-2 text-sm text-slate-600">Drivers cannot self-register. Create their account here and send their credentials securely.</p>
-          <form onSubmit={createDriver} className="mt-5 grid gap-3 sm:grid-cols-3"><input required value={driverForm.name} onChange={(event) => setDriverForm({ ...driverForm, name: event.target.value })} placeholder="Driver name" className="rounded-2xl border border-slate-200 bg-[var(--color-input)] px-4 py-3 text-sm outline-none focus:border-[var(--color-primary)]" /><input required type="email" value={driverForm.email} onChange={(event) => setDriverForm({ ...driverForm, email: event.target.value })} placeholder="Driver email" className="rounded-2xl border border-slate-200 bg-[var(--color-input)] px-4 py-3 text-sm outline-none focus:border-[var(--color-primary)]" /><input required minLength={8} type="password" value={driverForm.password} onChange={(event) => setDriverForm({ ...driverForm, password: event.target.value })} placeholder="Temporary password" className="rounded-2xl border border-slate-200 bg-[var(--color-input)] px-4 py-3 text-sm outline-none focus:border-[var(--color-primary)]" /><button type="submit" className="rounded-full bg-[var(--color-primary)] px-4 py-3 text-sm font-semibold text-white sm:col-span-3">Create driver account</button></form>
-          <div className="mt-5 space-y-2">{drivers.map((driver) => <div key={driver.email} className="flex items-center justify-between border-t border-slate-100 pt-3 text-sm"><span className="font-semibold text-[var(--color-text)]">{driver.name}<span className="ml-2 font-normal text-slate-500">{driver.email}</span></span><span className="text-emerald-700">{driver.status}</span></div>)}</div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-accent)]">Admin only</p><h2 className="mt-2 text-xl font-bold text-[var(--color-text)]">{t("admin.driverTitle")}</h2><p className="mt-2 text-sm text-slate-600">{t("admin.driverHelp")}</p>
+          <AccountCreationForm role="DRIVER" disabled={loading || Boolean(error)} onCreated={refresh} />
+          <div className="mt-5 space-y-2">{!data ? <p className="text-sm text-slate-500">{t(error ? "admin.dataUnavailable" : "admin.loading")}</p> : drivers.length === 0 ? <p className="text-sm text-slate-500">{t("admin.noDrivers")}</p> : drivers.map((driver) => <div key={driver.id} className="flex items-center justify-between border-t border-slate-100 pt-3 text-sm"><span className="font-semibold text-[var(--color-text)]">{driver.name}<span className="ml-2 font-normal text-slate-500">{driver.email}</span></span><span className={driver.status === "ACTIVE" ? "text-emerald-700" : "text-slate-500"}>{t(driver.status === "ACTIVE" ? "admin.active" : driver.status === "SUSPENDED" ? "admin.suspended" : "admin.invited")}</span></div>)}</div>
         </section>
 
         <section className="rounded-[28px] border border-black/5 bg-white p-6 shadow-sm">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-primary)]">Pricing</p><h2 className="mt-2 text-xl font-bold text-[var(--color-text)]">Airport transfer fare</h2><div className="mt-5 flex items-end gap-3"><label htmlFor="fare" className="flex-1"><span className="mb-2 block text-sm font-semibold text-[var(--color-text)]">Base fare in USD</span><input id="fare" type="number" min="1" value={fare} onChange={(event) => setFare(event.target.value)} className="w-full rounded-2xl border border-slate-200 bg-[var(--color-input)] px-4 py-3 text-2xl font-black outline-none focus:border-[var(--color-primary)]" /></label><button type="button" className="rounded-full bg-[var(--color-accent)] px-5 py-3 text-sm font-semibold text-white">Save fare</button></div><p className="mt-3 text-xs text-slate-500">Changes should be audited and published with an effective date in production.</p></section>
-
-        <section className="rounded-[28px] border border-black/5 bg-white p-6 shadow-sm"><p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-primary)]">Fleet</p><h2 className="mt-2 text-xl font-bold text-[var(--color-text)]">Vehicles</h2><form onSubmit={addVehicle} className="mt-5 grid gap-3 sm:grid-cols-3"><input required value={vehicleForm.name} onChange={(event) => setVehicleForm({ ...vehicleForm, name: event.target.value })} placeholder="Vehicle" className="rounded-2xl border border-slate-200 bg-[var(--color-input)] px-3 py-3 text-sm outline-none focus:border-[var(--color-primary)]" /><input required value={vehicleForm.plate} onChange={(event) => setVehicleForm({ ...vehicleForm, plate: event.target.value })} placeholder="Plate" className="rounded-2xl border border-slate-200 bg-[var(--color-input)] px-3 py-3 text-sm outline-none focus:border-[var(--color-primary)]" /><input required type="number" min="1" value={vehicleForm.seats} onChange={(event) => setVehicleForm({ ...vehicleForm, seats: event.target.value })} placeholder="Seats" className="rounded-2xl border border-slate-200 bg-[var(--color-input)] px-3 py-3 text-sm outline-none focus:border-[var(--color-primary)]" /><button type="submit" className="rounded-full border border-[var(--color-primary)] px-4 py-3 text-sm font-semibold text-[var(--color-primary)] sm:col-span-3">Add vehicle</button></form><div className="mt-5 space-y-2">{vehicles.map((vehicle) => <div key={vehicle.plate} className="flex justify-between border-t border-slate-100 pt-3 text-sm"><span className="font-semibold text-[var(--color-text)]">{vehicle.name}</span><span className="text-slate-500">{vehicle.plate} · {vehicle.seats} seats</span></div>)}</div></section>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-primary)]">Pricing</p><h2 className="mt-2 text-xl font-bold text-[var(--color-text)]">Airport transfer fare</h2><div className="mt-5 flex items-end gap-3"><label htmlFor="fare" className="flex-1"><span className="mb-2 block text-sm font-semibold text-[var(--color-text)]">Base fare in USD</span><input id="fare" disabled type="number" min="1" value={fare} onChange={(event) => setFare(event.target.value)} className="w-full rounded-2xl border border-slate-200 bg-[var(--color-input)] px-4 py-3 text-2xl font-black outline-none focus:border-[var(--color-primary)]" /></label><button disabled type="button" className="rounded-full bg-[var(--color-accent)] px-5 py-3 text-sm font-semibold text-white opacity-50">Save fare</button></div><p className="mt-3 text-xs text-slate-500">{t("admin.pricingDemo")}</p></section>
       </div>
-      <ManagementPanel />
+      <ManagementPanel data={data} loading={loading} loadError={error} onReload={refresh} />
     </div>
   );
 }
