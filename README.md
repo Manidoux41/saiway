@@ -45,6 +45,16 @@ for administrators and drivers, including on the help page.
 
 ### Persistent operations and history
 
+Administrators and drivers can use **Change my password** on their own dashboard.
+`POST /api/account/password` requires an active staff session, the current password,
+a different new password (8–128 characters) and matching confirmation. Only the
+authenticated account is updated; account IDs and roles cannot be supplied.
+The new password uses the same salted scrypt format as login and account creation.
+The update and password-free audit entry are transactional; concurrent stale
+changes are rejected. Existing sessions remain valid, but the old password no
+longer works for subsequent sign-ins. Deploy these files to enable this feature on
+Vercel; writes then use the database configured for that deployment.
+
 Customer reservations are written to PostgreSQL and receive a unique reference.
 The server supplies the displayed quote and calculates the booking price from the
 latest effective, active matching fare; without a matching fare, it uses USD 35.

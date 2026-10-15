@@ -1,4 +1,4 @@
-import { randomBytes, scryptSync } from "node:crypto";
+import { hashPassword } from "@/lib/passwords";
 import { prisma } from "@/lib/prisma";
 import { authorize } from "@/lib/access";
 import { Prisma } from "@prisma/client";
@@ -12,12 +12,6 @@ const accountSchema = z.object({
   password: z.string().min(8),
   role: z.enum(["ADMIN", "DRIVER", "CUSTOMER"]).default("ADMIN"),
 });
-
-function hashPassword(password: string) {
-  const salt = randomBytes(16).toString("hex");
-  const derivedKey = scryptSync(password, salt, 64, { N: 16384, r: 8, p: 1 });
-  return `scrypt$16384$8$1$${salt}$${derivedKey.toString("base64")}`;
-}
 
 export async function POST(request: Request) {
   try {

@@ -8,6 +8,7 @@ import { AccountCreationForm } from "@/components/admin/account-creation-form";
 import { useAdminManagement } from "@/components/admin/use-admin-management";
 import { CourseDashboard } from "@/components/booking/course-dashboard";
 import { RecordEditor } from "@/components/admin/record-editor";
+import { ChangePasswordForm } from "@/components/auth/change-password-form";
 
 export default function AdminPage() {
   const { t } = useLanguage();
@@ -16,6 +17,7 @@ export default function AdminPage() {
   return <div className="mx-auto max-w-7xl px-4 py-12">
     <h1 className="text-3xl font-black">{t("nav.adminDashboard")}</h1>
     <p className="mt-3 text-slate-600">{t("courses.adminScope")}</p>
+    <ChangePasswordForm />
     {error && <div role="alert" className="mt-4 rounded-2xl bg-red-50 p-4 text-[var(--color-error)]">{t(error)} <button onClick={refresh} disabled={loading} className="underline">{t("admin.retry")}</button> <Link href="/auth" className="underline">{t("admin.openSignIn")}</Link></div>}
     <CourseDashboard role="admin" management={data} />
     <div className="mt-8 grid gap-6 lg:grid-cols-3">

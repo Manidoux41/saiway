@@ -1,4 +1,10 @@
 const en = {
+  "password.title": "Change my password", "password.help": "Enter your current password and a different new password (8 to 128 characters). Existing sessions remain signed in.",
+  "password.current": "Current password", "password.new": "New password", "password.confirm": "Confirm new password", "password.save": "Change password",
+  "password.saved": "Your password has been updated in the database. Use the new password the next time you sign in.",
+  "password.invalid": "Use a different password of 8 to 128 characters and enter the same value in the confirmation.",
+  "password.incorrect": "The current password is incorrect.", "password.forbidden": "An active administrator or driver session is required.",
+  "password.conflict": "Your account changed during the operation. Sign in again and retry.", "password.unavailable": "Unable to change your password. Please retry.",
   "courses.vehiclePending": "The vehicle will be confirmed after assignment.",
   "records.users": "Accounts", "records.vehicles": "Vehicles", "records.accounting": "Accounting", "records.forecasts": "Forecasts", "records.pricing": "Fares", "records.contracts": "Contracts", "records.settings": "Settings",
   "records.name": "Name", "records.email": "Email", "records.phone": "Phone", "records.status": "Status", "records.available": "Available driver", "records.license": "Driver license number", "records.plate": "Plate", "records.seats": "Seats", "records.active": "Active",
@@ -25,6 +31,12 @@ const en = {
   "courses.quoteNotice": "The final price is calculated by the server using the published fare, or the default USD 35 fare.",
 };
 const fr: typeof en = {
+  "password.title": "Changer mon mot de passe", "password.help": "Saisissez votre mot de passe actuel et un nouveau mot de passe différent (8 à 128 caractères). Les sessions existantes restent connectées.",
+  "password.current": "Mot de passe actuel", "password.new": "Nouveau mot de passe", "password.confirm": "Confirmer le nouveau mot de passe", "password.save": "Modifier le mot de passe",
+  "password.saved": "Votre mot de passe a été mis à jour dans la base de données. Utilisez le nouveau lors de votre prochaine connexion.",
+  "password.invalid": "Utilisez un mot de passe différent de 8 à 128 caractères et une confirmation identique.",
+  "password.incorrect": "Le mot de passe actuel est incorrect.", "password.forbidden": "Une session administrateur ou chauffeur active est nécessaire.",
+  "password.conflict": "Votre compte a changé pendant l'opération. Reconnectez-vous et réessayez.", "password.unavailable": "Impossible de modifier votre mot de passe. Veuillez réessayer.",
   "courses.vehiclePending": "Le véhicule sera confirmé après attribution.",
   "records.users": "Comptes", "records.vehicles": "Véhicules", "records.accounting": "Comptabilité", "records.forecasts": "Prévisions", "records.pricing": "Tarifs", "records.contracts": "Contrats", "records.settings": "Paramètres",
   "records.name": "Nom", "records.email": "E-mail", "records.phone": "Téléphone", "records.status": "Statut", "records.available": "Chauffeur disponible", "records.license": "Numéro de permis", "records.plate": "Immatriculation", "records.seats": "Places", "records.active": "Actif",

@@ -1,18 +1,9 @@
-import { randomBytes, scryptSync } from "node:crypto";
+import { hashPassword } from "@/lib/passwords";
 import { prisma } from "@/lib/prisma";
 import { createSession, sessionCookie } from "@/lib/auth-session";
 import { activeAccount } from "@/lib/access";
 
 export const runtime = "nodejs";
-
-function hashPassword(password: string) {
-  const salt = randomBytes(16).toString("hex");
-  const cost = 16384;
-  const blockSize = 8;
-  const parallelization = 1;
-  const derivedKey = scryptSync(password, salt, 64, { N: cost, r: blockSize, p: parallelization });
-  return `scrypt$${cost}$${blockSize}$${parallelization}$${salt}$${derivedKey.toString("base64")}`;
-}
 
 export async function POST(request: Request) {
   try {

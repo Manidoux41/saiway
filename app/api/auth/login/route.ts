@@ -1,4 +1,4 @@
-import { scryptSync, timingSafeEqual } from "node:crypto";
+import { verifyPassword } from "@/lib/passwords";
 import { prisma } from "@/lib/prisma";
 import { createSession, sessionCookie } from "@/lib/auth-session";
 import { activeAccount } from "@/lib/access";
@@ -7,19 +7,6 @@ export const runtime = "nodejs";
 
 function roleName(role: string) {
   return role.toLowerCase() as "customer" | "driver" | "admin";
-}
-
-function verifyPassword(password: string, encodedHash: string) {
-  const [algorithm, cost, blockSize, parallelization, salt, storedHash] = encodedHash.split("$");
-  if (algorithm !== "scrypt" || !cost || !blockSize || !parallelization || !salt || !storedHash) return false;
-
-  const derivedKey = scryptSync(password, salt, 64, {
-    N: Number(cost),
-    r: Number(blockSize),
-    p: Number(parallelization),
-  });
-  const expectedKey = Buffer.from(storedHash, "base64");
-  return expectedKey.length === derivedKey.length && timingSafeEqual(expectedKey, derivedKey);
 }
 
 export async function POST(request: Request) {
