@@ -1,0 +1,80 @@
+.dashboard { max-width: 1240px; margin: 0 auto; padding: 36px 28px 56px; color: var(--color-text); }
+.dashboard button { cursor: pointer; }
+.dashboard button:disabled { cursor: not-allowed; opacity: .5; }
+.dashboard button:focus-visible, .dashboard a:focus-visible, .dashboard input:focus-visible, .dashboard textarea:focus-visible { outline: 3px solid #72a2e8; outline-offset: 3px; }
+.heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.heading h1 { font-size: 30px; font-weight: 800; margin: 7px 0 10px; }
+.heading > div { min-width: 0; }
+.heading p:not(.eyebrow) { color: #64748b; font-size: 13px; }
+.eyebrow { color: #64748b; font-size: 10px; font-weight: 650; text-transform: uppercase; overflow-wrap: anywhere; }
+.primaryButton, .secondaryButton { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; padding: 12px 17px; border-radius: 6px; font-size: 12px; font-weight: 700; line-height: 1.5; text-align: center; }
+.primaryButton { background: var(--color-primary); color: #fff; }
+.primaryButton:hover { background: var(--color-primary-dark); }
+.secondaryButton { border: 1px solid #cdd7e5; color: var(--color-primary); background: #fff; }
+.primaryButton svg, .secondaryButton svg { flex-shrink: 0; }
+.navigation { display: flex; gap: 24px; border-bottom: 1px solid #d9e2ef; margin-top: 28px; }
+.navigation button, .navigation a { display: flex; align-items: center; gap: 7px; border-bottom: 2px solid transparent; padding: 0 0 14px; font-size: 13px; font-weight: 650; color: #64748b; }
+.navigation button[aria-pressed="true"] { color: var(--color-primary); border-color: var(--color-primary); }
+.navigation a { margin-left: auto; }
+.metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 28px 0 22px; border-bottom: 1px solid #d9e2ef; gap: 18px; }
+.metrics button { text-align: left; padding-right: 18px; border-right: 1px solid #d9e2ef; }
+.metrics button:last-child { border: none; }
+.metrics span { display: flex; align-items: center; gap: 8px; color: #64748b; font-size: 12px; }
+.metrics strong { display: block; margin-top: 7px; font-size: 30px; font-weight: 800; }
+.nextTrip { display: flex; align-items: center; gap: 16px; width: 100%; padding: 18px; margin: 24px 0; border-left: 3px solid var(--color-primary); background: #e7eefa; text-align: left; }
+.nextTrip > svg { color: var(--color-primary); flex-shrink: 0; }
+.nextTrip > span > small { display: block; color: #64748b; font-size: 10px; }
+.nextTrip > span > strong { display: block; font-size: 13px; margin-top: 4px; }
+.nextDestination { flex: 1; font-size: 12px; font-weight: 650; overflow-wrap: anywhere; }
+.workspace { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .95fr); gap: 32px; margin-top: 26px; align-items: start; }
+.list, .details { min-width: 0; }
+.sectionHeading { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 40px; margin-bottom: 12px; }
+.sectionHeading h2, .profile h2 { font-size: 18px; font-weight: 750; }
+.iconButton { width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #dce3ed; background: #fff; border-radius: 6px; }
+.filters { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 14px; }
+.filters button { padding: 7px 9px; font-size: 11px; border-radius: 4px; color: #64748b; }
+.filters button[aria-pressed="true"] { background: #e2eafa; color: var(--color-primary); font-weight: 700; }
+.search { display: flex; align-items: center; gap: 8px; border: 1px solid #dce3ed; background: #fff; border-radius: 6px; padding: 0 12px; margin-bottom: 16px; color: #64748b; }
+.search input { width: 100%; min-width: 0; padding: 12px 0; font-size: 12px; color: var(--color-text); }
+.tripList { display: grid; gap: 12px; }
+.trip { display: block; width: 100%; text-align: left; background: #fff; border: 1px solid #dce3ed; border-radius: 8px; padding: 17px; }
+.trip[aria-pressed="true"] { border-color: var(--color-primary); box-shadow: inset 3px 0 0 var(--color-primary); }
+.tripTop { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.tripTop > strong { font-size: 13px; }
+.trip > small { display: block; font-size: 9px; color: #64748b; margin: 8px 0 16px; overflow-wrap: anywhere; }
+.badge { display: inline-block; font-size: 10px; font-weight: 700; background: #fff3d2; color: #876115; padding: 4px 7px; border-radius: 4px; }
+.badge[data-paid="true"] { background: #e4f4eb; color: #216b4d; }
+.route { display: flex; align-items: baseline; gap: 9px; margin: 10px 0; font-size: 12px; font-weight: 650; overflow-wrap: anywhere; }
+.route svg { flex-shrink: 0; color: var(--color-primary); }
+.tripBottom { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 15px; padding-top: 12px; border-top: 1px solid #edf1f7; font-size: 13px; }
+.tripBottom > span { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #64748b; }
+.detailRoute { display: flex; gap: 10px; padding: 22px 0; border-bottom: 1px solid #dce3ed; }
+.detailRoute > svg { flex-shrink: 0; color: var(--color-primary); }
+.detailRoute > div { display: grid; gap: 7px; min-width: 0; }
+.detailRoute small { font-size: 10px; color: #64748b; }
+.detailRoute strong { font-size: 14px; font-weight: 650; overflow-wrap: anywhere; }
+.detailRoute div > svg { margin: 4px 0; color: #8a9cb8; }
+.facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin: 24px 0; }
+.facts dt { font-size: 10px; color: #64748b; }
+.facts dd { font-size: 12px; font-weight: 650; margin-top: 5px; overflow-wrap: anywhere; }
+.vehicle { font-size: 12px; font-weight: 650; background: #e8eef9; padding: 12px; }
+.muted { color: #64748b; font-size: 12px; }
+.notes { padding: 5px 12px; border-left: 2px solid #a8badb; margin: 18px 0; font-size: 12px; }
+.notes h3 { font-size: 11px; font-weight: 700; margin-bottom: 5px; }
+.notes p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.payment { border-top: 1px solid #dce3ed; margin-top: 24px; padding-top: 20px; display: grid; gap: 12px; }
+.payment > svg { color: var(--color-primary); }
+.payment p { font-size: 12px; line-height: 1.7; color: #64748b; }
+.cancelButton { color: #a43d32; font-size: 11px; text-decoration: underline; margin-top: 20px; }
+.error, .success { padding: 12px 14px; font-size: 12px; line-height: 1.7; margin: 16px 0; }
+.error { background: #fff0ed; color: #a33226; }
+.success { display: flex; align-items: center; gap: 8px; background: #eaf7ef; color: #216c4c; }
+.success svg { flex-shrink: 0; }
+.empty { min-height: 180px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px; padding: 32px 18px; text-align: center; font-size: 13px; color: #64748b; }
+.textLink { display: inline-flex; align-items: center; gap: 6px; color: var(--color-primary); font-weight: 650; }
+.profile { max-width: 700px; margin-top: 28px; }
+.profile fieldset { display: grid; gap: 20px; margin-top: 24px; }
+.profile label { display: grid; gap: 8px; font-size: 12px; font-weight: 650; }
+.profile input, .profile textarea { width: 100%; min-width: 0; border: 1px solid #cdd7e5; background: #fff; border-radius: 6px; padding: 12px; font-weight: 400; }
+@media (prefers-reduced-motion: no-preference) { .workspace { animation: reveal .3s ease-out; } @keyframes reveal { from { opacity: .5; } to { opacity: 1; } } }
+@media (max-width: 700px) { .dashboard { padding: 24px 16px 40px; } .heading { align-items: flex-start; flex-wrap: wrap; gap: 16px; } .heading h1 { font-size: 26px; } .workspace { grid-template-columns: minmax(0, 1fr); gap: 30px; } .details { border-top: 1px solid #dce3ed; padding-top: 22px; } .metrics { gap: 12px; } .metrics span { font-size: 11px; } .metrics span svg { display: none; } .metrics strong { font-size: 26px; } .nextTrip { padding: 14px 12px; gap: 12px; flex-wrap: wrap; } .nextTrip > svg:first-child { display: none; } .nextTrip > span > strong { font-size: 11px; } .nextDestination { font-size: 11px; min-width: 80px; } .navigation { gap: 20px; } .navigation button, .navigation a { font-size: 12px; } .tripList { max-height: 500px; overflow-y: auto; padding: 3px; margin: -3px; } }

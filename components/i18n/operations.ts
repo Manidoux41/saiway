@@ -1,9 +1,11 @@
 import { driverCopy } from "@/components/i18n/driver-copy";
 import { adminCopy } from "@/components/i18n/admin-copy";
+import { customerCopy } from "@/components/i18n/customer-copy";
 
 const en = {
   ...driverCopy.en,
   ...adminCopy.en,
+  ...customerCopy.en,
   "password.title": "Change my password", "password.help": "Enter your current password and a different new password (8 to 128 characters). Existing sessions remain signed in.",
   "password.current": "Current password", "password.new": "New password", "password.confirm": "Confirm new password", "password.save": "Change password",
   "password.saved": "Your password has been updated in the database. Use the new password the next time you sign in.",
@@ -29,7 +31,7 @@ const en = {
   "courses.save": "Save", "courses.editAssign": "Edit / assign", "courses.cancel": "Cancel trip", "courses.confirmCancel": "Cancel this trip? Its history will be preserved.",
   "courses.assigned": "Assigned", "courses.accepted": "Accepted", "courses.enRoute": "En route", "courses.arrived": "Arrived", "courses.started": "Trip started", "courses.completed": "Completed", "courses.cancelled": "Cancelled", "courses.pending": "Pending",
   "courses.loadError": "Unable to load trips. Check your session and retry.", "courses.saveError": "The operation could not be completed.",
-  "courses.empty": "No trips to display.", "courses.paymentNotice": "Assignment does not confirm payment. Online payment and shared live GPS are not connected.",
+  "courses.empty": "No trips to display.", "courses.paymentNotice": "Payment must be verified by the server before assignment. Shared live GPS is not connected.",
   "courses.manageRecords": "Edit records and settings", "courses.entity": "Category", "courses.record": "Record", "courses.newRecord": "New record",
   "courses.archiveNotice": "Accounts and vehicles are deactivated, not deleted. Financial history is retained. Account roles cannot be changed.",
   "courses.saved": "Your booking has been saved.", "courses.submitError": "Unable to save your booking. Check the details and retry.",
@@ -38,6 +40,7 @@ const en = {
 const fr: typeof en = {
   ...driverCopy.fr,
   ...adminCopy.fr,
+  ...customerCopy.fr,
   "password.title": "Changer mon mot de passe", "password.help": "Saisissez votre mot de passe actuel et un nouveau mot de passe différent (8 à 128 caractères). Les sessions existantes restent connectées.",
   "password.current": "Mot de passe actuel", "password.new": "Nouveau mot de passe", "password.confirm": "Confirmer le nouveau mot de passe", "password.save": "Modifier le mot de passe",
   "password.saved": "Votre mot de passe a été mis à jour dans la base de données. Utilisez le nouveau lors de votre prochaine connexion.",
@@ -63,7 +66,7 @@ const fr: typeof en = {
   "courses.save": "Enregistrer", "courses.editAssign": "Modifier / attribuer", "courses.cancel": "Annuler la course", "courses.confirmCancel": "Annuler cette course ? Son historique sera conservé.",
   "courses.assigned": "Attribuée", "courses.accepted": "Acceptée", "courses.enRoute": "En route", "courses.arrived": "Arrivé", "courses.started": "Course commencée", "courses.completed": "Terminée", "courses.cancelled": "Annulée", "courses.pending": "En attente",
   "courses.loadError": "Impossible de charger les courses. Vérifiez votre session et réessayez.", "courses.saveError": "L'opération n'a pas pu être effectuée.",
-  "courses.empty": "Aucune course à afficher.", "courses.paymentNotice": "L'attribution ne confirme pas le paiement. Le paiement en ligne et le GPS partagé ne sont pas connectés.",
+  "courses.empty": "Aucune course à afficher.", "courses.paymentNotice": "Le paiement doit être vérifié par le serveur avant attribution. Le GPS partagé n’est pas connecté.",
   "courses.manageRecords": "Modifier les éléments et paramètres", "courses.entity": "Catégorie", "courses.record": "Élément", "courses.newRecord": "Nouvel élément",
   "courses.archiveNotice": "Les comptes et véhicules sont désactivés, pas supprimés. L'historique financier est conservé. Les rôles des comptes ne peuvent pas être changés.",
   "courses.saved": "Votre réservation a été enregistrée.", "courses.submitError": "Impossible d'enregistrer votre réservation. Vérifiez les informations et réessayez.",

@@ -26,6 +26,7 @@ function BookingForm({ course, management, courses, pending, onSave, onClose }: 
   const drivers = management.users.filter((user) => user.driver && user.role === "DRIVER" && (user.status === "ACTIVE" && user.driver.isAvailable || user.driver.id === course?.driverId));
   const vehicles = management.vehicles.filter((vehicle) => vehicle.active || vehicle.id === course?.vehicleId);
   const locked = Boolean(course && ongoing.includes(course.status));
+  const unpaid = !course?.payments?.some((payment) => payment.status === "PAID");
   const pickupValue = course ? new Date(Date.parse(course.pickupAt) + 7 * 3_600_000).toISOString().slice(0, 16) : "";
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -52,13 +53,13 @@ function BookingForm({ course, management, courses, pending, onSave, onClose }: 
       <label>{t("courses.from")}<input name="fromAddress" required maxLength={500} defaultValue={course?.fromAddress ?? "SAI Airport"} /></label>
       <label>{t("courses.to")}<input name="toAddress" required maxLength={500} defaultValue={course?.toAddress ?? ""} /></label>
       <label>{t("courses.pickup")}<input name="pickupAt" type="datetime-local" required defaultValue={pickupValue} /><small>{t("dispatch.dateHelp")}</small></label>
-      <label>{t("dispatch.price")} ({course?.currency ?? "USD"})<input name="price" type="number" required min="0" max="1000000" step="0.01" defaultValue={(course?.priceCents ?? 3500) / 100} /></label>
+      <label>{t("dispatch.price")} ({course?.currency ?? "USD"})<input name="price" type="number" required readOnly={!unpaid} min="0" max="1000000" step="0.01" defaultValue={(course?.priceCents ?? 3500) / 100} /></label>
       <label>{t("booking.passengers")}<input name="passengers" type="number" required min="1" max="50" value={passengers} onChange={(event) => setPassengers(Number(event.target.value))} /></label>
       <label>{t("booking.luggageCount")}<input name="luggageCount" type="number" required min="0" max="50" defaultValue={course?.luggageCount ?? 0} /></label>
       <label>{t("booking.route")}<select name="direction" defaultValue={course?.direction ?? "AIRPORT_TO_CITY"}><option value="AIRPORT_TO_CITY">{t("courses.airportToCity")}</option><option value="CITY_TO_AIRPORT">{t("courses.cityToAirport")}</option></select></label>
       <label>{t("booking.tripType")}<select name="tripType" defaultValue={course?.tripType ?? "AIRPORT_TRANSFER"}><option value="AIRPORT_TRANSFER">{t("booking.airportTransfer")}</option><option value="PRIVATE_TRANSFER">{t("booking.privateTransfer")}</option><option value="HOTEL_TRANSFER">{t("booking.hotelTransfer")}</option></select></label>
       <h3 className={styles.wide}>{t("dispatch.assignment")}</h3>
-      <label>{t("admin.driver")}<select name="driverId" disabled={locked} defaultValue={course?.driverId ?? ""}><option value="">{t("courses.unassigned")}</option>{drivers.map((user) => <option key={user.id} value={user.driver!.id}>{user.name} · {courses.filter((item) => item.driverId === user.driver!.id && !closedDriverStatuses.includes(item.status)).length} {t("dispatch.assignedTrips")}</option>)}</select></label>
+      <label>{t("admin.driver")}<select name="driverId" disabled={locked || unpaid} defaultValue={course?.driverId ?? ""}><option value="">{t("courses.unassigned")}</option>{drivers.map((user) => <option key={user.id} value={user.driver!.id}>{user.name} · {courses.filter((item) => item.driverId === user.driver!.id && !closedDriverStatuses.includes(item.status)).length} {t("dispatch.assignedTrips")}</option>)}</select></label>
       <label>{t("admin.vehicle")}<select name="vehicleId" disabled={locked} defaultValue={course?.vehicleId ?? ""}><option value="">{t("courses.unassigned")}</option>{vehicles.map((vehicle) => <option key={vehicle.id} value={vehicle.id} disabled={!vehicle.active || vehicle.seats < passengers}>{vehicle.name} · {vehicle.plate} · {vehicle.seats} {t("records.seats")}</option>)}</select></label>
       {locked && <p className={`${styles.warning} ${styles.wide}`}>{t("dispatch.assignmentLocked")}</p>}
       {!drivers.length && <p className={`${styles.warning} ${styles.wide}`}>{t("dispatch.noDrivers")}</p>}
@@ -86,7 +87,7 @@ export function AdminBookings({ management, disabled }: { management: Management
   const [editor, setEditor] = useState<Course | "new" | null>(null);
   const editSection = useRef<HTMLDivElement>(null);
   const closed = (course: Course) => closedDriverStatuses.includes(course.status);
-  const matchesView = (course: Course, value: View) => value === "all" || (value === "history" ? closed(course) : value === "toValidate" ? course.status === "PENDING_PAYMENT" : value === "toAssign" ? !closed(course) && !course.driverId : ongoing.includes(course.status));
+  const matchesView = (course: Course, value: View) => value === "all" || (value === "history" ? closed(course) : value === "toValidate" ? course.status === "CONFIRMED" : value === "toAssign" ? !closed(course) && !course.driverId : ongoing.includes(course.status));
   const search = query.trim().toLocaleLowerCase();
   const visible = courses.filter((course) => matchesView(course, view) && (!driverId || course.driverId === driverId) && (!date || driverDay(course.pickupAt) === date) && (!search || [course.reference, course.customer.name, course.customer.email, course.fromAddress, course.toAddress, course.flightNumber ?? ""].join(" ").toLocaleLowerCase().includes(search)));
   const selected = visible.find((course) => course.id === selectedId) ?? visible[0];
@@ -106,8 +107,8 @@ export function AdminBookings({ management, disabled }: { management: Management
       const response = await fetch("/api/admin/bookings", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       if (!response.ok) throw new Error("Booking update failed");
       const result = z.object({ booking: courseSchema }).parse(await response.json());
-      setCourses((current) => [...current.filter((course) => course.id !== result.booking.id), result.booking].sort((first, second) => Date.parse(first.pickupAt) - Date.parse(second.pickupAt)));
-      setSelectedId(result.booking.id); setEditor(null); setMessage(t("dispatch.saved"));
+      setCourses((current) => [...current.filter((course) => course.id !== result.booking.id), ...(result.booking.payments?.some((payment) => payment.status === "PAID") ? [result.booking] : [])].sort((first, second) => Date.parse(first.pickupAt) - Date.parse(second.pickupAt)));
+      setSelectedId(result.booking.id); setEditor(null); setMessage(t(result.booking.payments?.some((payment) => payment.status === "PAID") ? "dispatch.saved" : "customer.pendingNotice"));
       setView(method === "DELETE" ? "history" : "all"); setQuery(""); setDriverId(""); setDate("");
     } catch { setMutationError(t("dispatch.failed")); }
     finally { mutationLock.current = false; setPending(false); }

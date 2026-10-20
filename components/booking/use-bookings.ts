@@ -7,7 +7,7 @@ import { useLanguage } from "@/components/i18n/language-provider";
 
 const bookingsSchema = z.object({ bookings: z.array(courseSchema) });
 
-export function useBookings(endpoint: "/api/admin/bookings" | "/api/driver/bookings", paused = false) {
+export function useBookings(endpoint: "/api/admin/bookings" | "/api/driver/bookings" | "/api/bookings", paused = false) {
   const { t } = useLanguage();
   const [courses, setCourses] = useState<Course[]>([]);
   const [loaded, setLoaded] = useState(false);

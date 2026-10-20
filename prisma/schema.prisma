@@ -244,6 +244,7 @@ model Payment {
   booking     Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   provider    String
   providerRef String?
+  checkoutUrl String?
   amountCents Int
   currency    String        @default("USD")
   status      PaymentStatus @default(PENDING)

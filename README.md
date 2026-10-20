@@ -59,9 +59,10 @@ Customer reservations are written to PostgreSQL and receive a unique reference.
 The server supplies the displayed quote and calculates the booking price from the
 latest effective, active matching fare; without a matching fare, it uses USD 35.
 The price is recalculated on submission if a published fare has changed.
-Administrators can set a trip price, assign an active/available driver and an active
+Administrators can set an unpaid trip price, assign an active/available driver and an active
 vehicle with sufficient seats. Editing the same assignment preserves trip progress;
-an ongoing trip cannot be reassigned.
+an ongoing trip cannot be reassigned. Assignment requires a recorded successful
+payment; paid and processing fares cannot be changed.
 
 Drivers advance only their own trips through:
 `DRIVER_ASSIGNED -> DRIVER_ACCEPTED -> DRIVER_EN_ROUTE -> DRIVER_ARRIVED -> TRIP_STARTED -> TRIP_COMPLETED`.
@@ -74,10 +75,11 @@ Trip changes retain status history and audit records. Assignment does not confir
 search, pickup-date and driver filters, trip maps, and driver workloads. Accounts,
 fleet/financial management and password security have separate sections.
 
-Administrators can create and edit trips, validate an unassigned future pending
+Administrators can create unpaid requests and edit paid trips, validate an unassigned future pending paid
 trip using `PATCH /api/admin/bookings` with `{ id, status: "CONFIRMED" }`, assign
 an active/available driver and a suitable active vehicle, or cancel an open trip.
-Validation is operational only: it does not create or mark a payment as paid.
+Validation is operational only: it does not create or mark a payment as paid,
+and cannot bypass the payment requirement.
 Confirming an already validated, assigned, ongoing or closed trip is rejected.
 Confirmation, assignment and driver progress retain database history and audits.
 
@@ -88,6 +90,54 @@ invented records. Driver updates appear in admin, and admin assignments appear
 in the assigned driver's schedule. Demo driver trips remain page-local and never
 contribute to admin counts. New/edit pickup inputs explicitly use Cambodia time,
 independently of the administrator's browser timezone.
+
+### Customer accounts and ABA PayWay / KHQR
+
+Public registration at `/auth` requires only name, email and an 8-128 character
+password. The server always creates a CUSTOMER, signs the session and redirects
+to `/account`. The customer dashboard contains only that customer's requests,
+upcoming trips, payment actions, history and personal profile. `/booking` saves
+a PENDING_PAYMENT request with its server-calculated fare and Cambodia pickup
+time, then links to payment in the customer dashboard.
+
+The admin dispatch GET lists only bookings with a PAID transaction. The driver
+API lists only paid bookings assigned to that driver. No old booking is assumed
+paid merely because it is confirmed or assigned. Existing unpaid bookings remain
+in the database but are excluded from dispatch until payment is recorded.
+
+PayWay checkout is prepared server-side with HMAC-SHA512 using the stored USD
+amount, a 15-minute lifetime and an allowed PayWay hosted KHQR URL. The callback
+signature is checked, then the server independently calls Check Transaction.
+Only APPROVED (not PRE-AUTH), matching amount/currency/reference and no refund
+can record PAID and confirm the booking in one transaction. Repeated callbacks
+are idempotent. Late, cancelled or duplicate payments receive a review audit;
+cancellation does not automatically refund money. Sandbox payments are labelled
+by provider and must use a separate test database/deployment from live payments.
+
+Configure these **server-only** environment variables in your deployment:
+
+```dotenv
+PAYWAY_ENVIRONMENT=sandbox
+PAYWAY_MERCHANT_ID=your-merchant-id
+PAYWAY_API_KEY=your-private-api-key
+PAYWAY_PUBLIC_URL=https://your-authorized-domain.example
+```
+
+Use a public HTTPS origin, whitelist it with ABA, enable the KHQR checkout option
+on the merchant account, and register `/api/payments/payway/callback` as the
+callback. Run `npx prisma migrate deploy` on each deployment database before
+using checkout. Use `production` with production merchant credentials only
+after an ABA sandbox acceptance test. Never prefix these secrets with NEXT_PUBLIC.
+Missing configuration returns PAYWAY_NOT_CONFIGURED; no simulated success or
+real charge is claimed. No live payment was tested without merchant credentials.
+Checkout/verify APIs require the authenticated booking owner, not a supplied
+amount or customer ID. Automatic refunds and reconciliation of later refunds
+made directly in the merchant portal are not implemented.
+
+Official integration references: [Checkout](https://developer.payway.com.kh/folder-3158159),
+[Purchase](https://developer.payway.com.kh/purchase-14530820e0.md),
+[Check Transaction](https://developer.payway.com.kh/check-transaction-14530826e0.md).
+Run the isolated signing/amount checks with `node --test tests/payway.test.mjs`.
 
 ### Driver dashboard and trip maps
 
@@ -120,7 +170,8 @@ create fares/contracts; account roles remain immutable, and administrators canno
 suspend themselves. Driver availability and license details are editable.
 Homepage image settings are now shared through the database.
 
-Online payment processing, shared live GPS and driver messaging are not connected.
+ABA PayWay payment processing requires the merchant configuration above.
+Shared live GPS and driver messaging are not connected.
 The tracking screen shows real trip statuses, not a simulated driver map.
 Static marketing content is not a general-purpose CMS.
 The service worker caches only local icons and the manifest, never APIs, pages or

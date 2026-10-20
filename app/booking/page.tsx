@@ -23,6 +23,7 @@ export default function BookingPage() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [reference, setReference] = useState("");
+  const [bookingId, setBookingId] = useState("");
   const [finalPrice, setFinalPrice] = useState(3500);
   const [finalCurrency, setFinalCurrency] = useState("USD");
   const [quoteState, setQuoteState] = useState<{ selection: string; priceCents: number; currency: string } | null>(null);
@@ -63,13 +64,13 @@ export default function BookingPage() {
         fromAddress: direction === "airport-to-city" ? "SAI Airport" : hotel,
         toAddress: direction === "airport-to-city" ? hotel : "SAI Airport",
         direction: apiDirection, tripType: apiTripType,
-        pickupAt: new Date(`${pickupDate}T${pickupTime}`).toISOString(), passengers,
+        pickupAt: new Date(`${pickupDate}T${pickupTime}:00+07:00`).toISOString(), passengers,
         luggageCount: passenger.luggageCount, specialNeeds: passenger.specialNeeds, flightNumber: passenger.flightNumber,
         pickupNotes: `${passenger.pickupNotes}\nPassenger: ${passenger.name}; ${passenger.email}; ${passenger.phone}`,
       }) });
       if (!response.ok) throw new Error("Booking rejected");
-      const result = z.object({ booking: z.object({ reference: z.string(), priceCents: z.number(), currency: z.string() }) }).parse(await response.json());
-      setReference(result.booking.reference); setFinalPrice(result.booking.priceCents); setFinalCurrency(result.booking.currency); setSubmitted(true);
+      const result = z.object({ booking: z.object({ id: z.string(), reference: z.string(), priceCents: z.number(), currency: z.string() }) }).parse(await response.json());
+      setBookingId(result.booking.id); setReference(result.booking.reference); setFinalPrice(result.booking.priceCents); setFinalCurrency(result.booking.currency); setSubmitted(true);
     } catch { setError(t("courses.submitError")); }
     finally { setPending(false); }
   }
@@ -101,11 +102,11 @@ export default function BookingPage() {
 
           <div className="mt-8 grid grid-cols-4 gap-2" aria-label="Booking progress">
             {steps.map((label, index) => (
-              <div key={label} className="flex items-center gap-2 text-sm font-semibold">
+              <div key={label} title={label} aria-label={label} className="flex min-w-0 items-center gap-2 text-sm font-semibold">
                 <span className={`flex h-8 w-8 items-center justify-center rounded-full ${index <= step ? "bg-[var(--color-primary)] text-white" : "bg-slate-100 text-slate-400"}`}>
                   {index + 1}
                 </span>
-                <span className={index <= step ? "text-[var(--color-text)]" : "text-slate-400"}>{label}</span>
+                <span className={`hidden sm:inline ${index <= step ? "text-[var(--color-text)]" : "text-slate-400"}`}>{label}</span>
               </div>
             ))}
           </div>
@@ -115,7 +116,8 @@ export default function BookingPage() {
               <div className="text-sm font-semibold uppercase tracking-[0.16em] text-emerald-700">{t("booking.requestReceived")}</div>
               <h2 className="mt-3 text-2xl font-black text-[var(--color-text)]">{t("courses.saved")}</h2>
               <p className="mt-3 text-slate-600">{reference} · {(finalPrice / 100).toFixed(2)} {finalCurrency}</p>
-              <Link href="/booking/track" className="mt-6 inline-flex rounded-full bg-[var(--color-primary)] px-5 py-3 text-sm font-semibold text-white">{t("booking.trackBooking")}</Link>
+              <p className="mt-3 text-sm text-slate-600">{t("customer.pendingNotice")}</p>
+              <Link href={`/account?booking=${encodeURIComponent(bookingId)}`} className="mt-6 inline-flex rounded-full bg-[var(--color-primary)] px-5 py-3 text-sm font-semibold text-white">{t("customer.checkout")}</Link>
             </div>
           ) : (
             <form onSubmit={continueBooking} className="mt-10 space-y-6">

@@ -28,7 +28,7 @@ export default function AuthPage() {
       body: JSON.stringify(isRegistering ? { name: String(formData.get("name")), email, password } : { email, password }),
       });
       if (!response.ok) {
-        setError(t(response.status >= 500 ? "auth.serviceUnavailable" : "auth.accountMissing"));
+        setError(t(response.status >= 500 ? "auth.serviceUnavailable" : isRegistering && response.status === 409 ? "customer.emailExists" : isRegistering && response.status === 400 ? "customer.invalidRegistration" : "auth.accountMissing"));
         return;
       }
       const data = z.object({ user: z.object({ id: z.string(), name: z.string(), email: z.email(), role: z.enum(["customer", "driver", "admin"]) }) }).parse(await response.json());
@@ -55,9 +55,9 @@ export default function AuthPage() {
           <form onSubmit={submit} className="mt-8 space-y-5">
             {error && <p role="alert" className="text-[var(--color-error)]">{error}</p>}
             <fieldset disabled={pending} className="space-y-5">
-              {isRegistering && <div><label htmlFor="name" className="mb-2 block text-sm font-semibold text-[var(--color-text)]">{t("auth.fullName")}</label><input id="name" name="name" required className="w-full rounded-2xl border border-slate-200 bg-[var(--color-input)] px-4 py-3.5 outline-none focus:border-[var(--color-primary)]" /></div>}
+              {isRegistering && <div><label htmlFor="name" className="mb-2 block text-sm font-semibold text-[var(--color-text)]">{t("auth.fullName")}</label><input id="name" name="name" autoComplete="name" required maxLength={200} className="w-full rounded-2xl border border-slate-200 bg-[var(--color-input)] px-4 py-3.5 outline-none focus:border-[var(--color-primary)]" /></div>}
               <div><label htmlFor="auth-email" className="mb-2 block text-sm font-semibold text-[var(--color-text)]">Email</label><input id="auth-email" name="email" type="email" required className="w-full rounded-2xl border border-slate-200 bg-[var(--color-input)] px-4 py-3.5 outline-none focus:border-[var(--color-primary)]" /></div>
-              <div><label htmlFor="auth-password" className="mb-2 block text-sm font-semibold text-[var(--color-text)]">{t("auth.password")}</label><input id="auth-password" name="password" type="password" minLength={8} required className="w-full rounded-2xl border border-slate-200 bg-[var(--color-input)] px-4 py-3.5 outline-none focus:border-[var(--color-primary)]" /></div>
+              <div><label htmlFor="auth-password" className="mb-2 block text-sm font-semibold text-[var(--color-text)]">{t("auth.password")}</label><input id="auth-password" name="password" type="password" autoComplete={isRegistering ? "new-password" : "current-password"} minLength={8} maxLength={isRegistering ? 128 : undefined} required className="w-full rounded-2xl border border-slate-200 bg-[var(--color-input)] px-4 py-3.5 outline-none focus:border-[var(--color-primary)]" /></div>
                 <button type="submit" className="w-full rounded-full bg-[var(--color-primary)] px-5 py-3.5 text-sm font-semibold text-white transition hover:bg-[var(--color-primary-dark)]">{pending ? t("admin.saving") : isRegistering ? t("auth.createButton") : t("auth.signIn")}</button>
             </fieldset>
           </form>

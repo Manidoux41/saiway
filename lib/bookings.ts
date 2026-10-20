@@ -28,6 +28,7 @@ const driverTransitions: Partial<Record<BookingStatus, BookingStatus>> = {
   DRIVER_EN_ROUTE: "DRIVER_ARRIVED", DRIVER_ARRIVED: "TRIP_STARTED", TRIP_STARTED: "TRIP_COMPLETED",
 };
 const include = {
+  payments: { select: { status: true, provider: true, amountCents: true, currency: true } },
   customer: { select: { id: true, name: true, email: true } },
   driver: { select: { id: true, user: { select: { name: true } } } },
   vehicle: { select: { id: true, name: true, plate: true, seats: true } },
@@ -73,9 +74,10 @@ export async function bookingRequest(request: Request, role: SessionRole) {
   try {
     const account = await authorize(request, role);
     if (!account) return Response.json({ error: `${role} access required` }, { status: 403 });
-    const scope: Prisma.BookingWhereInput = role === "ADMIN" ? {} : role === "CUSTOMER" ? { customerId: account.id } : { driver: { userId: account.id } };
+    const paidScope: Prisma.BookingWhereInput = { payments: { some: { status: "PAID" } } };
+    const scope: Prisma.BookingWhereInput = role === "ADMIN" ? {} : role === "CUSTOMER" ? { customerId: account.id } : { ...paidScope, driver: { userId: account.id } };
     if (request.method === "GET") {
-      const bookings = await prisma.booking.findMany({ where: scope, include, orderBy: { pickupAt: "asc" } });
+      const bookings = await prisma.booking.findMany({ where: role === "ADMIN" ? paidScope : scope, include, orderBy: { pickupAt: "asc" } });
       return Response.json({ bookings }, { headers: { "Cache-Control": "no-store" } });
     }
     const body: unknown = await request.json();
@@ -85,6 +87,7 @@ export async function bookingRequest(request: Request, role: SessionRole) {
       if (!parsed.success) return Response.json({ error: parsed.error.issues.map((issue) => issue.message).join("; ") }, { status: 400 });
       const value = parsed.data;
       const admin = role === "ADMIN" ? adminCreate.parse(body) : null;
+      if (admin?.driverId) throw new BookingError("Payment must be confirmed before assignment", 409);
       const booking = await prisma.$transaction(async (tx) => {
         const customerId = admin?.customerId ?? account.id;
         const customer = await tx.user.findUnique({ where: { id: customerId } });
@@ -104,12 +107,14 @@ export async function bookingRequest(request: Request, role: SessionRole) {
     const booking = await prisma.$transaction(async (tx) => {
       const parsed = request.method === "PATCH" && role === "ADMIN" ? adminPatch.safeParse(body) : command.safeParse(body);
       if (!parsed.success) throw new BookingError("Invalid booking update");
-      const existing = await tx.booking.findFirst({ where: { ...scope, id: parsed.data.id } });
+      const existing = await tx.booking.findFirst({ where: { ...scope, id: parsed.data.id }, include: { payments: { select: { status: true } } } });
       if (!existing) throw new BookingError("Booking not found", 404);
       if (terminal.includes(existing.status)) throw new BookingError("A closed booking cannot be modified", 409);
       let update: Prisma.BookingUpdateInput;
       let status = existing.status;
+      const paid = existing.payments.some((payment) => payment.status === "PAID");
       if (role === "ADMIN" && request.method === "PATCH" && "status" in parsed.data) {
+        if (!paid) throw new BookingError("Payment must be confirmed before validation", 409);
         if (existing.status !== "PENDING_PAYMENT" || existing.driverId) throw new BookingError("Only an unassigned pending booking can be confirmed", 409);
         if (existing.pickupAt.getTime() <= Date.now()) throw new BookingError("Pickup must be in the future");
         status = "CONFIRMED";
@@ -118,6 +123,8 @@ export async function bookingRequest(request: Request, role: SessionRole) {
         const { id: ignoredId, pickupAt, ...changes } = adminEdit.parse(body);
         void ignoredId;
         const driverId = changes.driverId === undefined ? existing.driverId : changes.driverId;
+        if (driverId && !paid) throw new BookingError("Payment must be confirmed before assignment", 409);
+        if (changes.priceCents !== undefined && changes.priceCents !== existing.priceCents && existing.payments.some((payment) => ["PAID", "PROCESSING"].includes(payment.status))) throw new BookingError("A paid or processing fare cannot be changed", 409);
         const vehicleId = changes.vehicleId === undefined ? existing.vehicleId : changes.vehicleId;
         const reassigning = driverId !== existing.driverId || vehicleId !== existing.vehicleId;
         if (["TRIP_STARTED", "DRIVER_ARRIVED", "DRIVER_EN_ROUTE"].includes(existing.status) && reassigning) throw new BookingError("An ongoing trip cannot be reassigned", 409);

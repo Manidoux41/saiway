@@ -6,6 +6,10 @@ test('customer registration, profile persistence, role isolation and login', asy
   try {
     const body = { name: 'Validation Customer', email: `${ctx.prefix}-customer@example.invalid`, password: ctx.password };
     assert.equal((await request('/api/account/profile')).status, 403);
+    for (const invalid of [{ name: '' }, { email: 'invalid' }, { password: 'short' }, { password: 'x'.repeat(129) }, { name: 123 }]) {
+      assert.equal((await request('/api/auth/register', 'POST', { ...body, ...invalid })).status, 400);
+    }
+    for (const role of ['ADMIN', 'DRIVER']) assert.equal((await request('/api/auth/register', 'POST', { ...body, role })).status, 403);
     const registered = await request('/api/auth/register', 'POST', body);
     assert.equal(registered.status, 201);
     assert.equal(registered.data.user.role, 'customer');
