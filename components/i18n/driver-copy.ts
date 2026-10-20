@@ -1,0 +1,31 @@
+const en = {
+  "driver.greeting": "Your driving day", "driver.planning": "Trip planning", "driver.map": "Trip map",
+  "driver.remaining": "Trips remaining today", "driver.completedToday": "Completed today", "driver.expectedFares": "Today's booking value", "driver.expectedNote": "Booking fares, not driver earnings or payments received.",
+  "driver.passengersToday": "Passengers to collect", "driver.real": "Assigned trips", "driver.demo": "Demo trips",
+  "driver.demoNotice": "DEMO · Fictional passengers and trips for your account. Changes stay in this page and never affect real bookings.",
+  "driver.resetDemo": "Reset examples", "driver.tomorrow": "All scheduled trips", "driver.history": "History", "driver.search": "Passenger, address, flight or reference",
+  "driver.selected": "Selected trip", "driver.next": "Next trip", "driver.navigate": "Open navigation", "driver.email": "Email passenger",
+  "driver.acceptTrip": "Accept trip", "driver.depart": "Leave for pickup", "driver.arrive": "Confirm arrival", "driver.start": "Start trip", "driver.finish": "Complete trip",
+  "driver.selectTrip": "Select a trip to see its route.", "driver.noTrips": "No trips in this view.", "driver.localTime": "Siem Reap time (UTC+7)",
+  "driver.routeLoading": "Finding the route…", "driver.routeError": "Address not located. Open navigation to confirm the pickup and destination.",
+  "driver.routeUnavailable": "Road route unavailable. Only the located pickup and destination are shown.", "driver.routeEstimate": "Estimated route · no live traffic", "driver.mapTilesError": "Map tiles unavailable. Check your connection.",
+  "driver.mapPrivacy": "Map: OpenStreetMap. Addresses are sent to Photon and OSRM to estimate the route. No live driver tracking.",
+  "driver.pickupPoint": "Pickup", "driver.dropoffPoint": "Drop-off", "driver.account": "Account security", "driver.refresh": "Refresh trips", "driver.updated": "Trip updated.",
+  "driver.tripFare": "Booking fare", "driver.minute": "min", "driver.kilometer": "km", "driver.overdue": "Pickup time passed", "driver.allStatuses": "All statuses", "driver.noShow": "No-show", "driver.refunded": "Refunded",
+};
+const fr: typeof en = {
+  "driver.greeting": "Votre journée au volant", "driver.planning": "Planning des courses", "driver.map": "Carte du trajet",
+  "driver.remaining": "Courses restantes aujourd’hui", "driver.completedToday": "Terminées aujourd’hui", "driver.expectedFares": "Valeur des courses du jour", "driver.expectedNote": "Tarifs des réservations, pas un revenu chauffeur ni des paiements reçus.",
+  "driver.passengersToday": "Passagers à prendre en charge", "driver.real": "Courses attribuées", "driver.demo": "Courses de démonstration",
+  "driver.demoNotice": "DÉMONSTRATION · Passagers et courses fictifs pour votre compte. Les modifications restent sur cette page et ne touchent jamais aux réservations réelles.",
+  "driver.resetDemo": "Réinitialiser les exemples", "driver.tomorrow": "Toutes les courses prévues", "driver.history": "Historique", "driver.search": "Passager, adresse, vol ou référence",
+  "driver.selected": "Course sélectionnée", "driver.next": "Prochaine course", "driver.navigate": "Ouvrir la navigation", "driver.email": "Écrire au passager",
+  "driver.acceptTrip": "Accepter la course", "driver.depart": "Partir vers le client", "driver.arrive": "Confirmer mon arrivée", "driver.start": "Démarrer la course", "driver.finish": "Terminer la course",
+  "driver.selectTrip": "Sélectionnez une course pour afficher son trajet.", "driver.noTrips": "Aucune course dans cette vue.", "driver.localTime": "Heure de Siem Reap (UTC+7)",
+  "driver.routeLoading": "Recherche de l’itinéraire…", "driver.routeError": "Adresse non localisée. Ouvrez la navigation pour vérifier le départ et la destination.",
+  "driver.routeUnavailable": "Itinéraire routier indisponible. Seuls le départ et la destination localisés sont affichés.", "driver.routeEstimate": "Trajet estimé · sans trafic en direct", "driver.mapTilesError": "Fond de carte indisponible. Vérifiez votre connexion.",
+  "driver.mapPrivacy": "Carte : OpenStreetMap. Les adresses sont envoyées à Photon et OSRM pour estimer le trajet. Pas de suivi du chauffeur en direct.",
+  "driver.pickupPoint": "Prise en charge", "driver.dropoffPoint": "Dépose", "driver.account": "Sécurité du compte", "driver.refresh": "Actualiser les courses", "driver.updated": "Course mise à jour.",
+  "driver.tripFare": "Tarif de la réservation", "driver.minute": "min", "driver.kilometer": "km", "driver.overdue": "Heure de prise en charge dépassée", "driver.allStatuses": "Tous les statuts", "driver.noShow": "Absent", "driver.refunded": "Remboursée",
+};
+export const driverCopy = { en, fr };

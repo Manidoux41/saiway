@@ -6,6 +6,7 @@ import { useLanguage, type Language } from "@/components/i18n/language-provider"
 import { useAuth } from "@/components/auth/auth-provider";
 import { roleHome } from "@/lib/roles";
 import { useState } from "react";
+import { LayoutDashboard, LogOut } from "lucide-react";
 
 const languageOptions: { code: Language; flag: string; label: string }[] = [
   { code: "en", flag: "🇬🇧", label: "English" },
@@ -25,7 +26,7 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-20 border-b-2 border-[var(--color-accent)] bg-white/95 backdrop-blur-sm">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+      <div className={`mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8 ${user?.role === "driver" ? "flex-wrap gap-x-2 gap-y-3" : ""}`}>
         <Link href={user ? roleHome(user.role) : "/"} aria-label="SAIWAY home" className="flex items-center">
           <Logo compact />
         </Link>
@@ -55,8 +56,8 @@ export function Header() {
           {customerNavigation && <Link href="/booking" className="inline-flex items-center justify-center rounded-full bg-[var(--color-primary)] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--color-primary-dark)]">
             {t("nav.bookNow")}
           </Link>}
-          <Link href={user ? roleHome(user.role) : "/auth"} className="text-sm font-semibold text-slate-600 transition hover:text-[var(--color-primary)]">{t(user?.role === "admin" ? "nav.adminDashboard" : user?.role === "driver" ? "nav.driverDashboard" : "nav.account")}</Link>
-          {user && <button type="button" onClick={logout} className="text-sm font-semibold text-slate-600">{t("nav.signOut")}</button>}
+          <Link href={user ? roleHome(user.role) : "/auth"} aria-label={t(user?.role === "admin" ? "nav.adminDashboard" : user?.role === "driver" ? "nav.driverDashboard" : "nav.account")} title={t(user?.role === "admin" ? "nav.adminDashboard" : user?.role === "driver" ? "nav.driverDashboard" : "nav.account")} className="text-sm font-semibold text-slate-600 transition hover:text-[var(--color-primary)]">{user?.role === "driver" && <LayoutDashboard size={20} className="sm:hidden" aria-hidden="true" />}<span className={user?.role === "driver" ? "hidden sm:inline" : ""}>{t(user?.role === "admin" ? "nav.adminDashboard" : user?.role === "driver" ? "nav.driverDashboard" : "nav.account")}</span></Link>
+          {user && <button type="button" onClick={logout} aria-label={t("nav.signOut")} title={t("nav.signOut")} className="text-sm font-semibold text-slate-600">{user.role === "driver" && <LogOut size={20} className="sm:hidden" aria-hidden="true" />}<span className={user.role === "driver" ? "hidden sm:inline" : ""}>{t("nav.signOut")}</span></button>}
           {error && <p role="alert" className="text-sm text-[var(--color-error)]">{t("nav.signOutError")}</p>}
           <Link href="/install" aria-label="Install SAIWAY" title="Install SAIWAY" className="hidden text-sm font-semibold text-[var(--color-accent)] transition hover:text-[var(--color-primary)] lg:inline">Install app</Link>
         </div>

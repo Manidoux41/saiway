@@ -6,7 +6,7 @@ import type { UserRole } from "@/lib/roles";
 import type { ManagementData } from "@/lib/admin-client";
 import { useLanguage } from "@/components/i18n/language-provider";
 
-const courseSchema = z.object({
+export const courseSchema = z.object({
   id: z.string(), reference: z.string(), fromAddress: z.string(), toAddress: z.string(),
   pickupAt: z.string(), passengers: z.number(), luggageCount: z.number(),
   direction: z.string(), tripType: z.string(), priceCents: z.number(), status: z.string(),

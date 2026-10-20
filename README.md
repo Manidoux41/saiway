@@ -68,6 +68,30 @@ Drivers advance only their own trips through:
 Invalid/skipped transitions, foreign bookings and concurrent stale updates are rejected.
 Trip changes retain status history and audit records. Assignment does not confirm payment.
 
+### Driver dashboard and trip maps
+
+`/driver` includes daily trip/passenger totals, booking values by currency, a
+searchable schedule, status filters, history, passenger and vehicle details,
+and the authorized trip-stage controls. Dates use `Asia/Phnom_Penh` (UTC+7).
+Booking values are not driver earnings or confirmation of payment.
+
+The **Demo trips** view provides five fictional trips for the signed-in driver,
+including four scheduled transfers and one completed transfer. It opens by
+default only after a successful empty booking response. Demo updates are local
+to the page, reset on reload, and never create bookings or call the update API.
+The **Assigned trips** view always uses the existing authenticated driver API.
+
+Leaflet displays OpenStreetMap tiles, Photon locates real addresses in the
+Siem Reap region, and OSRM estimates road routes. External services receive
+addresses/coordinates, not passenger names or account details. Routing failures
+show only located endpoints, not a fabricated road route. Navigation can also
+be opened in Google Maps. These public services require a network connection,
+have no availability guarantee, and should be replaced with contracted or
+self-hosted services for production volume. This is not live GPS or traffic.
+
+Run the isolated dashboard checks with Node.js 22.18+ using
+`node --test tests/driver-dashboard.test.mjs` (no database required).
+
 Accounts, vehicles, fares and contracts are deactivated rather than deleted.
 Trips are cancelled, not removed. Financial history cannot be deleted through the
 management API. Use **Edit records and settings** to edit existing records or
