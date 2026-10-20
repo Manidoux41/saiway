@@ -33,11 +33,25 @@ test('customer reservation, administrator dispatch and driver progression persis
     assert.ok((await request('/api/bookings', 'GET', undefined, customer.cookie)).data.bookings.some((item) => item.id === id));
     assert.ok(!(await request('/api/bookings', 'GET', undefined, otherCustomer.cookie)).data.bookings.some((item) => item.id === id));
     assert.equal((await request('/api/bookings', 'DELETE', { id, status: 'CANCELLED' }, otherCustomer.cookie)).status, 404);
+    assert.equal((await request('/api/admin/bookings', 'PATCH', { id, status: 'TRIP_COMPLETED' }, ctx.cookie)).status, 400);
+    assert.equal((await request('/api/admin/bookings', 'PATCH', { id, status: 'CONFIRMED', priceCents: 1 }, ctx.cookie)).status, 400);
+    assert.equal((await request('/api/admin/bookings', 'PATCH', { id, status: 'CONFIRMED' }, driver.cookie)).status, 403);
+    const confirmed = await request('/api/admin/bookings', 'PATCH', { id, status: 'CONFIRMED' }, ctx.cookie);
+    assert.equal(confirmed.status, 200);
+    assert.equal(confirmed.data.booking.status, 'CONFIRMED');
+    assert.equal((await request('/api/admin/bookings', 'PATCH', { id, status: 'CONFIRMED' }, ctx.cookie)).status, 409);
+    assert.equal((await ctx.prisma.booking.findUnique({ where: { id } })).status, 'CONFIRMED');
+    assert.equal(await ctx.prisma.payment.count({ where: { bookingId: id } }), 0);
+    assert.ok(await ctx.prisma.auditLog.findFirst({ where: { entityId: id, action: 'CONFIRM' } }));
     assert.equal((await request('/api/admin/bookings', 'PATCH', { id, driverId, vehicleId, passengers: 5 }, ctx.cookie)).status, 400);
     await ctx.prisma.user.update({ where: { id: otherDriver.id }, data: { status: 'SUSPENDED' } });
     assert.equal((await request('/api/admin/bookings', 'PATCH', { id, driverId: otherDriverId }, ctx.cookie)).status, 400);
     assert.equal((await request('/api/admin/bookings', 'PATCH', { id, driverId, vehicleId, priceCents: 4200 }, ctx.cookie)).status, 200);
     assert.ok((await request('/api/driver/bookings', 'GET', undefined, driver.cookie)).data.bookings.some((item) => item.id === id));
+    const adminView = (await request('/api/admin/bookings', 'GET', undefined, ctx.cookie)).data.bookings.find((item) => item.id === id);
+    const driverView = (await request('/api/driver/bookings', 'GET', undefined, driver.cookie)).data.bookings.find((item) => item.id === id);
+    assert.deepEqual(driverView, adminView);
+    assert.equal((await request('/api/admin/bookings', 'PATCH', { id, status: 'CONFIRMED' }, ctx.cookie)).status, 409);
     await ctx.prisma.user.update({ where: { id: otherDriver.id }, data: { status: 'ACTIVE' } });
     assert.ok(!(await request('/api/driver/bookings', 'GET', undefined, otherDriver.cookie)).data.bookings.some((item) => item.id === id));
     assert.equal((await request('/api/driver/bookings', 'PATCH', { id, status: 'DRIVER_ACCEPTED' }, otherDriver.cookie)).status, 404);
@@ -50,6 +64,9 @@ test('customer reservation, administrator dispatch and driver progression persis
     assert.equal(edited.status, 200);
     assert.equal(edited.data.booking.status, 'DRIVER_ACCEPTED');
     assert.equal(edited.data.booking.pickupNotes, 'Keep this note');
+    const updatedDriverView = (await request('/api/driver/bookings', 'GET', undefined, driver.cookie)).data.bookings.find((item) => item.id === id);
+    assert.equal(updatedDriverView.toAddress, 'Updated hotel');
+    assert.equal(updatedDriverView.status, 'DRIVER_ACCEPTED');
     assert.equal((await request('/api/bookings', 'DELETE', { id, status: 'CANCELLED' }, customer.cookie)).status, 409);
     for (const status of ['DRIVER_EN_ROUTE', 'DRIVER_ARRIVED', 'TRIP_STARTED', 'TRIP_COMPLETED']) {
       if (status === 'TRIP_STARTED') {
@@ -63,7 +80,7 @@ test('customer reservation, administrator dispatch and driver progression persis
     const stored = await ctx.prisma.booking.findUnique({ where: { id }, include: { statusHistory: true, payments: true } });
     assert.equal(stored.status, 'TRIP_COMPLETED'); assert.equal(stored.priceCents, 4300);
     assert.equal(stored.payments.length, 0);
-    assert.deepEqual(stored.statusHistory.map((entry) => entry.status).filter((status, index, all) => index === 0 || status !== all[index - 1]), ['PENDING_PAYMENT', 'DRIVER_ASSIGNED', 'DRIVER_ACCEPTED', 'DRIVER_EN_ROUTE', 'DRIVER_ARRIVED', 'TRIP_STARTED', 'TRIP_COMPLETED']);
+    assert.deepEqual(stored.statusHistory.map((entry) => entry.status).filter((status, index, all) => index === 0 || status !== all[index - 1]), ['PENDING_PAYMENT', 'CONFIRMED', 'DRIVER_ASSIGNED', 'DRIVER_ACCEPTED', 'DRIVER_EN_ROUTE', 'DRIVER_ARRIVED', 'TRIP_STARTED', 'TRIP_COMPLETED']);
     assert.equal((await request('/api/admin/bookings', 'DELETE', { id, status: 'CANCELLED' }, ctx.cookie)).status, 409);
     const adminCreated = await request('/api/admin/bookings', 'POST', { ...body, customerId: customer.id, driverId, vehicleId, priceCents: 5000 }, ctx.cookie);
     assert.equal(adminCreated.status, 201); assert.equal(adminCreated.data.booking.status, 'DRIVER_ASSIGNED');

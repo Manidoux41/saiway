@@ -19,6 +19,8 @@ const details = z.object({
 });
 const adminCreate = details.extend({ customerId: text, driverId: nullableId, vehicleId: nullableId, priceCents: z.number().int().nonnegative().max(100000000) });
 const adminEdit = details.partial().extend({ id: text, pickupAt: z.iso.datetime({ offset: true }).optional(), driverId: nullableId, vehicleId: nullableId, priceCents: z.number().int().nonnegative().max(100000000).optional() });
+const adminConfirm = z.object({ id: text, status: z.literal("CONFIRMED") }).strict();
+const adminPatch = z.union([adminEdit.strict(), adminConfirm]);
 const command = z.object({ id: text, status: z.enum(BookingStatus) }).strict();
 const terminal: BookingStatus[] = ["CANCELLED", "TRIP_COMPLETED", "NO_SHOW", "REFUNDED"];
 const driverTransitions: Partial<Record<BookingStatus, BookingStatus>> = {
@@ -100,14 +102,19 @@ export async function bookingRequest(request: Request, role: SessionRole) {
       return Response.json({ booking }, { status: 201 });
     }
     const booking = await prisma.$transaction(async (tx) => {
-      const parsed = request.method === "PATCH" && role === "ADMIN" ? adminEdit.strict().safeParse(body) : command.safeParse(body);
+      const parsed = request.method === "PATCH" && role === "ADMIN" ? adminPatch.safeParse(body) : command.safeParse(body);
       if (!parsed.success) throw new BookingError("Invalid booking update");
       const existing = await tx.booking.findFirst({ where: { ...scope, id: parsed.data.id } });
       if (!existing) throw new BookingError("Booking not found", 404);
       if (terminal.includes(existing.status)) throw new BookingError("A closed booking cannot be modified", 409);
       let update: Prisma.BookingUpdateInput;
       let status = existing.status;
-      if (role === "ADMIN" && request.method === "PATCH") {
+      if (role === "ADMIN" && request.method === "PATCH" && "status" in parsed.data) {
+        if (existing.status !== "PENDING_PAYMENT" || existing.driverId) throw new BookingError("Only an unassigned pending booking can be confirmed", 409);
+        if (existing.pickupAt.getTime() <= Date.now()) throw new BookingError("Pickup must be in the future");
+        status = "CONFIRMED";
+        update = {};
+      } else if (role === "ADMIN" && request.method === "PATCH") {
         const { id: ignoredId, pickupAt, ...changes } = adminEdit.parse(body);
         void ignoredId;
         const driverId = changes.driverId === undefined ? existing.driverId : changes.driverId;
@@ -128,8 +135,9 @@ export async function bookingRequest(request: Request, role: SessionRole) {
         status = next;
         update = {};
       }
-      const result = await tx.booking.update({ where: { id: existing.id, updatedAt: existing.updatedAt }, data: { ...update, status, statusHistory: { create: { status, note: `${role} update` } } }, include });
-      await tx.auditLog.create({ data: { actorId: account.id, entity: "Booking", entityId: existing.id, action: request.method === "DELETE" ? "CANCEL" : "UPDATE" } });
+      const confirming = role === "ADMIN" && request.method === "PATCH" && "status" in parsed.data;
+      const result = await tx.booking.update({ where: { id: existing.id, updatedAt: existing.updatedAt }, data: { ...update, status, statusHistory: { create: { status, note: confirming ? "ADMIN operational confirmation; payment tracked separately" : `${role} update` } } }, include });
+      await tx.auditLog.create({ data: { actorId: account.id, entity: "Booking", entityId: existing.id, action: confirming ? "CONFIRM" : request.method === "DELETE" ? "CANCEL" : "UPDATE" } });
       return result;
     });
     return Response.json({ booking });

@@ -68,6 +68,27 @@ Drivers advance only their own trips through:
 Invalid/skipped transitions, foreign bookings and concurrent stale updates are rejected.
 Trip changes retain status history and audit records. Assignment does not confirm payment.
 
+### Administrator dispatch and shared data
+
+`/admin` opens on the operational dispatch view, with database-backed counters,
+search, pickup-date and driver filters, trip maps, and driver workloads. Accounts,
+fleet/financial management and password security have separate sections.
+
+Administrators can create and edit trips, validate an unassigned future pending
+trip using `PATCH /api/admin/bookings` with `{ id, status: "CONFIRMED" }`, assign
+an active/available driver and a suitable active vehicle, or cancel an open trip.
+Validation is operational only: it does not create or mark a payment as paid.
+Confirming an already validated, assigned, ongoing or closed trip is rejected.
+Confirmation, assignment and driver progress retain database history and audits.
+
+Admin and driver views read the same PostgreSQL bookings through role-scoped APIs.
+Both refresh every 15 seconds while the document is visible, and on focus/return.
+Polling pauses during mutations; failures are shown without replacing data with
+invented records. Driver updates appear in admin, and admin assignments appear
+in the assigned driver's schedule. Demo driver trips remain page-local and never
+contribute to admin counts. New/edit pickup inputs explicitly use Cambodia time,
+independently of the administrator's browser timezone.
+
 ### Driver dashboard and trip maps
 
 `/driver` includes daily trip/passenger totals, booking values by currency, a

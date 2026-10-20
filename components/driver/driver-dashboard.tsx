@@ -7,12 +7,12 @@ import { ArrowDown, ArrowRight, BriefcaseBusiness, CalendarDays, Check, CheckChe
 import { useAuth } from "@/components/auth/auth-provider";
 import { ChangePasswordForm } from "@/components/auth/change-password-form";
 import { courseSchema, type Course } from "@/components/booking/course-dashboard";
+import { useBookings } from "@/components/booking/use-bookings";
 import { useLanguage } from "@/components/i18n/language-provider";
 import { closedDriverStatuses, createDemoCourses, driverNextStatus, driverSummary, driverTimeZone, filterDriverCourses, navigationUrl, type DriverTab } from "@/lib/driver-dashboard";
 import styles from "./driver-dashboard.module.css";
 
 const TripMap = dynamic(() => import("./trip-map"), { ssr: false, loading: () => <div className="h-[370px] animate-pulse bg-slate-100" /> });
-const bookingsSchema = z.object({ bookings: z.array(courseSchema) });
 const transitionKeys = {
   DRIVER_ASSIGNED: "driver.acceptTrip", DRIVER_ACCEPTED: "driver.depart", DRIVER_EN_ROUTE: "driver.arrive", DRIVER_ARRIVED: "driver.start", TRIP_STARTED: "driver.finish",
 } as const;
@@ -24,15 +24,11 @@ const steps = ["DRIVER_ASSIGNED", "DRIVER_ACCEPTED", "DRIVER_EN_ROUTE", "DRIVER_
 export function DriverDashboard() {
   const { user } = useAuth();
   const { t, language } = useLanguage();
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [demoCourses, setDemoCourses] = useState<Course[]>([]);
+  const [demoCourses, setDemoCourses] = useState<Course[]>(() => user ? createDemoCourses(user) : []);
   const [mode, setMode] = useState<"auto" | "real" | "demo">("auto");
-  const [loaded, setLoaded] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [pending, setPending] = useState(false);
-  const [revision, setRevision] = useState(0);
+  const { courses, setCourses, loaded, loading, error, setError, refresh } = useBookings("/api/driver/bookings", pending);
   const [tab, setTab] = useState<DriverTab>("today");
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("");
@@ -43,28 +39,6 @@ export function DriverDashboard() {
     const timer = window.setInterval(() => setNow(new Date()), 30_000);
     return () => window.clearInterval(timer);
   }, []);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    async function load() {
-      try {
-        const response = await fetch("/api/driver/bookings", { cache: "no-store", signal: controller.signal });
-        if (!response.ok) throw new Error("Load failed");
-        const result = bookingsSchema.parse(await response.json());
-        if (controller.signal.aborted) return;
-        setCourses(result.bookings);
-        setLoaded(true);
-        setError("");
-        if (user) setDemoCourses((current) => current.length ? current : createDemoCourses(user));
-      } catch {
-        if (!controller.signal.aborted) setError(t("courses.loadError"));
-      } finally {
-        if (!controller.signal.aborted) setLoading(false);
-      }
-    }
-    void load();
-    return () => controller.abort();
-  }, [revision, t, user]);
 
   const demo = mode === "demo" || mode === "auto" && loaded && courses.length === 0;
   const source = demo ? demoCourses : courses;
@@ -77,7 +51,6 @@ export function DriverDashboard() {
   const money = (cents: number, currency: string) => new Intl.NumberFormat(language, { style: "currency", currency }).format(cents / 100);
   const label = (value: string) => t(statusKeys[value as keyof typeof statusKeys] ?? "courses.pending");
 
-  function refresh() { setLoading(true); setRevision((current) => current + 1); }
   function switchMode(value: "real" | "demo") {
     if (pending) return;
     setMode(value); setSelectedId(null); setStatus(""); setQuery(""); setMessage("");
@@ -165,7 +138,7 @@ export function DriverDashboard() {
       <section className={styles.detail} aria-label={t("driver.selected")}>
         {selected ? <>
           <div className={styles.sectionTitle}><h2>{t("driver.map")}</h2><a href={navigationUrl(selected)} target="_blank" rel="noopener noreferrer" className={styles.navigationLink}><Navigation size={16} />{t("driver.navigate")}<ExternalLink size={13} /></a></div>
-          <div className={styles.mapFrame}><TripMap key={`${selected.id}-${revision}-${language}`} course={selected} demo={demo} /></div>
+          <div className={styles.mapFrame}><TripMap key={`${selected.id}-${selected.fromAddress}-${selected.toAddress}-${language}`} course={selected} demo={demo} /></div>
           <p className={styles.mapNote}>{t("driver.mapPrivacy")}</p>
           <div className={styles.detailHeading}><div><p className={styles.eyebrow}>{selected.reference}</p><h3>{selected.customer.name}</h3></div><span className={styles.badge} data-status={selected.status}>{label(selected.status)}</span></div>
           <div className={styles.routeDetail}><div><MapPin size={18} className="text-[var(--color-primary)]" /><span><small>{t("driver.pickupPoint")}</small>{selected.fromAddress}</span></div><ArrowDown size={16} className="ml-px text-slate-400" /><div><MapPin size={18} className="text-[var(--color-accent)]" /><span><small>{t("driver.dropoffPoint")}</small>{selected.toAddress}</span></div></div>
