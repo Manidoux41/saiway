@@ -65,6 +65,17 @@
 .payment { border-top: 1px solid #dce3ed; margin-top: 24px; padding-top: 20px; display: grid; gap: 12px; }
 .payment > svg { color: var(--color-primary); }
 .payment p { font-size: 12px; line-height: 1.7; color: #64748b; }
+.qrHeading { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 750; }
+.qrHeading svg { flex-shrink: 0; color: var(--color-primary); }
+.qrDetails { display: grid; gap: 14px; margin: 4px 0; }
+.qrDetails dt { font-size: 11px; color: #64748b; }
+.qrDetails dd { font-size: 16px; font-weight: 750; margin-top: 5px; }
+.qrReference { display: flex; align-items: center; gap: 10px; }
+.qrReference > span { font-size: 12px; overflow-wrap: anywhere; min-width: 0; flex: 1; }
+.qrReference button { flex-shrink: 0; }
+.abaQrImage { display: block; width: 100%; max-width: 420px; height: auto; margin: 0 auto; }
+.qrActions { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
+.payment .qrNotice { border-left: 3px solid #d0a32b; background: #fff7df; padding: 12px; color: #775b19; }
 .cancelButton { color: #a43d32; font-size: 11px; text-decoration: underline; margin-top: 20px; }
 .error, .success { padding: 12px 14px; font-size: 12px; line-height: 1.7; margin: 16px 0; }
 .error { background: #fff0ed; color: #a33226; }

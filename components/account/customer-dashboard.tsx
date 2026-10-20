@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { z } from "zod";
-import { ArrowRight, CalendarDays, CheckCheck, Clock3, CreditCard, Headphones, MapPin, Plus, RefreshCw, Save, Search, UserRound, Users } from "lucide-react";
+import { ArrowRight, CalendarDays, CheckCheck, Clock3, Copy, CreditCard, Download, ExternalLink, Headphones, MapPin, Plus, QrCode, RefreshCw, Save, Search, UserRound, Users } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { useLanguage } from "@/components/i18n/language-provider";
 import { useBookings } from "@/components/booking/use-bookings";
@@ -63,6 +64,7 @@ export function CustomerDashboard() {
   const [selectedId, setSelectedId] = useState<string | null>(() => typeof window === "undefined" ? null : new URL(window.location.href).searchParams.get("booking"));
   const [message, setMessage] = useState("");
   const [actionError, setActionError] = useState("");
+  const [copiedReference, setCopiedReference] = useState("");
   const [now, setNow] = useState(() => new Date());
   const checkedReturn = useRef(false);
   const paid = (course: Course) => Boolean(course.payments?.some((item) => item.status === "PAID"));
@@ -128,6 +130,14 @@ export function CustomerDashboard() {
     } catch { setActionError(t("courses.saveError")); } finally { lock.current = false; setPending(false); }
   }
 
+  async function copyReference(reference: string) {
+    try {
+      if (!navigator.clipboard) throw new Error("Clipboard unavailable");
+      await navigator.clipboard.writeText(reference);
+      setCopiedReference(reference);
+    } catch { setActionError(t("customer.copyError")); }
+  }
+
   return <div className={styles.dashboard}>
     <header className={styles.heading}><div><p className={styles.eyebrow}>SAIWAY / {user?.name}</p><h1>{t("customer.title")}</h1><p>{t("customer.greeting")}</p></div><Link className={styles.primaryButton} href="/booking"><Plus size={18} />{t("customer.book")}</Link></header>
     <nav className={styles.navigation} aria-label={t("nav.account")}><button type="button" aria-pressed={section === "trips"} onClick={() => setSection("trips")}><CalendarDays size={17} />{t("customer.trips")}</button><button type="button" aria-pressed={section === "profile"} onClick={() => setSection("profile")}><UserRound size={17} />{t("customer.profile")}</button><Link href="/help"><Headphones size={17} />{t("nav.help")}</Link></nav>
@@ -148,7 +158,19 @@ export function CustomerDashboard() {
           <dl className={styles.facts}><div><dt>{t("courses.pickup")}</dt><dd>{date(selected.pickupAt)}</dd></div><div><dt>{t("dispatch.price")}</dt><dd>{money(selected)}</dd></div><div><dt>{t("booking.passengers")}</dt><dd>{selected.passengers} · {selected.luggageCount} {t("booking.luggage")}</dd></div><div><dt>{t("booking.flightNumber")}</dt><dd>{selected.flightNumber ?? "—"}</dd></div><div><dt>{t("customer.paymentLabel")}</dt><dd>{t(paid(selected) ? "customer.confirmed" : selected.payments?.some((item) => item.status === "PROCESSING") ? "customer.paymentInProgress" : "customer.noPayment")}</dd></div><div><dt>{t("admin.driver")}</dt><dd>{selected.driver?.user.name ?? t("courses.unassigned")}</dd></div></dl>
           {selected.vehicle ? <p className={styles.vehicle}>{selected.vehicle.name} · {selected.vehicle.plate} · {selected.vehicle.seats} {t("records.seats")}</p> : <p className={styles.muted}>{t("customer.vehiclePending")}</p>}
           {selected.pickupNotes && <div className={styles.notes}><h3>{t("booking.notes")}</h3><p>{selected.pickupNotes}</p></div>}{selected.specialNeeds && <div className={styles.notes}><h3>{t("booking.specialNeeds")}</h3><p>{selected.specialNeeds}</p></div>}
-          {!paid(selected) && !closed(selected) && <div className={styles.payment}><CreditCard size={21} /><p>{t(new Date(selected.pickupAt) > now ? "customer.paymentNotice" : "customer.expired")}</p><button type="button" className={styles.primaryButton} disabled={pending || loading || new Date(selected.pickupAt) <= now} onClick={() => void payment(selected, "checkout")}><CreditCard size={17} />{t(pending ? "customer.preparing" : "customer.pay")}</button>{selected.payments?.some((item) => item.status === "PROCESSING") && <button type="button" className={styles.secondaryButton} disabled={pending || loading} onClick={() => void payment(selected, "verify")}><RefreshCw size={16} />{t("customer.verify")}</button>}</div>}
+          {!paid(selected) && !closed(selected) && <div className={styles.payment}>
+            {new Date(selected.pickupAt) > now && selected.currency === "USD" && <>
+              <h3 className={styles.qrHeading}><QrCode size={20} />{t("customer.abaQrTitle")}</h3>
+              <dl className={styles.qrDetails}><div><dt>{t("customer.abaAmount")}</dt><dd>{new Intl.NumberFormat(language, { style: "currency", currency: "USD", currencyDisplay: "code" }).format(selected.priceCents / 100)}</dd></div><div><dt>{t("customer.abaReference")}</dt><dd className={styles.qrReference}><span>{selected.reference}</span><button type="button" className={styles.iconButton} title={t("customer.copyReference")} aria-label={t("customer.copyReference")} onClick={() => void copyReference(selected.reference)}><Copy size={16} /></button></dd></div></dl>
+              {copiedReference === selected.reference && <p role="status">{t("customer.referenceCopied")}</p>}
+              <Image src="/aba_mobile_1792486034405.png" alt={t("customer.abaQrAlt")} width={1010} height={1426} unoptimized className={styles.abaQrImage} />
+              <div className={styles.qrActions}><a href="/aba_mobile_1792486034405.png" download="saiway-aba-qr.png" className={styles.secondaryButton}><Download size={17} />{t("customer.downloadQr")}</a><a href="/aba_mobile_1792486034405.png" target="_blank" rel="noopener noreferrer" className={styles.iconButton} title={t("customer.openQr")} aria-label={t("customer.openQr")}><ExternalLink size={17} /></a></div>
+              <p className={styles.qrNotice}>{t("customer.abaQrNotice")}</p>
+            </>}
+            <CreditCard size={21} /><p>{t(new Date(selected.pickupAt) > now ? "customer.paymentNotice" : "customer.expired")}</p>
+            <button type="button" className={styles.secondaryButton} disabled={pending || loading || new Date(selected.pickupAt) <= now} onClick={() => void payment(selected, "checkout")}><CreditCard size={17} />{t(pending ? "customer.preparing" : "customer.abaAutomatic")}</button>
+            {selected.payments?.some((item) => item.status === "PROCESSING") && <button type="button" className={styles.secondaryButton} disabled={pending || loading} onClick={() => void payment(selected, "verify")}><RefreshCw size={16} />{t("customer.verify")}</button>}
+          </div>}
           {paid(selected) && !closed(selected) && <p className={styles.success}><CheckCheck size={18} />{t("customer.paid")}</p>}
           {!closed(selected) && ["PENDING_PAYMENT", "CONFIRMED", "DRIVER_ASSIGNMENT_PENDING", "DRIVER_ASSIGNED"].includes(selected.status) && <button type="button" className={styles.cancelButton} disabled={pending || loading} onClick={() => void cancel(selected)}>{t("courses.cancel")}</button>}
         </> : <div className={styles.empty}><MapPin size={30} /><p>{t("customer.empty")}</p></div>}</section>

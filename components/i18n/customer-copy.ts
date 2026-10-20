@@ -1,4 +1,8 @@
 const en = {
+  "customer.abaQrTitle": "ABA QR transfer", "customer.abaQrAlt": "ABA KHQR payment code for MANFRED,FLAVIEN,JOSEPH P., showing KHR and USD accounts.",
+  "customer.abaAmount": "Amount to send", "customer.abaReference": "Booking reference", "customer.copyReference": "Copy booking reference", "customer.referenceCopied": "Booking reference copied.", "customer.copyError": "Unable to copy. Use the booking reference displayed above.",
+  "customer.downloadQr": "Download ABA QR", "customer.openQr": "Open original QR", "customer.abaAutomatic": "Automatic payment via PayWay",
+  "customer.abaQrNotice": "Check the beneficiary in your banking app before paying. Send the amount in USD and include the booking reference if supported. Keep your receipt. This static QR does not confirm payment automatically: SAIWAY will keep the trip unpaid until the payment is verified.",
   "customer.title": "My journeys", "customer.greeting": "Your next journey starts here", "customer.book": "Request a transfer", "customer.trips": "My trips", "customer.profile": "My profile",
   "customer.waitingPayment": "Awaiting payment", "customer.confirmed": "Payment confirmed", "customer.upcoming": "Upcoming", "customer.history": "History", "customer.all": "All trips", "customer.empty": "You have no trips in this view.",
   "customer.pay": "Pay with ABA / KHQR", "customer.verify": "Check payment", "customer.preparing": "Preparing checkout…", "customer.paymentUnavailable": "ABA PayWay is not configured yet. Your request is saved; no payment has been collected.",
@@ -10,6 +14,10 @@ const en = {
   "customer.emailExists": "An account already exists for this email. Sign in instead.", "customer.invalidRegistration": "Enter a valid name, email and password of 8 to 128 characters.", "customer.registerTitle": "Your SAIWAY account", "customer.paymentLabel": "Payment", "customer.noPayment": "Not paid", "customer.paymentInProgress": "Payment in progress", "customer.profileLoad": "Loading your profile…",
 };
 const fr: typeof en = {
+  "customer.abaQrTitle": "Virement par QR ABA", "customer.abaQrAlt": "QR de paiement ABA KHQR pour MANFRED,FLAVIEN,JOSEPH P., avec comptes KHR et USD.",
+  "customer.abaAmount": "Montant à envoyer", "customer.abaReference": "Référence de la course", "customer.copyReference": "Copier la référence", "customer.referenceCopied": "Référence copiée.", "customer.copyError": "Copie impossible. Utilisez la référence de course affichée ci-dessus.",
+  "customer.downloadQr": "Télécharger le QR ABA", "customer.openQr": "Ouvrir le QR original", "customer.abaAutomatic": "Paiement automatique via PayWay",
+  "customer.abaQrNotice": "Vérifiez le bénéficiaire dans votre application bancaire avant de payer. Envoyez le montant en USD et indiquez la référence de course si possible. Conservez le reçu. Ce QR statique ne confirme pas automatiquement le paiement : la course reste impayée dans SAIWAY jusqu’à vérification du virement.",
   "customer.title": "Mes voyages", "customer.greeting": "Votre prochain trajet commence ici", "customer.book": "Demander un transfert", "customer.trips": "Mes courses", "customer.profile": "Mon profil",
   "customer.waitingPayment": "À payer", "customer.confirmed": "Paiement confirmé", "customer.upcoming": "À venir", "customer.history": "Historique", "customer.all": "Toutes mes courses", "customer.empty": "Aucune course dans cette vue.",
   "customer.pay": "Payer avec ABA / KHQR", "customer.verify": "Vérifier le paiement", "customer.preparing": "Préparation du paiement…", "customer.paymentUnavailable": "ABA PayWay n’est pas encore configuré. Votre demande est enregistrée ; aucun paiement n’a été encaissé.",

@@ -139,6 +139,15 @@ Official integration references: [Checkout](https://developer.payway.com.kh/fold
 [Check Transaction](https://developer.payway.com.kh/check-transaction-14530826e0.md).
 Run the isolated signing/amount checks with `node --test tests/payway.test.mjs`.
 
+The supplied static ABA QR image is displayed unchanged on future unpaid USD
+bookings, with the exact fare, a copyable booking reference, original-image link
+and download. Customers can scan it or import the downloaded image into their
+banking app. This is a direct bank transfer, not a PayWay transaction: displaying,
+downloading or scanning it never marks a booking PAID or releases it to dispatch.
+The static transfer needs independent bank verification; no manual confirmation
+workflow is implemented by this image integration. Keep the receipt. PayWay
+checkout remains a separate option requiring merchant configuration.
+
 ### Driver dashboard and trip maps
 
 `/driver` includes daily trip/passenger totals, booking values by currency, a
