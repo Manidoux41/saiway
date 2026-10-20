@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { z } from "zod";
 import { ArrowDown, ArrowRight, BriefcaseBusiness, CalendarDays, Check, CheckCheck, ChevronRight, Clock3, ExternalLink, FlaskConical, Mail, MapPin, Navigation, Plane, RefreshCw, Search, ShieldCheck, Users, Wallet } from "lucide-react";
@@ -28,6 +28,7 @@ export function DriverDashboard() {
   const [mode, setMode] = useState<"auto" | "real" | "demo">("auto");
   const [message, setMessage] = useState("");
   const [pending, setPending] = useState(false);
+  const collectionLock = useRef(false);
   const { courses, setCourses, loaded, loading, error, setError, refresh } = useBookings("/api/driver/bookings", pending);
   const [tab, setTab] = useState<DriverTab>("today");
   const [query, setQuery] = useState("");
@@ -75,8 +76,23 @@ export function DriverDashboard() {
       const result = z.object({ booking: courseSchema }).parse(await response.json());
       setCourses((current) => current.map((item) => item.id === result.booking.id ? result.booking : item));
       setMessage(t("driver.updated"));
+      if (nextStatus === "TRIP_COMPLETED") { setTab("history"); setSelectedId(course.id); setStatus(""); setQuery(""); }
     } catch { setError(t("courses.saveError")); }
     finally { setPending(false); }
+  }
+
+  async function collectPayment(course: Course) {
+    if (demo || course.id.startsWith("demo-") || collectionLock.current || pending || loading || course.status !== "TRIP_COMPLETED" || course.paymentMethod !== "DRIVER" || course.payments?.some((item) => item.status === "PAID")) return;
+    if (!window.confirm(`${t("payment.confirmReceipt")}\n${money(course.priceCents, course.currency)} · ${course.reference}`)) return;
+    collectionLock.current = true; setPending(true); setError(""); setMessage("");
+    try {
+      const response = await fetch("/api/driver/payments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ bookingId: course.id, received: true }) });
+      if (!response.ok) throw new Error("Receipt confirmation failed");
+      const result = z.object({ booking: courseSchema }).parse(await response.json());
+      setCourses((current) => current.map((item) => item.id === result.booking.id ? result.booking : item));
+      setMessage(t("payment.receiptSaved"));
+    } catch { setError(t("payment.receiptError")); }
+    finally { collectionLock.current = false; setPending(false); }
   }
 
   return <div className={styles.dashboard}>
@@ -152,6 +168,12 @@ export function DriverDashboard() {
           {selected.pickupNotes && <div className={styles.notes}><h4>{t("booking.notes")}</h4><p>{selected.pickupNotes}</p></div>}
           {selected.specialNeeds && <div className={styles.specialNeeds}><h4>{t("booking.specialNeeds")}</h4><p>{selected.specialNeeds}</p></div>}
           {steps.includes(selected.status as typeof steps[number]) && <ol className={styles.progress} aria-label={t("records.status")}>{steps.map((step, index) => <li key={step} data-done={index <= steps.indexOf(selected.status as typeof steps[number])} aria-current={step === selected.status ? "step" : undefined}><span>{index < steps.indexOf(selected.status as typeof steps[number]) ? <Check size={12} /> : index + 1}</span><small>{label(step)}</small></li>)}</ol>}
+          {!demo && <section className={styles.collection} aria-label={t("customer.paymentLabel")}>
+            <h4><Wallet size={17} />{t("customer.paymentLabel")}</h4>
+            <p>{t(selected.payments?.some((item) => item.status === "PAID") ? "payment.collected" : selected.paymentMethod === "DRIVER" ? "payment.toCollect" : selected.paymentMethod === "ONLINE" ? "payment.online" : "payment.unselected")}</p>
+            <strong>{money(selected.priceCents, selected.currency)}</strong>
+            {selected.status === "TRIP_COMPLETED" && selected.paymentMethod === "DRIVER" && !selected.payments?.some((item) => item.status === "PAID") && <button type="button" className={styles.primaryButton} disabled={pending || loading || selected.payments?.some((item) => item.status === "PROCESSING")} onClick={() => void collectPayment(selected)}><Wallet size={17} />{t(pending ? "admin.saving" : "payment.collect")}</button>}
+          </section>}
           <div className={styles.actions}>
             {driverNextStatus[selected.status] && <button type="button" className={styles.primaryButton} disabled={pending || loading} onClick={() => void advance(selected)}>{pending ? t("admin.saving") : t(transitionKeys[selected.status as keyof typeof transitionKeys])}<ArrowRight size={18} /></button>}
             {!demo && <a className={styles.iconButton} href={`mailto:${selected.customer.email}`} title={t("driver.email")} aria-label={t("driver.email")}><Mail size={19} /></a>}

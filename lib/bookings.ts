@@ -27,7 +27,7 @@ const driverTransitions: Partial<Record<BookingStatus, BookingStatus>> = {
   DRIVER_ASSIGNED: "DRIVER_ACCEPTED", DRIVER_ACCEPTED: "DRIVER_EN_ROUTE",
   DRIVER_EN_ROUTE: "DRIVER_ARRIVED", DRIVER_ARRIVED: "TRIP_STARTED", TRIP_STARTED: "TRIP_COMPLETED",
 };
-const include = {
+export const bookingInclude = {
   payments: { select: { status: true, provider: true, amountCents: true, currency: true } },
   customer: { select: { id: true, name: true, email: true } },
   driver: { select: { id: true, user: { select: { name: true } } } },
@@ -74,10 +74,9 @@ export async function bookingRequest(request: Request, role: SessionRole) {
   try {
     const account = await authorize(request, role);
     if (!account) return Response.json({ error: `${role} access required` }, { status: 403 });
-    const paidScope: Prisma.BookingWhereInput = { payments: { some: { status: "PAID" } } };
-    const scope: Prisma.BookingWhereInput = role === "ADMIN" ? {} : role === "CUSTOMER" ? { customerId: account.id } : { ...paidScope, driver: { userId: account.id } };
+    const scope: Prisma.BookingWhereInput = role === "ADMIN" ? {} : role === "CUSTOMER" ? { customerId: account.id } : { driver: { userId: account.id } };
     if (request.method === "GET") {
-      const bookings = await prisma.booking.findMany({ where: role === "ADMIN" ? paidScope : scope, include, orderBy: { pickupAt: "asc" } });
+      const bookings = await prisma.booking.findMany({ where: scope, include: bookingInclude, orderBy: { pickupAt: "asc" } });
       return Response.json({ bookings }, { headers: { "Cache-Control": "no-store" } });
     }
     const body: unknown = await request.json();
@@ -87,7 +86,6 @@ export async function bookingRequest(request: Request, role: SessionRole) {
       if (!parsed.success) return Response.json({ error: parsed.error.issues.map((issue) => issue.message).join("; ") }, { status: 400 });
       const value = parsed.data;
       const admin = role === "ADMIN" ? adminCreate.parse(body) : null;
-      if (admin?.driverId) throw new BookingError("Payment must be confirmed before assignment", 409);
       const booking = await prisma.$transaction(async (tx) => {
         const customerId = admin?.customerId ?? account.id;
         const customer = await tx.user.findUnique({ where: { id: customerId } });
@@ -97,7 +95,7 @@ export async function bookingRequest(request: Request, role: SessionRole) {
         const status: BookingStatus = admin?.driverId ? "DRIVER_ASSIGNED" : "PENDING_PAYMENT";
         const created = await tx.booking.create({
           data: { ...details.parse(value), customerId, reference: `SW-${randomUUID().toUpperCase()}`, pickupAt: new Date(value.pickupAt), ...quote, driverId: admin?.driverId, vehicleId: admin?.vehicleId, status, statusHistory: { create: { status, note: "Booking created; payment is tracked separately" } } },
-          include,
+          include: bookingInclude,
         });
         await tx.auditLog.create({ data: { actorId: account.id, entity: "Booking", entityId: created.id, action: "CREATE" } });
         return created;
@@ -112,9 +110,7 @@ export async function bookingRequest(request: Request, role: SessionRole) {
       if (terminal.includes(existing.status)) throw new BookingError("A closed booking cannot be modified", 409);
       let update: Prisma.BookingUpdateInput;
       let status = existing.status;
-      const paid = existing.payments.some((payment) => payment.status === "PAID");
       if (role === "ADMIN" && request.method === "PATCH" && "status" in parsed.data) {
-        if (!paid) throw new BookingError("Payment must be confirmed before validation", 409);
         if (existing.status !== "PENDING_PAYMENT" || existing.driverId) throw new BookingError("Only an unassigned pending booking can be confirmed", 409);
         if (existing.pickupAt.getTime() <= Date.now()) throw new BookingError("Pickup must be in the future");
         status = "CONFIRMED";
@@ -123,7 +119,6 @@ export async function bookingRequest(request: Request, role: SessionRole) {
         const { id: ignoredId, pickupAt, ...changes } = adminEdit.parse(body);
         void ignoredId;
         const driverId = changes.driverId === undefined ? existing.driverId : changes.driverId;
-        if (driverId && !paid) throw new BookingError("Payment must be confirmed before assignment", 409);
         if (changes.priceCents !== undefined && changes.priceCents !== existing.priceCents && existing.payments.some((payment) => ["PAID", "PROCESSING"].includes(payment.status))) throw new BookingError("A paid or processing fare cannot be changed", 409);
         const vehicleId = changes.vehicleId === undefined ? existing.vehicleId : changes.vehicleId;
         const reassigning = driverId !== existing.driverId || vehicleId !== existing.vehicleId;
@@ -143,7 +138,7 @@ export async function bookingRequest(request: Request, role: SessionRole) {
         update = {};
       }
       const confirming = role === "ADMIN" && request.method === "PATCH" && "status" in parsed.data;
-      const result = await tx.booking.update({ where: { id: existing.id, updatedAt: existing.updatedAt }, data: { ...update, status, statusHistory: { create: { status, note: confirming ? "ADMIN operational confirmation; payment tracked separately" : `${role} update` } } }, include });
+      const result = await tx.booking.update({ where: { id: existing.id, updatedAt: existing.updatedAt }, data: { ...update, status, statusHistory: { create: { status, note: confirming ? "ADMIN operational confirmation; payment tracked separately" : `${role} update` } } }, include: bookingInclude });
       await tx.auditLog.create({ data: { actorId: account.id, entity: "Booking", entityId: existing.id, action: confirming ? "CONFIRM" : request.method === "DELETE" ? "CANCEL" : "UPDATE" } });
       return result;
     });

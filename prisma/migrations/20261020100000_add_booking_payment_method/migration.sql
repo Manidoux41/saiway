@@ -1,0 +1,2 @@
+CREATE TYPE "PaymentMethod" AS ENUM ('UNDECIDED', 'ONLINE', 'DRIVER');
+ALTER TABLE "Booking" ADD COLUMN "paymentMethod" "PaymentMethod" NOT NULL DEFAULT 'UNDECIDED';

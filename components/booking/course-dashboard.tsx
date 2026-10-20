@@ -12,6 +12,7 @@ export const courseSchema = z.object({
   direction: z.string(), tripType: z.string(), priceCents: z.number(), status: z.string(),
   currency: z.string(), flightNumber: z.string().nullable(), pickupNotes: z.string().nullable(), specialNeeds: z.string().nullable(),
   driverId: z.string().nullable(), vehicleId: z.string().nullable(),
+  paymentMethod: z.enum(["UNDECIDED", "ONLINE", "DRIVER"]).optional(),
   payments: z.array(z.object({ status: z.string(), provider: z.string(), amountCents: z.number(), currency: z.string() })).optional(),
   customer: z.object({ id: z.string(), name: z.string(), email: z.string() }),
   driver: z.object({ id: z.string(), user: z.object({ name: z.string() }) }).nullable(),

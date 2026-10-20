@@ -59,7 +59,7 @@ function BookingForm({ course, management, courses, pending, onSave, onClose }: 
       <label>{t("booking.route")}<select name="direction" defaultValue={course?.direction ?? "AIRPORT_TO_CITY"}><option value="AIRPORT_TO_CITY">{t("courses.airportToCity")}</option><option value="CITY_TO_AIRPORT">{t("courses.cityToAirport")}</option></select></label>
       <label>{t("booking.tripType")}<select name="tripType" defaultValue={course?.tripType ?? "AIRPORT_TRANSFER"}><option value="AIRPORT_TRANSFER">{t("booking.airportTransfer")}</option><option value="PRIVATE_TRANSFER">{t("booking.privateTransfer")}</option><option value="HOTEL_TRANSFER">{t("booking.hotelTransfer")}</option></select></label>
       <h3 className={styles.wide}>{t("dispatch.assignment")}</h3>
-      <label>{t("admin.driver")}<select name="driverId" disabled={locked || unpaid} defaultValue={course?.driverId ?? ""}><option value="">{t("courses.unassigned")}</option>{drivers.map((user) => <option key={user.id} value={user.driver!.id}>{user.name} · {courses.filter((item) => item.driverId === user.driver!.id && !closedDriverStatuses.includes(item.status)).length} {t("dispatch.assignedTrips")}</option>)}</select></label>
+      <label>{t("admin.driver")}<select name="driverId" disabled={locked} defaultValue={course?.driverId ?? ""}><option value="">{t("courses.unassigned")}</option>{drivers.map((user) => <option key={user.id} value={user.driver!.id}>{user.name} · {courses.filter((item) => item.driverId === user.driver!.id && !closedDriverStatuses.includes(item.status)).length} {t("dispatch.assignedTrips")}</option>)}</select></label>
       <label>{t("admin.vehicle")}<select name="vehicleId" disabled={locked} defaultValue={course?.vehicleId ?? ""}><option value="">{t("courses.unassigned")}</option>{vehicles.map((vehicle) => <option key={vehicle.id} value={vehicle.id} disabled={!vehicle.active || vehicle.seats < passengers}>{vehicle.name} · {vehicle.plate} · {vehicle.seats} {t("records.seats")}</option>)}</select></label>
       {locked && <p className={`${styles.warning} ${styles.wide}`}>{t("dispatch.assignmentLocked")}</p>}
       {!drivers.length && <p className={`${styles.warning} ${styles.wide}`}>{t("dispatch.noDrivers")}</p>}
@@ -87,7 +87,7 @@ export function AdminBookings({ management, disabled }: { management: Management
   const [editor, setEditor] = useState<Course | "new" | null>(null);
   const editSection = useRef<HTMLDivElement>(null);
   const closed = (course: Course) => closedDriverStatuses.includes(course.status);
-  const matchesView = (course: Course, value: View) => value === "all" || (value === "history" ? closed(course) : value === "toValidate" ? course.status === "CONFIRMED" : value === "toAssign" ? !closed(course) && !course.driverId : ongoing.includes(course.status));
+  const matchesView = (course: Course, value: View) => value === "all" || (value === "history" ? closed(course) : value === "toValidate" ? course.status === "PENDING_PAYMENT" : value === "toAssign" ? !closed(course) && !course.driverId : ongoing.includes(course.status));
   const search = query.trim().toLocaleLowerCase();
   const visible = courses.filter((course) => matchesView(course, view) && (!driverId || course.driverId === driverId) && (!date || driverDay(course.pickupAt) === date) && (!search || [course.reference, course.customer.name, course.customer.email, course.fromAddress, course.toAddress, course.flightNumber ?? ""].join(" ").toLocaleLowerCase().includes(search)));
   const selected = visible.find((course) => course.id === selectedId) ?? visible[0];
@@ -107,8 +107,8 @@ export function AdminBookings({ management, disabled }: { management: Management
       const response = await fetch("/api/admin/bookings", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       if (!response.ok) throw new Error("Booking update failed");
       const result = z.object({ booking: courseSchema }).parse(await response.json());
-      setCourses((current) => [...current.filter((course) => course.id !== result.booking.id), ...(result.booking.payments?.some((payment) => payment.status === "PAID") ? [result.booking] : [])].sort((first, second) => Date.parse(first.pickupAt) - Date.parse(second.pickupAt)));
-      setSelectedId(result.booking.id); setEditor(null); setMessage(t(result.booking.payments?.some((payment) => payment.status === "PAID") ? "dispatch.saved" : "customer.pendingNotice"));
+      setCourses((current) => [...current.filter((course) => course.id !== result.booking.id), result.booking].sort((first, second) => Date.parse(first.pickupAt) - Date.parse(second.pickupAt)));
+      setSelectedId(result.booking.id); setEditor(null); setMessage(t("dispatch.saved"));
       setView(method === "DELETE" ? "history" : "all"); setQuery(""); setDriverId(""); setDate("");
     } catch { setMutationError(t("dispatch.failed")); }
     finally { mutationLock.current = false; setPending(false); }
@@ -146,6 +146,7 @@ export function AdminBookings({ management, disabled }: { management: Management
           <div className={styles.routeDetail}><MapPin size={17} /><div><p>{selected.fromAddress}</p><ArrowRight size={14} /><p>{selected.toAddress}</p></div></div>
           <dl className={styles.facts}><div><dt>{t("courses.pickup")}</dt><dd>{time(selected.pickupAt)}</dd></div><div><dt>{t("booking.flightNumber")}</dt><dd>{selected.flightNumber ?? "—"}</dd></div><div><dt>{t("booking.passengers")}</dt><dd>{selected.passengers} · {selected.luggageCount} {t("booking.luggage")}</dd></div><div><dt>{t("dispatch.price")}</dt><dd>{money(selected)}</dd></div><div><dt>{t("admin.driver")}</dt><dd>{selected.driver?.user.name ?? t("courses.unassigned")}</dd></div><div><dt>{t("booking.vehicle")}</dt><dd>{selected.vehicle ? `${selected.vehicle.name} · ${selected.vehicle.plate}` : t("courses.unassigned")}</dd></div></dl>
           {selected.pickupNotes && <div className={styles.notes}><h4>{t("booking.notes")}</h4><p>{selected.pickupNotes}</p></div>}
+          <dl className={styles.facts}><div><dt>{t("payment.method")}</dt><dd>{t(selected.paymentMethod === "DRIVER" ? "payment.atDriver" : selected.paymentMethod === "ONLINE" ? "payment.online" : "payment.unselected")}</dd></div><div><dt>{t("customer.paymentLabel")}</dt><dd>{t(selected.payments?.some((item) => item.status === "PAID") ? "payment.collected" : selected.paymentMethod === "DRIVER" ? "payment.toCollect" : "customer.noPayment")}</dd></div></dl>
           {selected.specialNeeds && <div className={styles.warning}><h4>{t("booking.specialNeeds")}</h4><p>{selected.specialNeeds}</p></div>}
           <div className={styles.detailActions}>
             {selected.status === "PENDING_PAYMENT" && <button type="button" className={styles.primaryButton} disabled={blocked} onClick={() => { if (window.confirm(t("dispatch.confirmNotice"))) void mutate("PATCH", { id: selected.id, status: "CONFIRMED" }); }}><ClipboardCheck size={17} />{t("dispatch.validate")}</button>}

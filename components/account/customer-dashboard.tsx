@@ -8,13 +8,13 @@ import { ArrowRight, CalendarDays, CheckCheck, Clock3, Copy, CreditCard, Downloa
 import { useAuth } from "@/components/auth/auth-provider";
 import { useLanguage } from "@/components/i18n/language-provider";
 import { useBookings } from "@/components/booking/use-bookings";
-import type { Course } from "@/components/booking/course-dashboard";
+import { courseSchema, type Course } from "@/components/booking/course-dashboard";
 import { closedDriverStatuses, driverTimeZone } from "@/lib/driver-dashboard";
 import styles from "./customer-dashboard.module.css";
 
 const paymentResult = z.object({ paid: z.boolean(), checkoutUrl: z.url().optional(), sandbox: z.boolean().optional() });
 const profileSchema = z.object({ name: z.string(), email: z.string(), phone: z.string().nullable(), customer: z.object({ address: z.string().nullable() }).nullable() });
-const statusKeys = { PENDING_PAYMENT: "customer.waitingPayment", CONFIRMED: "customer.confirmed", DRIVER_ASSIGNMENT_PENDING: "dispatch.toAssign", DRIVER_ASSIGNED: "courses.assigned", DRIVER_ACCEPTED: "courses.accepted", DRIVER_EN_ROUTE: "courses.enRoute", DRIVER_ARRIVED: "courses.arrived", TRIP_STARTED: "courses.started", TRIP_COMPLETED: "courses.completed", CANCELLED: "courses.cancelled", NO_SHOW: "driver.noShow", REFUNDED: "driver.refunded" } as const;
+const statusKeys = { PENDING_PAYMENT: "payment.requestReceived", CONFIRMED: "dispatch.confirmed", DRIVER_ASSIGNMENT_PENDING: "dispatch.toAssign", DRIVER_ASSIGNED: "courses.assigned", DRIVER_ACCEPTED: "courses.accepted", DRIVER_EN_ROUTE: "courses.enRoute", DRIVER_ARRIVED: "courses.arrived", TRIP_STARTED: "courses.started", TRIP_COMPLETED: "courses.completed", CANCELLED: "courses.cancelled", NO_SHOW: "driver.noShow", REFUNDED: "driver.refunded" } as const;
 
 function CustomerProfile() {
   const { t } = useLanguage();
@@ -57,7 +57,7 @@ export function CustomerDashboard() {
   const { t, language } = useLanguage();
   const [pending, setPending] = useState(false);
   const lock = useRef(false);
-  const { courses, loaded, loading, error, refresh } = useBookings("/api/bookings", pending);
+  const { courses, setCourses, loaded, loading, error, refresh } = useBookings("/api/bookings", pending);
   const [section, setSection] = useState<"trips" | "profile">("trips");
   const [view, setView] = useState<"upcoming" | "payment" | "history" | "all">("all");
   const [query, setQuery] = useState("");
@@ -70,11 +70,13 @@ export function CustomerDashboard() {
   const paid = (course: Course) => Boolean(course.payments?.some((item) => item.status === "PAID"));
   const closed = (course: Course) => closedDriverStatuses.includes(course.status);
   const upcoming = courses.filter((course) => !closed(course) && new Date(course.pickupAt) > now);
-  const awaiting = upcoming.filter((course) => !paid(course));
+  const payable = (course: Course) => !["CANCELLED", "NO_SHOW", "REFUNDED"].includes(course.status) && !paid(course);
+  const awaiting = courses.filter(payable);
   const search = query.trim().toLocaleLowerCase();
-  const visible = courses.filter((course) => (view === "all" || (view === "history" ? closed(course) : view === "payment" ? !closed(course) && !paid(course) : !closed(course))) && (!search || [course.reference, course.fromAddress, course.toAddress, course.flightNumber ?? ""].join(" ").toLocaleLowerCase().includes(search)))
+  const visible = courses.filter((course) => (view === "all" || (view === "history" ? closed(course) : view === "payment" ? payable(course) : !closed(course))) && (!search || [course.reference, course.fromAddress, course.toAddress, course.flightNumber ?? ""].join(" ").toLocaleLowerCase().includes(search)))
     .sort((first, second) => Number(closed(first)) - Number(closed(second)) || (closed(first) ? Date.parse(second.pickupAt) - Date.parse(first.pickupAt) : Date.parse(first.pickupAt) - Date.parse(second.pickupAt)));
   const selected = visible.find((course) => course.id === selectedId) ?? visible[0];
+  const processing = Boolean(selected?.payments?.some((item) => item.status === "PROCESSING"));
   const next = upcoming[0];
   const date = (value: string) => new Intl.DateTimeFormat(language, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: driverTimeZone }).format(new Date(value));
   const money = (course: Course) => new Intl.NumberFormat(language, { style: "currency", currency: course.currency }).format(course.priceCents / 100);
@@ -138,6 +140,19 @@ export function CustomerDashboard() {
     } catch { setActionError(t("customer.copyError")); }
   }
 
+  async function choosePayment(course: Course, paymentMethod: "DRIVER" | "ONLINE") {
+    if (lock.current || pending || loading) return;
+    lock.current = true; setPending(true); setActionError(""); setMessage("");
+    try {
+      const response = await fetch("/api/bookings/payment-method", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ bookingId: course.id, paymentMethod }) });
+      if (!response.ok) throw new Error("Payment choice failed");
+      const result = z.object({ booking: courseSchema }).parse(await response.json());
+      setCourses((current) => current.map((item) => item.id === result.booking.id ? result.booking : item));
+      setMessage(t("payment.choiceSaved"));
+    } catch { setActionError(t("payment.choiceError")); }
+    finally { lock.current = false; setPending(false); }
+  }
+
   return <div className={styles.dashboard}>
     <header className={styles.heading}><div><p className={styles.eyebrow}>SAIWAY / {user?.name}</p><h1>{t("customer.title")}</h1><p>{t("customer.greeting")}</p></div><Link className={styles.primaryButton} href="/booking"><Plus size={18} />{t("customer.book")}</Link></header>
     <nav className={styles.navigation} aria-label={t("nav.account")}><button type="button" aria-pressed={section === "trips"} onClick={() => setSection("trips")}><CalendarDays size={17} />{t("customer.trips")}</button><button type="button" aria-pressed={section === "profile"} onClick={() => setSection("profile")}><UserRound size={17} />{t("customer.profile")}</button><Link href="/help"><Headphones size={17} />{t("nav.help")}</Link></nav>
@@ -158,7 +173,13 @@ export function CustomerDashboard() {
           <dl className={styles.facts}><div><dt>{t("courses.pickup")}</dt><dd>{date(selected.pickupAt)}</dd></div><div><dt>{t("dispatch.price")}</dt><dd>{money(selected)}</dd></div><div><dt>{t("booking.passengers")}</dt><dd>{selected.passengers} · {selected.luggageCount} {t("booking.luggage")}</dd></div><div><dt>{t("booking.flightNumber")}</dt><dd>{selected.flightNumber ?? "—"}</dd></div><div><dt>{t("customer.paymentLabel")}</dt><dd>{t(paid(selected) ? "customer.confirmed" : selected.payments?.some((item) => item.status === "PROCESSING") ? "customer.paymentInProgress" : "customer.noPayment")}</dd></div><div><dt>{t("admin.driver")}</dt><dd>{selected.driver?.user.name ?? t("courses.unassigned")}</dd></div></dl>
           {selected.vehicle ? <p className={styles.vehicle}>{selected.vehicle.name} · {selected.vehicle.plate} · {selected.vehicle.seats} {t("records.seats")}</p> : <p className={styles.muted}>{t("customer.vehiclePending")}</p>}
           {selected.pickupNotes && <div className={styles.notes}><h3>{t("booking.notes")}</h3><p>{selected.pickupNotes}</p></div>}{selected.specialNeeds && <div className={styles.notes}><h3>{t("booking.specialNeeds")}</h3><p>{selected.specialNeeds}</p></div>}
-          {!paid(selected) && !closed(selected) && <div className={styles.payment}>
+          {payable(selected) && <fieldset disabled={pending || loading || processing} className={styles.paymentMethods}><legend>{t("payment.method")}</legend>
+            <label><input type="radio" name="paymentMethod" value="DRIVER" checked={selected.paymentMethod === "DRIVER"} onChange={() => void choosePayment(selected, "DRIVER")} /><span>{t("payment.atDriver")}</span></label>
+            <label><input type="radio" name="paymentMethod" value="ONLINE" checked={selected.paymentMethod === "ONLINE" || processing} disabled={closed(selected) || new Date(selected.pickupAt) <= now || pending || loading || processing} onChange={() => void choosePayment(selected, "ONLINE")} /><span>{t("payment.online")}</span></label>
+          </fieldset>}
+          {payable(selected) && selected.paymentMethod === "DRIVER" && <p className={styles.driverPaymentNotice}>{t("payment.driverNotice")} <strong>{money(selected)}</strong></p>}
+          {payable(selected) && processing && <p className={styles.muted}>{t("payment.processingNotice")}</p>}
+          {!paid(selected) && !closed(selected) && (selected.paymentMethod === "ONLINE" || processing) && <div className={styles.payment}>
             {new Date(selected.pickupAt) > now && selected.currency === "USD" && <>
               <h3 className={styles.qrHeading}><QrCode size={20} />{t("customer.abaQrTitle")}</h3>
               <dl className={styles.qrDetails}><div><dt>{t("customer.abaAmount")}</dt><dd>{new Intl.NumberFormat(language, { style: "currency", currency: "USD", currencyDisplay: "code" }).format(selected.priceCents / 100)}</dd></div><div><dt>{t("customer.abaReference")}</dt><dd className={styles.qrReference}><span>{selected.reference}</span><button type="button" className={styles.iconButton} title={t("customer.copyReference")} aria-label={t("customer.copyReference")} onClick={() => void copyReference(selected.reference)}><Copy size={16} /></button></dd></div></dl>
@@ -169,9 +190,9 @@ export function CustomerDashboard() {
             </>}
             <CreditCard size={21} /><p>{t(new Date(selected.pickupAt) > now ? "customer.paymentNotice" : "customer.expired")}</p>
             <button type="button" className={styles.secondaryButton} disabled={pending || loading || new Date(selected.pickupAt) <= now} onClick={() => void payment(selected, "checkout")}><CreditCard size={17} />{t(pending ? "customer.preparing" : "customer.abaAutomatic")}</button>
-            {selected.payments?.some((item) => item.status === "PROCESSING") && <button type="button" className={styles.secondaryButton} disabled={pending || loading} onClick={() => void payment(selected, "verify")}><RefreshCw size={16} />{t("customer.verify")}</button>}
           </div>}
-          {paid(selected) && !closed(selected) && <p className={styles.success}><CheckCheck size={18} />{t("customer.paid")}</p>}
+          {payable(selected) && processing && <button type="button" className={styles.secondaryButton} disabled={pending || loading} onClick={() => void payment(selected, "verify")}><RefreshCw size={16} />{t("customer.verify")}</button>}
+          {paid(selected) && !["CANCELLED", "NO_SHOW", "REFUNDED"].includes(selected.status) && <p className={styles.success}><CheckCheck size={18} />{t("customer.paid")}</p>}
           {!closed(selected) && ["PENDING_PAYMENT", "CONFIRMED", "DRIVER_ASSIGNMENT_PENDING", "DRIVER_ASSIGNED"].includes(selected.status) && <button type="button" className={styles.cancelButton} disabled={pending || loading} onClick={() => void cancel(selected)}>{t("courses.cancel")}</button>}
         </> : <div className={styles.empty}><MapPin size={30} /><p>{t("customer.empty")}</p></div>}</section>
       </div>

@@ -44,6 +44,12 @@ enum TripType {
   HOTEL_TRANSFER
 }
 
+enum PaymentMethod {
+  UNDECIDED
+  ONLINE
+  DRIVER
+}
+
 enum PaymentStatus {
   PENDING
   PROCESSING
@@ -183,6 +189,7 @@ model Booking {
   priceCents     Int
   currency       String          @default("USD")
   status         BookingStatus   @default(PENDING_PAYMENT)
+  paymentMethod  PaymentMethod   @default(UNDECIDED)
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   statusHistory  BookingStatusHistory[]

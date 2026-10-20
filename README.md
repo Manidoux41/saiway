@@ -61,8 +61,8 @@ latest effective, active matching fare; without a matching fare, it uses USD 35.
 The price is recalculated on submission if a published fare has changed.
 Administrators can set an unpaid trip price, assign an active/available driver and an active
 vehicle with sufficient seats. Editing the same assignment preserves trip progress;
-an ongoing trip cannot be reassigned. Assignment requires a recorded successful
-payment; paid and processing fares cannot be changed.
+an ongoing trip cannot be reassigned. Assignment is possible before payment or
+payment-method selection; paid and processing fares cannot be changed.
 
 Drivers advance only their own trips through:
 `DRIVER_ASSIGNED -> DRIVER_ACCEPTED -> DRIVER_EN_ROUTE -> DRIVER_ARRIVED -> TRIP_STARTED -> TRIP_COMPLETED`.
@@ -75,11 +75,10 @@ Trip changes retain status history and audit records. Assignment does not confir
 search, pickup-date and driver filters, trip maps, and driver workloads. Accounts,
 fleet/financial management and password security have separate sections.
 
-Administrators can create unpaid requests and edit paid trips, validate an unassigned future pending paid
+Administrators can create and edit requests, validate an unassigned future pending
 trip using `PATCH /api/admin/bookings` with `{ id, status: "CONFIRMED" }`, assign
 an active/available driver and a suitable active vehicle, or cancel an open trip.
-Validation is operational only: it does not create or mark a payment as paid,
-and cannot bypass the payment requirement.
+Validation is operational only: it does not create or mark a payment as paid.
 Confirming an already validated, assigned, ongoing or closed trip is rejected.
 Confirmation, assignment and driver progress retain database history and audits.
 
@@ -98,12 +97,27 @@ password. The server always creates a CUSTOMER, signs the session and redirects
 to `/account`. The customer dashboard contains only that customer's requests,
 upcoming trips, payment actions, history and personal profile. `/booking` saves
 a PENDING_PAYMENT request with its server-calculated fare and Cambodia pickup
-time, then links to payment in the customer dashboard.
+time, immediately makes it visible to administrators, then links to payment-method
+selection in the customer dashboard. The admin may assign it before the customer
+chooses how to pay.
 
-The admin dispatch GET lists only bookings with a PAID transaction. The driver
-API lists only paid bookings assigned to that driver. No old booking is assumed
-paid merely because it is confirmed or assigned. Existing unpaid bookings remain
-in the database but are excluded from dispatch until payment is recorded.
+The admin dispatch GET lists all real reservations, including unpaid requests.
+The driver API lists only bookings assigned to that driver, regardless of payment.
+Neither operational confirmation nor assignment implies that money was received.
+
+Customers choose ONLINE or DRIVER through `POST /api/bookings/payment-method`.
+New and existing bookings start as UNDECIDED; the choice never creates a payment.
+For DRIVER, the customer pays the assigned driver at the end of the trip. After
+TRIP_COMPLETED, only that active assigned driver can submit
+`POST /api/driver/payments` with `{ bookingId, received: true }`. The server uses
+the stored fare and currency, creates one PAID/DRIVER_DIRECT transaction and
+records the actor, amount and payment ID in a DRIVER_PAYMENT_CONFIRMED audit.
+The driver must actually receive the full fare before confirming; completing the
+trip does not confirm receipt. Repeated/concurrent confirmations cannot create
+multiple receipts. The driver UI opens History after completing a real trip.
+Paid or processing online payments block method changes and duplicate collection.
+Customers and administrators cannot confirm a driver receipt. This is an audited
+driver attestation, not an independently verified bank transaction.
 
 PayWay checkout is prepared server-side with HMAC-SHA512 using the stored USD
 amount, a 15-minute lifetime and an allowed PayWay hosted KHQR URL. The callback
@@ -139,11 +153,11 @@ Official integration references: [Checkout](https://developer.payway.com.kh/fold
 [Check Transaction](https://developer.payway.com.kh/check-transaction-14530826e0.md).
 Run the isolated signing/amount checks with `node --test tests/payway.test.mjs`.
 
-The supplied static ABA QR image is displayed unchanged on future unpaid USD
+The supplied static ABA QR image is displayed unchanged on future unpaid ONLINE USD
 bookings, with the exact fare, a copyable booking reference, original-image link
 and download. Customers can scan it or import the downloaded image into their
 banking app. This is a direct bank transfer, not a PayWay transaction: displaying,
-downloading or scanning it never marks a booking PAID or releases it to dispatch.
+downloading or scanning it never marks a booking PAID.
 The static transfer needs independent bank verification; no manual confirmation
 workflow is implemented by this image integration. Keep the receipt. PayWay
 checkout remains a separate option requiring merchant configuration.

@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { authorize } from "@/lib/access";
+import { bookingInclude } from "@/lib/bookings";
 import { checkPaywayPayment, paywayConfig, purchaseFields, trustedCheckoutUrl, validPaywayCallback, type PayWayConfig } from "@/lib/payway";
 
 const selection = z.object({ bookingId: z.string().min(1).max(200) }).strict();
@@ -53,7 +54,8 @@ export async function customerPayment(request: Request, action: "checkout" | "ve
     const booking = await prisma.booking.findFirst({ where: { id: parsed.data.bookingId, customerId: account.id }, include: { payments: { orderBy: { createdAt: "desc" } } } });
     if (!booking) throw new PaymentError("Booking not found", 404);
     if (booking.payments.some((payment) => payment.status === "PAID")) return Response.json({ paid: true }, { headers: noStore });
-    if (terminal.includes(booking.status) || booking.pickupAt.getTime() <= Date.now()) throw new PaymentError("This booking can no longer be paid", 409);
+    if (action === "checkout" && booking.paymentMethod === "DRIVER") throw new PaymentError("Pay-at-driver selected; change payment method before checkout", 409);
+    if (action === "checkout" && (terminal.includes(booking.status) || booking.pickupAt.getTime() <= Date.now())) throw new PaymentError("This booking can no longer be paid", 409);
     const config = configured();
     const previous = booking.payments.find((payment) => payment.provider === config.provider && payment.status === "PROCESSING");
     if (action === "verify") {
@@ -70,8 +72,8 @@ export async function customerPayment(request: Request, action: "checkout" | "ve
     }
     const payment = await prisma.$transaction(async (tx) => {
       const current = await tx.booking.findUnique({ where: { id: booking.id }, include: { payments: true } });
-      if (!current || current.status !== "PENDING_PAYMENT" || current.payments.some((item) => ["PAID", "PROCESSING"].includes(item.status))) throw new PaymentError("Payment changed; refresh and retry", 409);
-      await tx.booking.update({ where: { id: booking.id, updatedAt: booking.updatedAt }, data: { updatedAt: new Date() } });
+      if (!current || terminal.includes(current.status) || current.paymentMethod === "DRIVER" || current.pickupAt.getTime() <= Date.now() || current.payments.some((item) => ["PAID", "PROCESSING"].includes(item.status))) throw new PaymentError("Payment changed; refresh and retry", 409);
+      await tx.booking.update({ where: { id: booking.id, updatedAt: booking.updatedAt }, data: { paymentMethod: "ONLINE", updatedAt: new Date() } });
       const id = randomBytes(10).toString("hex");
       return tx.payment.create({ data: { id, bookingId: booking.id, provider: config.provider, providerRef: id, amountCents: booking.priceCents, currency: booking.currency, status: "PROCESSING" } });
     });
@@ -104,6 +106,47 @@ export async function paywayCallback(request: Request) {
     if (!payment) throw new PaymentError("Payment not found", 404);
     await reconcile(payment.id, config);
     return Response.json({ ok: true }, { headers: noStore });
+  } catch (error) { return paymentFailure(error); }
+}
+
+export async function customerPaymentMethod(request: Request) {
+  try {
+    const account = await authorize(request, "CUSTOMER");
+    if (!account) throw new PaymentError("Customer access required", 403);
+    const parsed = selection.extend({ paymentMethod: z.enum(["DRIVER", "ONLINE"]) }).strict().safeParse(await request.json());
+    if (!parsed.success) throw new PaymentError("Invalid payment method");
+    const booking = await prisma.$transaction(async (tx) => {
+      const existing = await tx.booking.findFirst({ where: { id: parsed.data.bookingId, customerId: account.id }, include: { payments: true } });
+      if (!existing) throw new PaymentError("Booking not found", 404);
+      if (["CANCELLED", "NO_SHOW", "REFUNDED"].includes(existing.status) || existing.payments.some((item) => ["PAID", "PROCESSING"].includes(item.status))) throw new PaymentError("The payment method can no longer be changed", 409);
+      if (parsed.data.paymentMethod === "ONLINE" && (existing.status === "TRIP_COMPLETED" || existing.status === "TRIP_STARTED" || existing.pickupAt.getTime() <= Date.now())) throw new PaymentError("Online payment is unavailable after pickup", 409);
+      if (existing.paymentMethod === parsed.data.paymentMethod) return tx.booking.findUniqueOrThrow({ where: { id: existing.id }, include: bookingInclude });
+      const updated = await tx.booking.update({ where: { id: existing.id, updatedAt: existing.updatedAt }, data: { paymentMethod: parsed.data.paymentMethod }, include: bookingInclude });
+      await tx.auditLog.create({ data: { actorId: account.id, entity: "Booking", entityId: existing.id, action: "PAYMENT_METHOD_CHANGED", metadata: { paymentMethod: parsed.data.paymentMethod } } });
+      return updated;
+    });
+    return Response.json({ booking }, { headers: noStore });
+  } catch (error) { return paymentFailure(error); }
+}
+
+export async function driverPaymentReceived(request: Request) {
+  try {
+    const account = await authorize(request, "DRIVER");
+    if (!account) throw new PaymentError("Driver access required", 403);
+    const parsed = selection.extend({ received: z.literal(true) }).strict().safeParse(await request.json());
+    if (!parsed.success) throw new PaymentError("Explicit receipt confirmation required");
+    const booking = await prisma.$transaction(async (tx) => {
+      const existing = await tx.booking.findFirst({ where: { id: parsed.data.bookingId, driver: { userId: account.id } }, include: { payments: true } });
+      if (!existing) throw new PaymentError("Booking not found", 404);
+      if (existing.status !== "TRIP_COMPLETED" || existing.paymentMethod !== "DRIVER") throw new PaymentError("Only completed pay-at-driver trips can be collected", 409);
+      if (existing.payments.some((item) => item.status === "PAID")) return tx.booking.findUniqueOrThrow({ where: { id: existing.id }, include: bookingInclude });
+      if (existing.payments.some((item) => item.status === "PROCESSING")) throw new PaymentError("An online payment is already processing", 409);
+      await tx.booking.update({ where: { id: existing.id, updatedAt: existing.updatedAt }, data: { updatedAt: new Date() } });
+      const payment = await tx.payment.create({ data: { bookingId: existing.id, provider: "DRIVER_DIRECT", providerRef: `driver-${existing.id}`, status: "PAID", amountCents: existing.priceCents, currency: existing.currency } });
+      await tx.auditLog.create({ data: { actorId: account.id, entity: "Booking", entityId: existing.id, action: "DRIVER_PAYMENT_CONFIRMED", metadata: { paymentId: payment.id, driverId: existing.driverId, amountCents: existing.priceCents, currency: existing.currency } } });
+      return tx.booking.findUniqueOrThrow({ where: { id: existing.id }, include: bookingInclude });
+    });
+    return Response.json({ booking }, { headers: noStore });
   } catch (error) { return paymentFailure(error); }
 }
 

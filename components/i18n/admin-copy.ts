@@ -1,6 +1,6 @@
 const en = {
   "dispatch.title": "Operations centre", "dispatch.operations": "Trips & dispatch", "dispatch.accounts": "Accounts", "dispatch.management": "Fleet & management", "dispatch.security": "Security",
-  "dispatch.today": "Trips today", "dispatch.validate": "Validate trip", "dispatch.toValidate": "Payment confirmed", "dispatch.toAssign": "To assign", "dispatch.ongoing": "In progress", "dispatch.all": "All trips", "dispatch.history": "History",
+  "dispatch.today": "Trips today", "dispatch.validate": "Validate trip", "dispatch.toValidate": "To validate", "dispatch.toAssign": "To assign", "dispatch.ongoing": "In progress", "dispatch.all": "All trips", "dispatch.history": "History",
   "dispatch.confirmed": "Validated", "dispatch.pending": "Awaiting validation", "dispatch.assign": "Assign driver", "dispatch.edit": "Edit trip", "dispatch.new": "New trip", "dispatch.save": "Save trip", "dispatch.assignment": "Driver & vehicle",
   "dispatch.search": "Reference, passenger, address or flight", "dispatch.allDrivers": "All drivers", "dispatch.allDates": "Pickup date", "dispatch.clear": "Clear filters", "dispatch.select": "Select a trip to view its details and route.",
   "dispatch.saved": "Trip saved in the database.", "dispatch.confirmNotice": "Validate this trip operationally? This does not record a payment.", "dispatch.paymentNote": "Validation and assignment do not confirm payment.",
@@ -11,7 +11,7 @@ const en = {
 };
 const fr: typeof en = {
   "dispatch.title": "Centre des opérations", "dispatch.operations": "Courses et attribution", "dispatch.accounts": "Comptes", "dispatch.management": "Flotte et gestion", "dispatch.security": "Sécurité",
-  "dispatch.today": "Courses aujourd’hui", "dispatch.validate": "Valider la course", "dispatch.toValidate": "Paiement confirmé", "dispatch.toAssign": "À attribuer", "dispatch.ongoing": "En cours", "dispatch.all": "Toutes les courses", "dispatch.history": "Historique",
+  "dispatch.today": "Courses aujourd’hui", "dispatch.validate": "Valider la course", "dispatch.toValidate": "À valider", "dispatch.toAssign": "À attribuer", "dispatch.ongoing": "En cours", "dispatch.all": "Toutes les courses", "dispatch.history": "Historique",
   "dispatch.confirmed": "Validée", "dispatch.pending": "À valider", "dispatch.assign": "Attribuer un chauffeur", "dispatch.edit": "Modifier la course", "dispatch.new": "Nouvelle course", "dispatch.save": "Enregistrer la course", "dispatch.assignment": "Chauffeur et véhicule",
   "dispatch.search": "Référence, passager, adresse ou vol", "dispatch.allDrivers": "Tous les chauffeurs", "dispatch.allDates": "Date de prise en charge", "dispatch.clear": "Effacer les filtres", "dispatch.select": "Sélectionnez une course pour consulter ses détails et son trajet.",
   "dispatch.saved": "La course est enregistrée en base de données.", "dispatch.confirmNotice": "Valider cette course pour les opérations ? Cela n’enregistre aucun paiement.", "dispatch.paymentNote": "La validation et l’attribution ne confirment pas le paiement.",
