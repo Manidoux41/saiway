@@ -1,6 +1,6 @@
 import { hashPassword } from "@/lib/passwords";
 import { prisma } from "@/lib/prisma";
-import { createSession, sessionCookie } from "@/lib/auth-session";
+import { createCustomerSession } from "@/lib/customer-session";
 import { activeAccount } from "@/lib/access";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
@@ -25,18 +25,20 @@ export async function POST(request: Request) {
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) return Response.json({ error: "An account already exists for this email" }, { status: 409 });
 
-    const user = await prisma.user.create({
-      data: {
-        name,
-        email,
-        passwordHash: hashPassword(password),
-        role,
-        customer: { create: {} },
-      },
+    const { user, cookie } = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          name,
+          email,
+          passwordHash: hashPassword(password),
+          role,
+          customer: { create: {} },
+        },
+      });
+      const cookie = await createCustomerSession(user.id, tx);
+      return { user, cookie };
     });
-
-    const session = createSession({ id: user.id, email: user.email, role });
-    return Response.json({ user: { id: user.id, name: user.name, email: user.email, role: "customer" } }, { status: 201, headers: { "Cache-Control": "no-store", "Set-Cookie": sessionCookie(session) } });
+    return Response.json({ user: { id: user.id, name: user.name, email: user.email, role: "customer" } }, { status: 201, headers: { "Cache-Control": "no-store", "Set-Cookie": cookie } });
   } catch (error) {
     if (error instanceof SyntaxError) return Response.json({ error: "Invalid JSON" }, { status: 400 });
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return Response.json({ error: "An account already exists for this email" }, { status: 409 });

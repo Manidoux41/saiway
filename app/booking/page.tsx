@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/components/i18n/language-provider";
 import { HotelSearch } from "@/components/booking/hotel-search";
 import { useAuth } from "@/components/auth/auth-provider";
+import { ArrowRight, Check, CreditCard, MapPin, Plane, ShieldCheck, Wallet } from "lucide-react";
 
 export default function BookingPage() {
   const { t } = useLanguage();
@@ -19,6 +20,7 @@ export default function BookingPage() {
   const [pickupDate, setPickupDate] = useState(() => new Date(Date.now() + 86400000).toISOString().slice(0, 10));
   const [pickupTime, setPickupTime] = useState("14:30");
   const [tripType, setTripType] = useState("private-transfer");
+  const [paymentMethod, setPaymentMethod] = useState<"ONLINE" | "DRIVER">("DRIVER");
   const [submitted, setSubmitted] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
@@ -63,7 +65,7 @@ export default function BookingPage() {
       const response = await fetch("/api/bookings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
         fromAddress: direction === "airport-to-city" ? "SAI Airport" : hotel,
         toAddress: direction === "airport-to-city" ? hotel : "SAI Airport",
-        direction: apiDirection, tripType: apiTripType,
+        direction: apiDirection, tripType: apiTripType, paymentMethod,
         pickupAt: new Date(`${pickupDate}T${pickupTime}:00+07:00`).toISOString(), passengers,
         luggageCount: passenger.luggageCount, specialNeeds: passenger.specialNeeds, flightNumber: passenger.flightNumber,
         pickupNotes: `${passenger.pickupNotes}\nPassenger: ${passenger.name}; ${passenger.email}; ${passenger.phone}`,
@@ -78,7 +80,14 @@ export default function BookingPage() {
   const isAirportToCity = direction === "airport-to-city";
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+      <header className="relative mb-8 overflow-hidden rounded-[32px] bg-[var(--color-primary-dark)] px-6 py-9 text-white md:px-10 md:py-12">
+        <Plane aria-hidden="true" className="pointer-events-none absolute -right-8 top-4 h-64 w-64 -rotate-12 text-white/5" />
+        <p className="relative text-xs font-semibold uppercase tracking-[0.24em] text-white/70">SAIWAY · SIEM REAP</p>
+        <h1 className="relative mt-4 max-w-2xl text-3xl font-black leading-tight tracking-tight md:text-5xl">{t("booking.heroTitle")}</h1>
+        <p className="relative mt-4 max-w-xl text-sm leading-7 text-white/80 md:text-base">{t("booking.heroText")}</p>
+        <div className="relative mt-6 flex flex-wrap gap-3 text-xs font-semibold"><span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2"><ShieldCheck size={16} />{t("booking.fareIncluded")}</span><span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2"><Wallet size={16} />{t("booking.paymentFlexible")}</span></div>
+      </header>
       {!user || user.role !== "customer" ? (
         <section className="mx-auto max-w-2xl rounded-[32px] border border-[var(--color-accent)]/30 bg-white p-8 text-center shadow-sm">
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--color-accent)]">{t("booking.accountRequired")}</p>
@@ -88,11 +97,12 @@ export default function BookingPage() {
         </section>
       ) : (
       <div className="grid gap-8 lg:grid-cols-[1fr_360px]">
-        <section className="rounded-[32px] border border-black/5 bg-white p-6 shadow-sm md:p-8">
+        <section className="rounded-[32px] border border-black/5 bg-white p-6 shadow-[0_18px_60px_rgba(23,34,31,0.06)] md:p-8">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--color-primary)]">{t("booking.titleEyebrow")}</p>
-              <h1 className="mt-3 text-4xl font-black tracking-[-0.05em] text-[var(--color-text)]">{t("booking.title")}</h1>
+              <h2 className="mt-3 text-3xl font-black tracking-tight text-[var(--color-text)]">{t("booking.title")}</h2>
+              <p className="mt-3 flex items-start gap-2 text-xs leading-5 text-slate-500"><ShieldCheck size={16} className="shrink-0" />{t("booking.secureAccount")}</p>
             </div>
             <div className="rounded-2xl bg-[var(--color-background)] px-4 py-3 text-right">
               <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{t("booking.fixedPrice")}</div>
@@ -102,11 +112,11 @@ export default function BookingPage() {
 
           <div className="mt-8 grid grid-cols-4 gap-2" aria-label="Booking progress">
             {steps.map((label, index) => (
-              <div key={label} title={label} aria-label={label} className="flex min-w-0 items-center gap-2 text-sm font-semibold">
+              <div key={label} title={label} aria-label={label} aria-current={index === step ? "step" : undefined} className={`flex min-w-0 flex-col items-start gap-2 rounded-2xl p-3 text-xs font-semibold ${index === step ? "bg-emerald-50" : "bg-slate-50"}`}>
                 <span className={`flex h-8 w-8 items-center justify-center rounded-full ${index <= step ? "bg-[var(--color-primary)] text-white" : "bg-slate-100 text-slate-400"}`}>
-                  {index + 1}
+                  {index < step ? <Check size={16} /> : index + 1}
                 </span>
-                <span className={`hidden sm:inline ${index <= step ? "text-[var(--color-text)]" : "text-slate-400"}`}>{label}</span>
+                <span className={`${index <= step ? "text-[var(--color-text)]" : "text-slate-400"}`}>{label}</span>
               </div>
             ))}
           </div>
@@ -116,8 +126,8 @@ export default function BookingPage() {
               <div className="text-sm font-semibold uppercase tracking-[0.16em] text-emerald-700">{t("booking.requestReceived")}</div>
               <h2 className="mt-3 text-2xl font-black text-[var(--color-text)]">{t("courses.saved")}</h2>
               <p className="mt-3 text-slate-600">{reference} · {(finalPrice / 100).toFixed(2)} {finalCurrency}</p>
-              <p className="mt-3 text-sm text-slate-600">{t("customer.pendingNotice")}</p>
-              <Link href={`/account?booking=${encodeURIComponent(bookingId)}`} className="mt-6 inline-flex rounded-full bg-[var(--color-primary)] px-5 py-3 text-sm font-semibold text-white">{t("customer.checkout")}</Link>
+              <p className="mt-3 text-sm text-slate-600">{t(paymentMethod === "DRIVER" ? "booking.driverBooked" : "customer.pendingNotice")}</p>
+              <Link href={`/account?booking=${encodeURIComponent(bookingId)}`} className="mt-6 inline-flex items-center gap-2 rounded-full bg-[var(--color-primary)] px-5 py-3 text-sm font-semibold text-white">{t(paymentMethod === "ONLINE" ? "booking.finishPayment" : "customer.trips")}<ArrowRight size={16} /></Link>
             </div>
           ) : (
             <form onSubmit={continueBooking} className="mt-10 space-y-6">
@@ -189,7 +199,7 @@ export default function BookingPage() {
               )}
 
               {step === 3 && (
-                <div className="rounded-3xl bg-[var(--color-background)] p-5 text-sm text-slate-600">
+                <div className="space-y-5"><div className="rounded-3xl bg-[var(--color-background)] p-5 text-sm text-slate-600">
                   <h2 className="mb-5 text-lg font-bold text-[var(--color-text)]">{t("booking.reviewDetails")}</h2>
                   <div className="flex justify-between gap-4"><span>{t("booking.hotel")}</span><strong className="text-right text-[var(--color-text)]">{hotel}</strong></div>
                   <div className="flex justify-between gap-4"><span>{t("booking.route")}</span><strong className="text-right text-[var(--color-text)]">{isAirportToCity ? `${t("booking.airport")} → ${hotel}` : `${hotel} → ${t("booking.airport")}`}</strong></div>
@@ -198,7 +208,13 @@ export default function BookingPage() {
                   <div className="mt-4 flex justify-between gap-4"><span>{t("booking.tripType")}</span><strong className="text-[var(--color-text)]">{tripType === "airport-transfer" ? t("booking.airportTransfer") : tripType === "hotel-transfer" ? t("booking.hotelTransfer") : t("booking.privateTransfer")}</strong></div>
                   <div className="mt-4 flex justify-between gap-4"><span>{t("booking.contactDetails")}</span><strong className="text-right text-[var(--color-text)]">{t("booking.passengerProvided")}</strong></div>
                   <div className="mt-4 flex justify-between gap-4 border-t border-black/10 pt-4"><span>Total</span><strong className="text-xl text-[var(--color-primary)]">{priceLabel}</strong></div>
-                </div>
+                </div><fieldset className="space-y-3"><legend className="mb-3 text-lg font-bold">{t("payment.method")}</legend>
+                  {(["DRIVER", "ONLINE"] as const).map((method) => <label key={method} className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-4 ${paymentMethod === method ? "border-[var(--color-primary)] bg-emerald-50" : "border-slate-200"}`}>
+                    <input type="radio" name="bookingPayment" value={method} checked={paymentMethod === method} onChange={() => setPaymentMethod(method)} className="mt-1 accent-[var(--color-primary)]" />
+                    {method === "ONLINE" ? <CreditCard size={20} className="mt-0.5 shrink-0" /> : <Wallet size={20} className="mt-0.5 shrink-0" />}
+                    <span><strong className="block text-sm">{t(method === "ONLINE" ? "payment.online" : "payment.atDriver")}</strong><span className="mt-1 block text-xs leading-5 text-slate-500">{t(method === "ONLINE" ? "booking.paymentHelp" : "booking.driverPaymentHelp")}</span></span>
+                  </label>)}
+                </fieldset></div>
               )}
 
               <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-6">
@@ -210,11 +226,12 @@ export default function BookingPage() {
           )}
         </section>
 
-        <aside className="h-fit rounded-[28px] bg-[var(--color-primary-dark)] p-6 text-white">
+        <aside className="h-fit rounded-[28px] bg-[var(--color-primary-dark)] p-6 text-white shadow-xl lg:sticky lg:top-24">
           <fieldset disabled={pending || submitted} className="contents">
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-white/70">{t("booking.tripDetails")}</p>
+          <div className="mt-5 rounded-2xl border border-white/15 bg-white/5 p-5"><p className="text-xs text-white/70">{t("booking.fixedPrice")}</p><p className="mt-2 text-4xl font-black tracking-tight">{submitted ? `${(finalPrice / 100).toFixed(2)} ${finalCurrency}` : priceLabel}</p></div>
           <div className="mt-6 space-y-4 text-sm">
-            <div className="border-b border-white/10 pb-4"><div className="text-white/60">{t("booking.from")}</div><div className="mt-1 font-semibold">{isAirportToCity ? t("booking.airport") : hotel || t("booking.cityAddress")}</div></div>
+            <div className="border-b border-white/10 pb-4"><div className="flex items-center gap-2 text-white/60"><MapPin size={14} />{t("booking.from")}</div><div className="mt-1 font-semibold">{isAirportToCity ? t("booking.airport") : hotel || t("booking.cityAddress")}</div></div>
             <div className="border-b border-white/10 pb-4"><div className="text-white/60">{t("booking.to")}</div><div className="mt-1 font-semibold">{isAirportToCity ? hotel || t("booking.cityAddress") : t("booking.airport")}</div></div>
             <div className="border-b border-white/10 pb-4"><div className="text-white/60">{t("booking.tripType")}</div><select value={tripType} onChange={(event) => setTripType(event.target.value)} className="mt-1 w-full rounded-xl border border-white/20 bg-white/10 px-3 py-2 font-semibold text-white outline-none"><option value="private-transfer" className="text-[var(--color-text)]">{t("booking.privateTransfer")}</option><option value="airport-transfer" className="text-[var(--color-text)]">{t("booking.airportTransfer")}</option><option value="hotel-transfer" className="text-[var(--color-text)]">{t("booking.hotelTransfer")}</option></select><div className="mt-2 text-sm text-white/70">{t("courses.vehiclePending")}</div></div>
             <div><div className="text-white/60">{t("booking.passengers")}</div><div className="mt-2 flex items-center justify-between"><span className="font-semibold">{t("booking.adults")}</span><div className="flex items-center gap-3"><button type="button" aria-label="Remove passenger" onClick={() => setPassengers((count) => Math.max(1, count - 1))} className="h-8 w-8 rounded-full border border-white/30">−</button><span>{passengers}</span><button type="button" aria-label="Add passenger" onClick={() => setPassengers((count) => Math.min(8, count + 1))} className="h-8 w-8 rounded-full border border-white/30">+</button></div></div></div>

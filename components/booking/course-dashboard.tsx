@@ -13,7 +13,7 @@ export const courseSchema = z.object({
   currency: z.string(), flightNumber: z.string().nullable(), pickupNotes: z.string().nullable(), specialNeeds: z.string().nullable(),
   driverId: z.string().nullable(), vehicleId: z.string().nullable(),
   paymentMethod: z.enum(["UNDECIDED", "ONLINE", "DRIVER"]).optional(),
-  payments: z.array(z.object({ status: z.string(), provider: z.string(), amountCents: z.number(), currency: z.string() })).optional(),
+  payments: z.array(z.object({ status: z.string(), provider: z.string(), amountCents: z.number(), currency: z.string(), collectionMethod: z.enum(["CASH", "CARD", "ABA", "OTHER"]).nullable().optional() })).optional(),
   customer: z.object({ id: z.string(), name: z.string(), email: z.string() }),
   driver: z.object({ id: z.string(), user: z.object({ name: z.string() }) }).nullable(),
   vehicle: z.object({ id: z.string(), name: z.string(), plate: z.string(), seats: z.number() }).nullable(),

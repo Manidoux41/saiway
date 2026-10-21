@@ -86,7 +86,7 @@ test('customer reservation, administrator dispatch and driver progression persis
       }
       assert.equal((await request('/api/driver/bookings', 'PATCH', { id, status }, driver.cookie)).status, 200);
     }
-    const stored = await ctx.prisma.booking.findUnique({ where: { id }, include: { statusHistory: true, payments: true } });
+    const stored = await ctx.prisma.booking.findUnique({ where: { id }, include: { statusHistory: { orderBy: { createdAt: 'asc' } }, payments: true } });
     assert.equal(stored.status, 'TRIP_COMPLETED'); assert.equal(stored.priceCents, 4200);
     assert.equal(stored.payments.length, 1);
     assert.deepEqual(stored.statusHistory.map((entry) => entry.status).filter((status, index, all) => index === 0 || status !== all[index - 1]), ['PENDING_PAYMENT', 'CONFIRMED', 'DRIVER_ASSIGNED', 'DRIVER_ACCEPTED', 'DRIVER_EN_ROUTE', 'DRIVER_ARRIVED', 'TRIP_STARTED', 'TRIP_COMPLETED']);
@@ -138,13 +138,14 @@ test('dispatch precedes payment choice and only the assigned driver collects aft
     assert.equal(chosen.data.booking.payments.length, 0);
     assert.equal((await request('/api/payments/payway/checkout', 'POST', { bookingId: id }, customer.cookie)).status, 409);
 
-    const received = { bookingId: id, received: true };
+    const received = { bookingId: id, received: true, collectionMethod: 'CASH' };
     assert.equal((await request('/api/driver/payments', 'POST', received)).status, 403);
     assert.equal((await request('/api/driver/payments', 'POST', received, customer.cookie)).status, 403);
     assert.equal((await request('/api/driver/payments', 'POST', received, ctx.cookie)).status, 403);
     assert.equal((await request('/api/driver/payments', 'POST', received, otherDriver.cookie)).status, 404);
     assert.equal((await request('/api/driver/payments', 'POST', received, driver.cookie)).status, 409);
     assert.equal((await request('/api/driver/payments', 'POST', { ...received, amountCents: 1 }, driver.cookie)).status, 400);
+    assert.equal((await request('/api/driver/payments', 'POST', { bookingId: id, received: true }, driver.cookie)).status, 400);
     assert.equal((await request('/api/driver/payments', 'POST', { ...received, received: false }, driver.cookie)).status, 400);
     for (const status of ['DRIVER_ACCEPTED', 'DRIVER_EN_ROUTE', 'DRIVER_ARRIVED', 'TRIP_STARTED']) {
       assert.equal((await request('/api/driver/bookings', 'PATCH', { id, status }, driver.cookie)).status, 200);
@@ -160,11 +161,15 @@ test('dispatch precedes payment choice and only the assigned driver collects aft
     assert.equal(payments.length, 1);
     assert.equal(payments[0].status, 'PAID');
     assert.equal(payments[0].provider, 'DRIVER_DIRECT');
+    assert.equal(payments[0].collectionMethod, 'CASH');
     assert.equal(payments[0].amountCents, assigned.priceCents);
     assert.equal(payments[0].currency, assigned.currency);
     const audits = await ctx.prisma.auditLog.findMany({ where: { entityId: id, action: 'DRIVER_PAYMENT_CONFIRMED' } });
     assert.equal(audits.length, 1);
     assert.equal(audits[0].actorId, driver.id);
+    assert.equal(audits[0].metadata.collectionMethod, 'CASH');
+    assert.equal((await request('/api/driver/payments', 'POST', { ...received, collectionMethod: 'CARD' }, driver.cookie)).status, 409);
+    assert.equal((await request('/api/driver/payments', 'POST', { bookingId: id, received: false }, driver.cookie)).status, 409);
     assert.equal((await request('/api/bookings/payment-method', 'POST', { bookingId: id, paymentMethod: 'ONLINE' }, customer.cookie)).status, 409);
     const adminView = (await request('/api/admin/bookings', 'GET', undefined, ctx.cookie)).data.bookings.find((item) => item.id === id);
     const customerView = (await request('/api/bookings', 'GET', undefined, customer.cookie)).data.bookings.find((item) => item.id === id);

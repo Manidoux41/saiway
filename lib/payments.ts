@@ -133,17 +133,31 @@ export async function driverPaymentReceived(request: Request) {
   try {
     const account = await authorize(request, "DRIVER");
     if (!account) throw new PaymentError("Driver access required", 403);
-    const parsed = selection.extend({ received: z.literal(true) }).strict().safeParse(await request.json());
+    const parsed = z.discriminatedUnion("received", [
+      selection.extend({ received: z.literal(true), collectionMethod: z.enum(["CASH", "CARD", "ABA", "OTHER"]) }).strict(),
+      selection.extend({ received: z.literal(false) }).strict(),
+    ]).safeParse(await request.json());
     if (!parsed.success) throw new PaymentError("Explicit receipt confirmation required");
     const booking = await prisma.$transaction(async (tx) => {
       const existing = await tx.booking.findFirst({ where: { id: parsed.data.bookingId, driver: { userId: account.id } }, include: { payments: true } });
       if (!existing) throw new PaymentError("Booking not found", 404);
-      if (existing.status !== "TRIP_COMPLETED" || existing.paymentMethod !== "DRIVER") throw new PaymentError("Only completed pay-at-driver trips can be collected", 409);
-      if (existing.payments.some((item) => item.status === "PAID")) return tx.booking.findUniqueOrThrow({ where: { id: existing.id }, include: bookingInclude });
+      if (existing.status !== "TRIP_COMPLETED") throw new PaymentError("Only completed trips can be collected", 409);
+      const received = existing.payments.find((item) => item.status === "PAID");
+      if (received) {
+        if (!parsed.data.received || received.provider !== "DRIVER_DIRECT" && received.provider !== "ABA_QR_MANUAL" || received.collectionMethod !== parsed.data.collectionMethod) throw new PaymentError("Payment is already confirmed", 409);
+        return tx.booking.findUniqueOrThrow({ where: { id: existing.id }, include: bookingInclude });
+      }
       if (existing.payments.some((item) => item.status === "PROCESSING")) throw new PaymentError("An online payment is already processing", 409);
+      if (parsed.data.received && existing.paymentMethod === "ONLINE" && parsed.data.collectionMethod !== "ABA") throw new PaymentError("Manual online transfers must be verified as ABA", 409);
       await tx.booking.update({ where: { id: existing.id, updatedAt: existing.updatedAt }, data: { updatedAt: new Date() } });
-      const payment = await tx.payment.create({ data: { bookingId: existing.id, provider: "DRIVER_DIRECT", providerRef: `driver-${existing.id}`, status: "PAID", amountCents: existing.priceCents, currency: existing.currency } });
-      await tx.auditLog.create({ data: { actorId: account.id, entity: "Booking", entityId: existing.id, action: "DRIVER_PAYMENT_CONFIRMED", metadata: { paymentId: payment.id, driverId: existing.driverId, amountCents: existing.priceCents, currency: existing.currency } } });
+      if (!parsed.data.received) {
+        await tx.auditLog.create({ data: { actorId: account.id, entity: "Booking", entityId: existing.id, action: "DRIVER_PAYMENT_NOT_RECEIVED", metadata: { driverId: existing.driverId } } });
+        return tx.booking.findUniqueOrThrow({ where: { id: existing.id }, include: bookingInclude });
+      }
+      const collectionMethod = parsed.data.collectionMethod;
+      const provider = existing.paymentMethod === "ONLINE" ? "ABA_QR_MANUAL" : "DRIVER_DIRECT";
+      const payment = await tx.payment.create({ data: { bookingId: existing.id, provider, collectionMethod, providerRef: `driver-${existing.id}`, status: "PAID", amountCents: existing.priceCents, currency: existing.currency } });
+      await tx.auditLog.create({ data: { actorId: account.id, entity: "Booking", entityId: existing.id, action: "DRIVER_PAYMENT_CONFIRMED", metadata: { paymentId: payment.id, driverId: existing.driverId, amountCents: existing.priceCents, currency: existing.currency, collectionMethod, provider } } });
       return tx.booking.findUniqueOrThrow({ where: { id: existing.id }, include: bookingInclude });
     });
     return Response.json({ booking }, { headers: noStore });
@@ -154,5 +168,6 @@ function paymentFailure(error: unknown) {
   if (error instanceof PaymentError) return Response.json({ error: error.message }, { status: error.status, headers: noStore });
   if (error instanceof SyntaxError) return Response.json({ error: "Invalid JSON" }, { status: 400, headers: noStore });
   if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") return Response.json({ error: "Payment changed; retry verification" }, { status: 409, headers: noStore });
+  console.error("Payment request failed", { code: error instanceof Prisma.PrismaClientKnownRequestError ? error.code : "UNKNOWN" });
   return Response.json({ error: "Payment service unavailable" }, { status: 503, headers: noStore });
 }

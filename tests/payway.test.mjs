@@ -14,6 +14,8 @@ test('PayWay checkout signs documented fields in order and uses database amount'
   assert.equal(Buffer.from(fields.return_url, 'base64').toString(), 'https://example.invalid/api/payments/payway/callback');
   assert.equal(paywayRequestTime(new Date('2026-10-20T08:30:00Z')), '20261020083000');
   assert.throws(() => purchaseFields(config, { ...payment, amountCents: 0 }));
+  assert.equal(purchaseFields(config, { ...payment, amountCents: 3517 }).amount, '35.17');
+  assert.equal(approvedPaywayPayment(approved, { ...payment, amountCents: 3517 }), false);
 });
 
 test('PayWay callback rejects modified, unsigned and malformed notifications', () => {

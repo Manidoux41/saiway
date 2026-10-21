@@ -22,7 +22,7 @@ const input = z.object({ entity: z.enum(["user", "vehicle", "accounting", "forec
 export async function GET(request: Request) {
   try {
     if (!await authorize(request, "ADMIN")) return Response.json({ error: "Administrator access required" }, { status: 403 });
-    const [users, vehicles, entries, forecasts, contracts, pricing, settings] = await Promise.all([
+    const [users, vehicles, entries, forecasts, contracts, pricing, settings, receipts] = await Promise.all([
       prisma.user.findMany({ select: { id: true, name: true, email: true, role: true, status: true, phone: true, driver: { select: { id: true, isAvailable: true, licenseNo: true } } }, orderBy: { createdAt: "desc" } }),
       prisma.vehicle.findMany({ orderBy: { createdAt: "desc" } }),
       prisma.accountingEntry.findMany({ orderBy: { createdAt: "desc" } }),
@@ -30,8 +30,13 @@ export async function GET(request: Request) {
       prisma.vehicleContract.findMany({ include: { vehicle: { select: { name: true, plate: true } } }, orderBy: { startsAt: "desc" } }),
       prisma.pricingRule.findMany({ orderBy: { effectiveAt: "desc" } }),
       prisma.systemSetting.findMany({ where: { key: "heroBackground" } }),
+      prisma.payment.findMany({
+        where: { status: "PAID", provider: { not: "ABA_PAYWAY_SANDBOX" } },
+        select: { id: true, amountCents: true, currency: true, provider: true, collectionMethod: true, updatedAt: true, booking: { select: { reference: true, status: true, driver: { select: { user: { select: { name: true } } } } } } },
+        orderBy: { updatedAt: "desc" },
+      }),
     ]);
-    return Response.json({ users, vehicles, entries, forecasts, contracts, pricing, settings }, { headers: { "Cache-Control": "no-store" } });
+    return Response.json({ users, vehicles, entries, forecasts, contracts, pricing, settings, receipts }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) { return failure(error); }
 }
 

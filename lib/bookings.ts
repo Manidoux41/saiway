@@ -18,6 +18,7 @@ const details = z.object({
   specialNeeds: z.string().trim().max(2000).optional(),
 });
 const adminCreate = details.extend({ customerId: text, driverId: nullableId, vehicleId: nullableId, priceCents: z.number().int().nonnegative().max(100000000) });
+const customerCreate = details.extend({ paymentMethod: z.enum(["ONLINE", "DRIVER"]).optional() });
 const adminEdit = details.partial().extend({ id: text, pickupAt: z.iso.datetime({ offset: true }).optional(), driverId: nullableId, vehicleId: nullableId, priceCents: z.number().int().nonnegative().max(100000000).optional() });
 const adminConfirm = z.object({ id: text, status: z.literal("CONFIRMED") }).strict();
 const adminPatch = z.union([adminEdit.strict(), adminConfirm]);
@@ -28,7 +29,7 @@ const driverTransitions: Partial<Record<BookingStatus, BookingStatus>> = {
   DRIVER_EN_ROUTE: "DRIVER_ARRIVED", DRIVER_ARRIVED: "TRIP_STARTED", TRIP_STARTED: "TRIP_COMPLETED",
 };
 export const bookingInclude = {
-  payments: { select: { status: true, provider: true, amountCents: true, currency: true } },
+  payments: { select: { status: true, provider: true, amountCents: true, currency: true, collectionMethod: true } },
   customer: { select: { id: true, name: true, email: true } },
   driver: { select: { id: true, user: { select: { name: true } } } },
   vehicle: { select: { id: true, name: true, plate: true, seats: true } },
@@ -82,7 +83,7 @@ export async function bookingRequest(request: Request, role: SessionRole) {
     const body: unknown = await request.json();
     if (request.method === "POST") {
       if (role === "DRIVER") return Response.json({ error: "Drivers cannot create bookings" }, { status: 403 });
-      const parsed = role === "ADMIN" ? adminCreate.strict().safeParse(body) : details.strict().safeParse(body);
+      const parsed = role === "ADMIN" ? adminCreate.strict().safeParse(body) : customerCreate.strict().safeParse(body);
       if (!parsed.success) return Response.json({ error: parsed.error.issues.map((issue) => issue.message).join("; ") }, { status: 400 });
       const value = parsed.data;
       const admin = role === "ADMIN" ? adminCreate.parse(body) : null;
@@ -94,7 +95,7 @@ export async function bookingRequest(request: Request, role: SessionRole) {
         const quote = admin ? { priceCents: admin.priceCents, currency: "USD" } : await fare(tx, value.direction, value.tripType);
         const status: BookingStatus = admin?.driverId ? "DRIVER_ASSIGNED" : "PENDING_PAYMENT";
         const created = await tx.booking.create({
-          data: { ...details.parse(value), customerId, reference: `SW-${randomUUID().toUpperCase()}`, pickupAt: new Date(value.pickupAt), ...quote, driverId: admin?.driverId, vehicleId: admin?.vehicleId, status, statusHistory: { create: { status, note: "Booking created; payment is tracked separately" } } },
+          data: { ...details.parse(value), paymentMethod: admin ? undefined : customerCreate.parse(value).paymentMethod, customerId, reference: `SW-${randomUUID().toUpperCase()}`, pickupAt: new Date(value.pickupAt), ...quote, driverId: admin?.driverId, vehicleId: admin?.vehicleId, status, statusHistory: { create: { status, note: "Booking created; payment is tracked separately" } } },
           include: bookingInclude,
         });
         await tx.auditLog.create({ data: { actorId: account.id, entity: "Booking", entityId: created.id, action: "CREATE" } });

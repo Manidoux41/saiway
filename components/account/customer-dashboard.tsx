@@ -76,6 +76,7 @@ export function CustomerDashboard() {
   const visible = courses.filter((course) => (view === "all" || (view === "history" ? closed(course) : view === "payment" ? payable(course) : !closed(course))) && (!search || [course.reference, course.fromAddress, course.toAddress, course.flightNumber ?? ""].join(" ").toLocaleLowerCase().includes(search)))
     .sort((first, second) => Number(closed(first)) - Number(closed(second)) || (closed(first) ? Date.parse(second.pickupAt) - Date.parse(first.pickupAt) : Date.parse(first.pickupAt) - Date.parse(second.pickupAt)));
   const selected = visible.find((course) => course.id === selectedId) ?? visible[0];
+  const receipt = selected?.payments?.find((item) => item.status === "PAID");
   const processing = Boolean(selected?.payments?.some((item) => item.status === "PROCESSING"));
   const next = upcoming[0];
   const date = (value: string) => new Intl.DateTimeFormat(language, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: driverTimeZone }).format(new Date(value));
@@ -173,6 +174,7 @@ export function CustomerDashboard() {
           <dl className={styles.facts}><div><dt>{t("courses.pickup")}</dt><dd>{date(selected.pickupAt)}</dd></div><div><dt>{t("dispatch.price")}</dt><dd>{money(selected)}</dd></div><div><dt>{t("booking.passengers")}</dt><dd>{selected.passengers} · {selected.luggageCount} {t("booking.luggage")}</dd></div><div><dt>{t("booking.flightNumber")}</dt><dd>{selected.flightNumber ?? "—"}</dd></div><div><dt>{t("customer.paymentLabel")}</dt><dd>{t(paid(selected) ? "customer.confirmed" : selected.payments?.some((item) => item.status === "PROCESSING") ? "customer.paymentInProgress" : "customer.noPayment")}</dd></div><div><dt>{t("admin.driver")}</dt><dd>{selected.driver?.user.name ?? t("courses.unassigned")}</dd></div></dl>
           {selected.vehicle ? <p className={styles.vehicle}>{selected.vehicle.name} · {selected.vehicle.plate} · {selected.vehicle.seats} {t("records.seats")}</p> : <p className={styles.muted}>{t("customer.vehiclePending")}</p>}
           {selected.pickupNotes && <div className={styles.notes}><h3>{t("booking.notes")}</h3><p>{selected.pickupNotes}</p></div>}{selected.specialNeeds && <div className={styles.notes}><h3>{t("booking.specialNeeds")}</h3><p>{selected.specialNeeds}</p></div>}
+          {receipt?.collectionMethod && <p className={styles.success}>{t("payment.receivedVia")} : {t(`payment.${receipt.collectionMethod}`)}</p>}
           {payable(selected) && <fieldset disabled={pending || loading || processing} className={styles.paymentMethods}><legend>{t("payment.method")}</legend>
             <label><input type="radio" name="paymentMethod" value="DRIVER" checked={selected.paymentMethod === "DRIVER"} onChange={() => void choosePayment(selected, "DRIVER")} /><span>{t("payment.atDriver")}</span></label>
             <label><input type="radio" name="paymentMethod" value="ONLINE" checked={selected.paymentMethod === "ONLINE" || processing} disabled={closed(selected) || new Date(selected.pickupAt) <= now || pending || loading || processing} onChange={() => void choosePayment(selected, "ONLINE")} /><span>{t("payment.online")}</span></label>
@@ -180,6 +182,9 @@ export function CustomerDashboard() {
           {payable(selected) && selected.paymentMethod === "DRIVER" && <p className={styles.driverPaymentNotice}>{t("payment.driverNotice")} <strong>{money(selected)}</strong></p>}
           {payable(selected) && processing && <p className={styles.muted}>{t("payment.processingNotice")}</p>}
           {!paid(selected) && !closed(selected) && (selected.paymentMethod === "ONLINE" || processing) && <div className={styles.payment}>
+            <h3 className={styles.qrHeading}><CreditCard size={21} />{t("customer.abaAutomatic")}</h3>
+            <p>{t(new Date(selected.pickupAt) > now ? "booking.paymentHelp" : "customer.expired")}</p>
+            <button type="button" className={styles.primaryButton} disabled={pending || loading || new Date(selected.pickupAt) <= now} onClick={() => void payment(selected, "checkout")}><CreditCard size={17} />{t(pending ? "customer.preparing" : "customer.pay")} · {money(selected)}</button>
             {new Date(selected.pickupAt) > now && selected.currency === "USD" && <>
               <h3 className={styles.qrHeading}><QrCode size={20} />{t("customer.abaQrTitle")}</h3>
               <dl className={styles.qrDetails}><div><dt>{t("customer.abaAmount")}</dt><dd>{new Intl.NumberFormat(language, { style: "currency", currency: "USD", currencyDisplay: "code" }).format(selected.priceCents / 100)}</dd></div><div><dt>{t("customer.abaReference")}</dt><dd className={styles.qrReference}><span>{selected.reference}</span><button type="button" className={styles.iconButton} title={t("customer.copyReference")} aria-label={t("customer.copyReference")} onClick={() => void copyReference(selected.reference)}><Copy size={16} /></button></dd></div></dl>
@@ -188,8 +193,7 @@ export function CustomerDashboard() {
               <div className={styles.qrActions}><a href="/aba_mobile_1792486034405.png" download="saiway-aba-qr.png" className={styles.secondaryButton}><Download size={17} />{t("customer.downloadQr")}</a><a href="/aba_mobile_1792486034405.png" target="_blank" rel="noopener noreferrer" className={styles.iconButton} title={t("customer.openQr")} aria-label={t("customer.openQr")}><ExternalLink size={17} /></a></div>
               <p className={styles.qrNotice}>{t("customer.abaQrNotice")}</p>
             </>}
-            <CreditCard size={21} /><p>{t(new Date(selected.pickupAt) > now ? "customer.paymentNotice" : "customer.expired")}</p>
-            <button type="button" className={styles.secondaryButton} disabled={pending || loading || new Date(selected.pickupAt) <= now} onClick={() => void payment(selected, "checkout")}><CreditCard size={17} />{t(pending ? "customer.preparing" : "customer.abaAutomatic")}</button>
+            <p>{t("customer.paymentNotice")}</p>
           </div>}
           {payable(selected) && processing && <button type="button" className={styles.secondaryButton} disabled={pending || loading} onClick={() => void payment(selected, "verify")}><RefreshCw size={16} />{t("customer.verify")}</button>}
           {paid(selected) && !["CANCELLED", "NO_SHOW", "REFUNDED"].includes(selected.status) && <p className={styles.success}><CheckCheck size={18} />{t("customer.paid")}</p>}

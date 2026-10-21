@@ -101,15 +101,29 @@ time, immediately makes it visible to administrators, then links to payment-meth
 selection in the customer dashboard. The admin may assign it before the customer
 chooses how to pay.
 
+Customer sessions use random opaque tokens stored only as SHA-256 hashes in
+`CustomerSession`. They do not expire automatically on the server. The HttpOnly,
+SameSite=Lax cookie persists across browser restarts and is renewed on visits,
+return to a visible tab, and daily while the app is open (400-day browser maximum).
+Clearing browser data or browser privacy policies may still require signing in
+again. Explicit logout revokes the current token in the database before clearing
+the cookie; replaying that token is rejected. Staff retain their seven-day signed
+sessions. Existing signed customer sessions migrate on renewal while still valid.
+Suspension and role changes are checked on every protected request.
+
 The admin dispatch GET lists all real reservations, including unpaid requests.
 The driver API lists only bookings assigned to that driver, regardless of payment.
 Neither operational confirmation nor assignment implies that money was received.
 
-Customers choose ONLINE or DRIVER through `POST /api/bookings/payment-method`.
-New and existing bookings start as UNDECIDED; the choice never creates a payment.
+Customers choose ONLINE or DRIVER during the booking review, or later through
+`POST /api/bookings/payment-method`. Requests without a choice remain UNDECIDED
+for backwards compatibility; the choice never creates a payment.
 For DRIVER, the customer pays the assigned driver at the end of the trip. After
 TRIP_COMPLETED, only that active assigned driver can submit
-`POST /api/driver/payments` with `{ bookingId, received: true }`. The server uses
+`POST /api/driver/payments` with
+`{ bookingId, received: true, collectionMethod: "CASH" | "CARD" | "ABA" | "OTHER" }`.
+The actual method must be explicitly selected; it is not inferred from the booking choice.
+The server uses
 the stored fare and currency, creates one PAID/DRIVER_DIRECT transaction and
 records the actor, amount and payment ID in a DRIVER_PAYMENT_CONFIRMED audit.
 The driver must actually receive the full fare before confirming; completing the
@@ -118,6 +132,24 @@ multiple receipts. The driver UI opens History after completing a real trip.
 Paid or processing online payments block method changes and duplicate collection.
 Customers and administrators cannot confirm a driver receipt. This is an audited
 driver attestation, not an independently verified bank transaction.
+
+The assigned driver may also declare `{ bookingId, received: false }` after
+completion: this adds a `DRIVER_PAYMENT_NOT_RECEIVED` audit without creating a
+receipt or any revenue. It cannot reverse an already confirmed receipt.
+For manual ONLINE QR transfers, only collectionMethod ABA is accepted, recorded
+as PAID/ABA_QR_MANUAL after the driver verifies the full transfer in the bank
+account. UNDECIDED bookings can also be collected after completion with an explicit
+method. Any PROCESSING online payment blocks manual confirmation.
+
+Administrator financial management includes a read-only receipt ledger derived
+from PAID transactions, with reference, actual method, driver, timestamp and amount.
+It includes existing receipts, excludes ABA_PAYWAY_SANDBOX and unpaid/processing
+transactions, and groups totals by currency. USD receipts are included once in
+actual revenue alongside manual revenue entries, not copied into editable entries.
+Do not manually re-enter these receipts. Old driver receipts retain their
+unspecified method rather than being retroactively labelled cash. The ledger
+shows booking status for cancellation/refund review; refunds require a separate
+accounting adjustment and never silently erase a receipt.
 
 PayWay checkout is prepared server-side with HMAC-SHA512 using the stored USD
 amount, a 15-minute lifetime and an allowed PayWay hosted KHQR URL. The callback
@@ -158,9 +190,12 @@ bookings, with the exact fare, a copyable booking reference, original-image link
 and download. Customers can scan it or import the downloaded image into their
 banking app. This is a direct bank transfer, not a PayWay transaction: displaying,
 downloading or scanning it never marks a booking PAID.
-The static transfer needs independent bank verification; no manual confirmation
-workflow is implemented by this image integration. Keep the receipt. PayWay
-checkout remains a separate option requiring merchant configuration.
+The static QR contains bank account data, not a payment URL. Its USD amount must
+be entered manually; the image is never rewritten to fabricate a dynamic payment
+link. The assigned driver verifies this transfer after the trip, as described
+above. Keep the receipt and never pay both the static QR and PayWay for the same
+trip. PayWay checkout generates the official exact-amount link and remains a
+separate option requiring merchant configuration.
 
 ### Driver dashboard and trip maps
 

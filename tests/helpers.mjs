@@ -11,14 +11,15 @@ const base = process.env.VALIDATION_URL || 'http://localhost:3000';
 async function request(path, method = 'GET', body, cookie) {
   const response = await fetch(`${base}${path}`, {
     method,
+    signal: AbortSignal.timeout(30_000),
     headers: { 'Content-Type': 'application/json', ...(cookie ? { Cookie: cookie } : {}) },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
-  return { status: response.status, data: await response.json(), cookie: response.headers.get('set-cookie')?.split(';')[0] };
+  return { status: response.status, data: await response.json(), cookie: response.headers.get('set-cookie')?.split(';')[0], setCookie: response.headers.get('set-cookie') };
 }
 
 async function setup() {
-  const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.PRISMA_DATABASE_URL || process.env.DATABASE_URL }) });
+  const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.PRISMA_DATABASE_URL || process.env.DATABASE_URL, connectionTimeoutMillis: 5000, query_timeout: 15000 }) });
   const prefix = `validation-${randomUUID()}`;
   const email = `${prefix}@example.invalid`;
   const password = randomBytes(24).toString('base64url');

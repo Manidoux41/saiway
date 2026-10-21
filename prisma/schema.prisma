@@ -74,6 +74,23 @@ model User {
   bookings      Booking[]    @relation("CustomerBookings")
   messages      DriverMessage[]
   auditLogs     AuditLog[]
+  customerSessions CustomerSession[]
+}
+
+model CustomerSession {
+  tokenHash String   @id
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+enum CollectionMethod {
+  CASH
+  CARD
+  ABA
+  OTHER
 }
 
 model AdminProfile {
@@ -255,6 +272,7 @@ model Payment {
   amountCents Int
   currency    String        @default("USD")
   status      PaymentStatus @default(PENDING)
+  collectionMethod CollectionMethod?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 

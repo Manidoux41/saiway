@@ -35,6 +35,7 @@ export function DriverDashboard() {
   const [status, setStatus] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [now, setNow] = useState(() => new Date());
+  const [collection, setCollection] = useState<{ bookingId: string; method: "CASH" | "CARD" | "ABA" | "OTHER" } | null>(null);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 30_000);
@@ -46,6 +47,7 @@ export function DriverDashboard() {
   const summary = driverSummary(source, now);
   const visible = filterDriverCourses(source, tab, query, now).filter((course) => !status || course.status === status);
   const selected = visible.find((course) => course.id === selectedId) ?? visible[0];
+  const receipt = selected?.payments?.find((item) => item.status === "PAID");
   const scheduled = filterDriverCourses(source, "upcoming", "", now);
   const next = scheduled.find((course) => ["DRIVER_EN_ROUTE", "DRIVER_ARRIVED", "TRIP_STARTED"].includes(course.status)) ?? scheduled[0];
   const formatDate = (value: string | Date, options: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat(language, { ...options, timeZone: driverTimeZone }).format(new Date(value));
@@ -81,16 +83,17 @@ export function DriverDashboard() {
     finally { setPending(false); }
   }
 
-  async function collectPayment(course: Course) {
-    if (demo || course.id.startsWith("demo-") || collectionLock.current || pending || loading || course.status !== "TRIP_COMPLETED" || course.paymentMethod !== "DRIVER" || course.payments?.some((item) => item.status === "PAID")) return;
-    if (!window.confirm(`${t("payment.confirmReceipt")}\n${money(course.priceCents, course.currency)} · ${course.reference}`)) return;
+  async function collectPayment(course: Course, received: boolean) {
+    const method = course.paymentMethod === "ONLINE" ? "ABA" : collection?.bookingId === course.id ? collection.method : null;
+    if (demo || course.id.startsWith("demo-") || collectionLock.current || pending || loading || course.status !== "TRIP_COMPLETED" || received && !method || course.payments?.some((item) => ["PAID", "PROCESSING"].includes(item.status))) return;
+    if (!window.confirm(`${t(received ? "payment.confirmReceipt" : "payment.confirmUnpaid")}\n${money(course.priceCents, course.currency)} · ${course.reference}${received && method ? `\n${t(`payment.${method}`)}` : ""}`)) return;
     collectionLock.current = true; setPending(true); setError(""); setMessage("");
     try {
-      const response = await fetch("/api/driver/payments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ bookingId: course.id, received: true }) });
+      const response = await fetch("/api/driver/payments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ bookingId: course.id, received, ...(received ? { collectionMethod: method } : {}) }) });
       if (!response.ok) throw new Error("Receipt confirmation failed");
       const result = z.object({ booking: courseSchema }).parse(await response.json());
       setCourses((current) => current.map((item) => item.id === result.booking.id ? result.booking : item));
-      setMessage(t("payment.receiptSaved"));
+      setMessage(t(received ? "payment.receiptSaved" : "payment.unpaidSaved"));
     } catch { setError(t("payment.receiptError")); }
     finally { collectionLock.current = false; setPending(false); }
   }
@@ -172,7 +175,15 @@ export function DriverDashboard() {
             <h4><Wallet size={17} />{t("customer.paymentLabel")}</h4>
             <p>{t(selected.payments?.some((item) => item.status === "PAID") ? "payment.collected" : selected.paymentMethod === "DRIVER" ? "payment.toCollect" : selected.paymentMethod === "ONLINE" ? "payment.online" : "payment.unselected")}</p>
             <strong>{money(selected.priceCents, selected.currency)}</strong>
-            {selected.status === "TRIP_COMPLETED" && selected.paymentMethod === "DRIVER" && !selected.payments?.some((item) => item.status === "PAID") && <button type="button" className={styles.primaryButton} disabled={pending || loading || selected.payments?.some((item) => item.status === "PROCESSING")} onClick={() => void collectPayment(selected)}><Wallet size={17} />{t(pending ? "admin.saving" : "payment.collect")}</button>}
+            {receipt?.collectionMethod && <p>{t(`payment.${receipt.collectionMethod}`)}</p>}
+            {selected.status === "TRIP_COMPLETED" && !selected.payments?.some((item) => item.status === "PAID") && <fieldset disabled={pending || loading || selected.payments?.some((item) => item.status === "PROCESSING")} className="mt-3 space-y-3">
+              <label className="block text-sm">{t("payment.receivedVia")}<select className="mt-2 w-full rounded-xl border bg-white p-3 text-slate-900" value={selected.paymentMethod === "ONLINE" ? "ABA" : collection?.bookingId === selected.id ? collection.method : ""} disabled={selected.paymentMethod === "ONLINE"} onChange={(event) => { const method = z.enum(["CASH", "CARD", "ABA", "OTHER"]).parse(event.target.value); setCollection({ bookingId: selected.id, method }); }}>
+                <option value="" disabled>{t("payment.selectMethod")}</option>{(["CASH", "CARD", "ABA", "OTHER"] as const).map((method) => <option value={method} key={method}>{t(`payment.${method}`)}</option>)}
+              </select></label>
+              {selected.paymentMethod === "ONLINE" && <p>{t("payment.manualVerification")}</p>}
+              <button type="button" className={styles.primaryButton} disabled={selected.paymentMethod !== "ONLINE" && collection?.bookingId !== selected.id} onClick={() => void collectPayment(selected, true)}><Wallet size={17} />{t(pending ? "admin.saving" : "payment.collect")}</button>
+              <button type="button" className={styles.secondaryButton} onClick={() => void collectPayment(selected, false)}>{t("payment.markUnpaid")}</button>
+            </fieldset>}
           </section>}
           <div className={styles.actions}>
             {driverNextStatus[selected.status] && <button type="button" className={styles.primaryButton} disabled={pending || loading} onClick={() => void advance(selected)}>{pending ? t("admin.saving") : t(transitionKeys[selected.status as keyof typeof transitionKeys])}<ArrowRight size={18} /></button>}

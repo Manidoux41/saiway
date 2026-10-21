@@ -50,6 +50,6 @@ export function clearSessionCookie() {
   return `${cookieName}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${process.env.NODE_ENV === "production" ? "; Secure" : ""}`;
 }
 
-export function sessionCookie(value: string) {
-  return `${cookieName}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800${process.env.NODE_ENV === "production" ? "; Secure" : ""}`;
+export function sessionCookie(value: string, persistent = false) {
+  return `${cookieName}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${persistent ? 34560000 : 604800}${process.env.NODE_ENV === "production" ? "; Secure" : ""}`;
 }
