@@ -3,6 +3,7 @@ import { BookingStatus, Prisma, TripDirection, TripType } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { authorize } from "@/lib/access";
+import { trackingStatuses } from "@/lib/trip-location";
 import type { SessionRole } from "@/lib/auth-session";
 
 const text = z.string().trim().min(1).max(500);
@@ -141,6 +142,7 @@ export async function bookingRequest(request: Request, role: SessionRole) {
       const confirming = role === "ADMIN" && request.method === "PATCH" && "status" in parsed.data;
       const result = await tx.booking.update({ where: { id: existing.id, updatedAt: existing.updatedAt }, data: { ...update, status, statusHistory: { create: { status, note: confirming ? "ADMIN operational confirmation; payment tracked separately" : `${role} update` } } }, include: bookingInclude });
       await tx.auditLog.create({ data: { actorId: account.id, entity: "Booking", entityId: existing.id, action: confirming ? "CONFIRM" : request.method === "DELETE" ? "CANCEL" : "UPDATE" } });
+      if (!trackingStatuses.includes(status)) await tx.driverLocation.deleteMany({ where: { bookingId: existing.id } });
       return result;
     });
     return Response.json({ booking });

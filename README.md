@@ -221,10 +221,37 @@ addresses/coordinates, not passenger names or account details. Routing failures
 show only located endpoints, not a fabricated road route. Navigation can also
 be opened in Google Maps. These public services require a network connection,
 have no availability guarantee, and should be replaced with contracted or
-self-hosted services for production volume. This is not live GPS or traffic.
+self-hosted services for production volume. Route estimates do not include traffic.
 
 Run the isolated dashboard checks with Node.js 22.18+ using
 `node --test tests/driver-dashboard.test.mjs` (no database required).
+
+### Live driver tracking
+
+When the driver taps **Depart** (status *Driver en route*), the driver dashboard
+starts sharing the phone's GPS position (`navigator.geolocation.watchPosition`,
+high accuracy). Sharing continues through *Arrived* and *Trip started* and stops
+automatically once the trip is completed, cancelled or marked no-show; the stored
+position is then erased. Only the latest point per trip is kept (no route history).
+Positions are sent at most every 5 seconds, sooner when the car moves more than
+15 m, and re-sent every 15 seconds while stationary. Demo trips never share.
+
+Customers open **Track My Driver** (`/booking/track`, or the button on a trip in
+`/account`). The page polls `GET /api/bookings/{id}/location` every 4 seconds while
+visible and shows the driver, the customer's own position (if the browser grants
+location permission; it never leaves the device), pickup/destination, the distance
+between them and the age of the last update, with a warning after one minute
+without news. Before departure it explains that tracking starts when the driver leaves.
+
+`PUT /api/driver/bookings/{id}/location` accepts only the assigned active driver
+during the three tracking statuses. `GET /api/bookings/{id}/location` is limited to
+the owning customer, the assigned driver and administrators; other accounts get 404.
+
+Browser limits: location requires HTTPS (or localhost) and permission on both phones.
+The driver page must stay open in the foreground; the screen is kept awake when the
+browser supports the Wake Lock API, but a web app cannot share GPS in the background
+or once the phone locks. Polling was chosen over WebSockets/SSE so it works on
+serverless hosting without long-lived connections.
 
 ### Contacting the passenger
 
@@ -325,9 +352,8 @@ Use **Edit profile** in the Accounts section for the complete customer and drive
 Homepage image settings are now shared through the database.
 
 ABA PayWay payment processing requires the merchant configuration above.
-Shared live GPS and in-app driver messaging are not connected (drivers contact
-passengers through WhatsApp, Telegram, SMS or phone; see above).
-The tracking screen shows real trip statuses, not a simulated driver map.
+In-app driver messaging is not connected (drivers contact passengers through
+WhatsApp, Telegram, SMS or phone; see above). Live tracking is described above.
 Static marketing content is not a general-purpose CMS.
 The service worker caches only local icons and the manifest, never APIs, pages or
 authenticated navigation/RSC payloads; protected areas require a server connection.
@@ -340,8 +366,9 @@ fleet, accounting and forecasts against the real application and database.
 They also exercise the role/page/API access matrix, booking ownership, dispatch,
 driver progression, concurrent updates, fare/contract editing and archival history,
 plus driver licence photo storage/access isolation, passenger phone visibility,
-administrator profile editing, licence photo management and the employment
-contract lifecycle with PDF generation.
+administrator profile editing, licence photo management, the employment
+contract lifecycle with PDF generation, and live driver location sharing
+(permissions, throttling, read isolation and erasure when the trip ends).
 They create uniquely named test accounts and records, then remove them in cleanup.
 Prefer a dedicated test database and run the application against that same database.
 Integration files run sequentially to limit simultaneous remote database connections;

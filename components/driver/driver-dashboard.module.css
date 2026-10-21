@@ -20,6 +20,17 @@
 .error, .success { margin-top: 12px; padding: 12px; font-size: 14px; }
 .error { color: #a32a23; background: #fff0ed; }
 .success { display: flex; align-items: center; gap: 8px; color: #16744e; background: #edf9f1; }
+.liveShare { display: flex; align-items: flex-start; gap: 12px; margin-top: 14px; padding: 14px 16px; border: 1px solid #b9e4cf; border-radius: 8px; color: #16744e; background: #edf9f1; }
+.liveShare[data-phase="starting"] { color: #032ea1; background: #eef3ff; border-color: #c9d6fa; }
+.liveShare[data-phase="denied"], .liveShare[data-phase="unavailable"], .liveShare[data-phase="unsupported"], .liveShare[data-phase="error"] { color: #9a2a20; background: #fdf1ef; border-color: #f2c7c1; }
+.liveShare > svg { flex-shrink: 0; margin-top: 2px; }
+.liveShare[data-phase="sharing"] > svg { animation: livePulse 1.6s ease-in-out infinite; }
+.liveShare > div { display: grid; gap: 2px; min-width: 0; flex: 1; }
+.liveShare span { color: #101b3d; font-size: 14px; overflow-wrap: anywhere; }
+.liveShare small { color: #5b6681; font-size: 12px; }
+.liveShare button { flex-shrink: 0; min-height: 40px; padding: 0 14px; border-radius: 8px; font-weight: 700; color: #fff; background: #032ea1; }
+@keyframes livePulse { 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) { .liveShare[data-phase="sharing"] > svg { animation: none; } }
 .metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 26px 0 20px; margin-top: 8px; border-bottom: 1px solid #dce3ed; gap: 16px; }
 .metrics > div { border-right: 1px solid #dce3ed; padding-right: 16px; }
 .metrics > div:last-child { border: none; }

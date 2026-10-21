@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { z } from "zod";
-import { ArrowDown, ArrowRight, BriefcaseBusiness, CalendarDays, Check, CheckCheck, ChevronRight, Clock3, ExternalLink, FlaskConical, Mail, MapPin, MessageSquareText, Navigation, Phone, PhoneOff, Plane, RefreshCw, Search, ShieldCheck, Users, Wallet } from "lucide-react";
+import { ArrowDown, ArrowRight, BriefcaseBusiness, LocateFixed, LocateOff, CalendarDays, Check, CheckCheck, ChevronRight, Clock3, ExternalLink, FlaskConical, Mail, MapPin, MessageSquareText, Navigation, Phone, PhoneOff, Plane, RefreshCw, Search, ShieldCheck, Users, Wallet } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { ChangePasswordForm } from "@/components/auth/change-password-form";
 import { courseSchema, type Course } from "@/components/booking/course-dashboard";
@@ -11,6 +11,7 @@ import { useBookings } from "@/components/booking/use-bookings";
 import { useLanguage } from "@/components/i18n/language-provider";
 import { closedDriverStatuses, contactLinks, createDemoCourses, customerContact, driverNextStatus, driverSummary, driverTimeZone, filterDriverCourses, navigationUrl, type ContactApp, type DriverTab } from "@/lib/driver-dashboard";
 import { DriverLicenseCard } from "./driver-license-card";
+import { useLocationSharing } from "./use-location-sharing";
 import styles from "./driver-dashboard.module.css";
 
 const TripMap = dynamic(() => import("./trip-map"), { ssr: false, loading: () => <div className="h-[370px] animate-pulse bg-slate-100" /> });
@@ -60,6 +61,8 @@ export function DriverDashboard() {
   const links = phone && selected ? contactLinks(phone, t("contact.smsBody").replace("{name}", selected.customer.name.split(" ")[0]).replace("{reference}", selected.reference)) : null;
   const scheduled = filterDriverCourses(source, "upcoming", "", now);
   const next = scheduled.find((course) => ["DRIVER_EN_ROUTE", "DRIVER_ARRIVED", "TRIP_STARTED"].includes(course.status)) ?? scheduled[0];
+  const liveTrip = demo ? undefined : courses.find((course) => ["DRIVER_EN_ROUTE", "DRIVER_ARRIVED", "TRIP_STARTED"].includes(course.status));
+  const sharing = useLocationSharing(liveTrip?.id ?? null);
   const formatDate = (value: string | Date, options: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat(language, { ...options, timeZone: driverTimeZone }).format(new Date(value));
   const money = (cents: number, currency: string) => new Intl.NumberFormat(language, { style: "currency", currency }).format(cents / 100);
   const label = (value: string) => t(statusKeys[value as keyof typeof statusKeys] ?? "courses.pending");
@@ -124,6 +127,16 @@ export function DriverDashboard() {
     {demo && <p className={styles.demoNotice}><FlaskConical size={18} aria-hidden="true" />{t("driver.demoNotice")}</p>}
     {error && <p role="alert" className={styles.error}>{error}</p>}
     {message && <p role="status" className={styles.success}><Check size={16} />{message}</p>}
+
+    {liveTrip && <section className={styles.liveShare} data-phase={sharing.phase} aria-live="polite">
+      {sharing.phase === "sharing" || sharing.phase === "starting" ? <LocateFixed size={20} aria-hidden="true" /> : <LocateOff size={20} aria-hidden="true" />}
+      <div>
+        <strong>{t(`live.${sharing.phase === "error" ? "sendError" : sharing.phase}`)}</strong>
+        <span>{liveTrip.reference} · {liveTrip.customer.name}{sharing.lastSent ? ` · ${t("live.lastSent")} ${formatDate(sharing.lastSent, { hour: "2-digit", minute: "2-digit", second: "2-digit" })}` : ""}</span>
+        <small>{t("live.keepOpen")}</small>
+      </div>
+      {["denied", "unavailable", "error"].includes(sharing.phase) && <button type="button" onClick={sharing.retry}>{t("live.retry")}</button>}
+    </section>}
 
     <section className={styles.metrics} aria-label={t("driver.today")} aria-busy={loading}>
       {[

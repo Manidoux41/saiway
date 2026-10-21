@@ -12,7 +12,7 @@ const pointSchema = z.tuple([z.number().min(-180).max(180), z.number().min(-90).
 const geocodeSchema = z.object({ features: z.array(z.object({ geometry: z.object({ coordinates: pointSchema }) })) });
 const routeSchema = z.object({ routes: z.array(z.object({ distance: z.number().nonnegative(), duration: z.number().nonnegative(), geometry: z.object({ coordinates: z.array(pointSchema).min(2) }) })) });
 
-async function locate(address: string, demo: boolean, signal: AbortSignal): Promise<Coordinates> {
+export async function locate(address: string, demo: boolean, signal: AbortSignal): Promise<Coordinates> {
   if (demo && demoLocations[address]) return demoLocations[address];
   if (/^(SAI Airport|Siem Reap Angkor International Airport)(, Cambodia| \(SAI\), Cambodia)?$/i.test(address.trim())) return [13.3692, 104.2231];
   const params = new URLSearchParams({ q: address, limit: "1", bbox: "103.4,12.9,104.7,13.9" });

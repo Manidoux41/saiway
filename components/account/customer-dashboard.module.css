@@ -58,6 +58,9 @@
 .facts dt { font-size: 10px; color: #64748b; }
 .facts dd { font-size: 12px; font-weight: 650; margin-top: 5px; overflow-wrap: anywhere; }
 .vehicle { font-size: 12px; font-weight: 650; background: #e8eef9; padding: 12px; }
+.trackButton { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 46px; padding: 12px 17px; border-radius: 6px; font-size: 13px; font-weight: 800; color: var(--color-primary); background: #eef3ff; border: 1px solid #c9d6fa; }
+.trackButton[data-live="true"] { color: #fff; background: var(--color-accent); border-color: var(--color-accent); }
+.trackButton:hover { filter: brightness(0.96); }
 .muted { color: #64748b; font-size: 12px; }
 .notes { padding: 5px 12px; border-left: 2px solid #a8badb; margin: 18px 0; font-size: 12px; }
 .notes h3 { font-size: 11px; font-weight: 700; margin-bottom: 5px; }
