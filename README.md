@@ -259,19 +259,69 @@ that driver or an administrator, with `Cache-Control: private, no-store`,
 `nosniff` and a restrictive CSP. Each administrator view is audited. Other
 drivers, customers and anonymous visitors receive 403.
 
-Only administrators set the licence number and expiry date, under **Edit records
-and settings** → Accounts → driver (`licenseNo`, `licenseExpiresAt`). The driver
-sees them read-only. **Fleet & management** lists every driver with these
-details, links to both photos, and marks the file **Ready for contract** when the
-number, a future expiry date and both photos are present. The application does
-not generate the contract document itself. Images live in the main database, so
-include it in backups and remember that it stores personal identity data.
+Administrators set the licence number, category and expiry date in the account
+profile (see below). The driver sees them read-only. **Fleet & management** lists
+every driver with these details, links to both photos, and marks the file
+**Ready for contract** when the number, a future expiry date and both photos are
+present. Images live in the main database, so include it in backups and remember
+that it stores personal identity data.
+
+### Administrator account profiles
+
+In `/admin` → **Accounts**, **Edit profile** on any row opens the full profile
+(administrators only; `GET`/`PATCH /api/admin/accounts/{userId}`):
+
+- **Identity and access** for every role: name, email, phone and status. Accounts
+  are never erased: **Suspended** archives the account, blocks sign-in, closes
+  customer sessions and keeps bookings, payments and contracts. Changing a
+  driver's or administrator's email signs them out. Administrators cannot edit
+  their own account here.
+- **Customer details** not asked at sign-up: address, nationality, preferred
+  language, company/hotel/agency and internal notes.
+- **Driver details**: date of birth, nationality, ID card/passport number,
+  address, emergency contact, licence number/category/expiry, availability and
+  internal notes.
+- **Driving licence photos**: view, upload/replace or delete each side
+  (`PUT`/`DELETE /api/drivers/{driverId}/license/{FRONT|BACK}`, audited).
+
+Every field has a clear (×) button; an empty field is stored as `NULL`.
+Each change is audited with the field names only (not the values).
+
+### Employment contracts (PDF)
+
+The driver profile lists permanent employment contracts (CDI). The lifecycle is
+**Draft** (editable, deletable) → **Active** (signed, read-only) → **Terminated**
+(end date on or after the start date). Activation is refused (409 with a
+`missing` list) until the employer details and the driver's date of birth,
+nationality, ID number, address, phone, licence number and a valid licence expiry
+are filled in. A driver can have only one active contract at a time. Signed
+contracts are never deleted.
+
+**Download PDF** (`GET /api/admin/contracts/{contractId}/pdf`, audited) generates
+an A4 bilingual English/Khmer contract on the server with `pdfkit`: parties,
+position, duration and probation (max 3 months), working hours (max 48 h/week),
+salary, leave (min 18 days), licence obligations, termination, optional
+additional terms (printed as entered) and signatures. Drafts carry a DRAFT
+watermark. Employer details (name, registration number, address, legal
+representative and title) are set once under **Employer details for contracts**
+in the same section (`GET`/`PUT /api/admin/employer`, stored in `SystemSetting`).
+
+> ⚠️ The contract wording is a template. Have both languages reviewed by a
+> Cambodian labour lawyer and a native Khmer speaker before using it. The Khmer
+> version is declared to prevail.
+
+Fonts are bundled in `assets/fonts/` (Noto Sans for Latin, Battambang for Khmer,
+both under the SIL Open Font License, see the `OFL-*.txt` files) and traced into
+the PDF route by `next.config.ts`. Schema changes are in the migration
+`20261023010000_admin_profiles_employment_contracts`
+(run `npx prisma migrate deploy`).
 
 Accounts, vehicles, fares and contracts are deactivated rather than deleted.
 Trips are cancelled, not removed. Financial history cannot be deleted through the
 management API. Use **Edit records and settings** to edit existing records or
 create fares/contracts; account roles remain immutable, and administrators cannot
 suspend themselves. Driver availability and license details are editable.
+Use **Edit profile** in the Accounts section for the complete customer and driver files.
 Homepage image settings are now shared through the database.
 
 ABA PayWay payment processing requires the merchant configuration above.
@@ -289,7 +339,9 @@ run `npm test`. The tests exercise driver creation and login, customer profiles,
 fleet, accounting and forecasts against the real application and database.
 They also exercise the role/page/API access matrix, booking ownership, dispatch,
 driver progression, concurrent updates, fare/contract editing and archival history,
-plus driver licence photo storage/access isolation and passenger phone visibility.
+plus driver licence photo storage/access isolation, passenger phone visibility,
+administrator profile editing, licence photo management and the employment
+contract lifecycle with PDF generation.
 They create uniquely named test accounts and records, then remove them in cleanup.
 Prefer a dedicated test database and run the application against that same database.
 Integration files run sequentially to limit simultaneous remote database connections;

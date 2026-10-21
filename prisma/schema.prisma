@@ -110,6 +110,10 @@ model CustomerProfile {
   userId    String   @unique
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   address   String?
+  nationality String?
+  preferredLanguage String?
+  company   String?
+  adminNotes String?
   paymentProviderCustomerId String?
   paymentBrand String?
   paymentLast4 String?
@@ -123,7 +127,16 @@ model DriverProfile {
   user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   licenseNo    String?
   licenseExpiresAt DateTime?
+  licenseCategory String?
   licenseImages DriverLicenseImage[]
+  dateOfBirth  DateTime?
+  nationality  String?
+  idDocumentNo String?
+  address      String?
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  adminNotes   String?
+  employmentContracts EmploymentContract[]
   isAvailable  Boolean         @default(true)
   bookings     Booking[]       @relation("DriverBookings")
   locations    DriverLocation[]
@@ -147,6 +160,35 @@ model DriverLicenseImage {
   uploadedAt DateTime      @default(now())
 
   @@unique([driverId, side])
+}
+
+enum EmploymentContractStatus {
+  DRAFT
+  ACTIVE
+  TERMINATED
+}
+
+model EmploymentContract {
+  id                 String                   @id @default(cuid())
+  reference          String                   @unique
+  driverId           String
+  driver             DriverProfile            @relation(fields: [driverId], references: [id], onDelete: Restrict)
+  status             EmploymentContractStatus @default(DRAFT)
+  position           String
+  workplace          String
+  startsAt           DateTime
+  probationMonths    Int                      @default(0)
+  hoursPerWeek       Int                      @default(48)
+  monthlySalaryCents Int
+  currency           String                   @default("USD")
+  annualLeaveDays    Int                      @default(18)
+  additionalTerms    String?
+  activatedAt        DateTime?
+  terminatedAt       DateTime?
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+
+  @@index([driverId])
 }
 
 model Vehicle {

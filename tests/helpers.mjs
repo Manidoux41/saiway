@@ -37,6 +37,7 @@ async function setup() {
         await prisma.booking.deleteMany({ where: { customer: { email: { startsWith: prefix } } } });
         await prisma.vehicle.deleteMany({ where: { plate: { startsWith: prefix } } });
         await prisma.pricingRule.deleteMany({ where: { name: { startsWith: prefix } } });
+        await prisma.employmentContract.deleteMany({ where: { driver: { user: { email: { startsWith: prefix } } } } });
         await prisma.auditLog.deleteMany({ where: { actor: { email: { startsWith: prefix } } } });
         await prisma.user.deleteMany({ where: { email: { startsWith: prefix } } });
       }

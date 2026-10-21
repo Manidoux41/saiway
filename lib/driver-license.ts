@@ -35,29 +35,68 @@ export async function driverLicenseSummary(request: Request) {
   } catch (error) { return unavailable(error); }
 }
 
+async function readLicenseFile(request: Request, sideFromPath?: string) {
+  if (Number(request.headers.get("content-length") ?? 0) > maxLicenseImageBytes + 64 * 1024) return Response.json({ error: "Image must be 5 MB or smaller" }, { status: 413 });
+  let form: FormData;
+  try { form = await request.formData(); } catch { return Response.json({ error: "Invalid upload" }, { status: 400 }); }
+  const side = sideFromPath ?? form.get("side");
+  const file = form.get("file");
+  if (typeof side !== "string" || !sides.has(side) || !(file instanceof File)) return Response.json({ error: "Invalid upload" }, { status: 400 });
+  if (file.size === 0 || file.size > maxLicenseImageBytes) return Response.json({ error: "Image must be 5 MB or smaller" }, { status: 413 });
+  const data = new Uint8Array(await file.arrayBuffer());
+  const mimeType = licenseImageType(data);
+  if (!mimeType) return Response.json({ error: "Use a JPEG, PNG or WebP photo" }, { status: 415 });
+  return { side: side as LicenseSide, data, mimeType };
+}
+
+async function saveLicenseImage(actorId: string, driverId: string, upload: { side: LicenseSide; data: Uint8Array<ArrayBuffer>; mimeType: string }) {
+  const { side, data, mimeType } = upload;
+  const image = await prisma.$transaction(async (tx) => {
+    const where = { driverId_side: { driverId, side } };
+    const saved = await tx.driverLicenseImage.upsert({ where, create: { driverId, side, mimeType, sizeBytes: data.length, data }, update: { mimeType, sizeBytes: data.length, data, uploadedAt: new Date() }, select: { id: true, ...imageMetadata } });
+    await tx.auditLog.create({ data: { actorId, entity: "DriverLicenseImage", entityId: saved.id, action: `UPLOAD_${side}`, metadata: { driverId } } });
+    return saved;
+  });
+  const { id: ignoredId, ...metadata } = image;
+  void ignoredId;
+  return Response.json({ image: metadata }, { status: 201 });
+}
+
 export async function uploadDriverLicense(request: Request) {
   try {
     const owner = await ownDriver(request);
     if (!owner) return Response.json({ error: "Driver access required" }, { status: 403 });
-    if (Number(request.headers.get("content-length") ?? 0) > maxLicenseImageBytes + 64 * 1024) return Response.json({ error: "Image must be 5 MB or smaller" }, { status: 413 });
-    let form: FormData;
-    try { form = await request.formData(); } catch { return Response.json({ error: "Invalid upload" }, { status: 400 }); }
-    const side = form.get("side");
-    const file = form.get("file");
-    if (typeof side !== "string" || !sides.has(side) || !(file instanceof File)) return Response.json({ error: "Invalid upload" }, { status: 400 });
-    if (file.size === 0 || file.size > maxLicenseImageBytes) return Response.json({ error: "Image must be 5 MB or smaller" }, { status: 413 });
-    const data = new Uint8Array(await file.arrayBuffer());
-    const mimeType = licenseImageType(data);
-    if (!mimeType) return Response.json({ error: "Use a JPEG, PNG or WebP photo" }, { status: 415 });
-    const image = await prisma.$transaction(async (tx) => {
-      const where = { driverId_side: { driverId: owner.driver.id, side: side as LicenseSide } };
-      const saved = await tx.driverLicenseImage.upsert({ where, create: { driverId: owner.driver.id, side: side as LicenseSide, mimeType, sizeBytes: data.length, data }, update: { mimeType, sizeBytes: data.length, data, uploadedAt: new Date() }, select: { id: true, ...imageMetadata } });
-      await tx.auditLog.create({ data: { actorId: owner.account.id, entity: "DriverLicenseImage", entityId: saved.id, action: `UPLOAD_${side}` } });
-      return saved;
+    const upload = await readLicenseFile(request);
+    if (upload instanceof Response) return upload;
+    return await saveLicenseImage(owner.account.id, owner.driver.id, upload);
+  } catch (error) { return unavailable(error); }
+}
+
+export async function adminUploadDriverLicense(request: Request, driverId: string, side: string) {
+  try {
+    const admin = await authorize(request, "ADMIN");
+    if (!admin) return Response.json({ error: "Administrator access required" }, { status: 403 });
+    if (!sides.has(side)) return Response.json({ error: "Not found" }, { status: 404 });
+    if (!await prisma.driverProfile.findUnique({ where: { id: driverId }, select: { id: true } })) return Response.json({ error: "Driver not found" }, { status: 404 });
+    const upload = await readLicenseFile(request, side);
+    if (upload instanceof Response) return upload;
+    return await saveLicenseImage(admin.id, driverId, upload);
+  } catch (error) { return unavailable(error); }
+}
+
+export async function adminDeleteDriverLicense(request: Request, driverId: string, side: string) {
+  try {
+    const admin = await authorize(request, "ADMIN");
+    if (!admin) return Response.json({ error: "Administrator access required" }, { status: 403 });
+    if (!sides.has(side)) return Response.json({ error: "Not found" }, { status: 404 });
+    const deleted = await prisma.$transaction(async (tx) => {
+      const image = await tx.driverLicenseImage.findUnique({ where: { driverId_side: { driverId, side: side as LicenseSide } }, select: { id: true } });
+      if (!image) return false;
+      await tx.driverLicenseImage.delete({ where: { id: image.id } });
+      await tx.auditLog.create({ data: { actorId: admin.id, entity: "DriverLicenseImage", entityId: image.id, action: `DELETE_${side}`, metadata: { driverId } } });
+      return true;
     });
-    const { id: ignoredId, ...metadata } = image;
-    void ignoredId;
-    return Response.json({ image: metadata }, { status: 201 });
+    return deleted ? Response.json({ ok: true }) : Response.json({ error: "Not found" }, { status: 404 });
   } catch (error) { return unavailable(error); }
 }
 
