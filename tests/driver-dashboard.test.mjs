@@ -35,3 +35,18 @@ test('navigation encodes addresses rather than treating them as URL parameters',
   assert.equal(url.searchParams.get('origin'), 'Hotel & Spa');
   assert.equal(url.searchParams.get('destination'), 'SAI #1');
 });
+test('passenger contact links normalise numbers for WhatsApp, Telegram and SMS', async () => {
+  const { internationalPhone, customerContact, contactLinks } = await import('../lib/driver-dashboard.ts');
+  assert.equal(internationalPhone('+855 12 345 678'), '85512345678');
+  assert.equal(internationalPhone('012 345 678'), '85512345678');
+  assert.equal(internationalPhone('0033 6 12 34 56 78'), '33612345678');
+  assert.equal(internationalPhone('+33 (0)6'), null);
+  assert.equal(internationalPhone(''), null);
+  assert.equal(customerContact({ contactPhone: null, customer: { phone: '+1 202 555 0100' } }), '12025550100');
+  assert.equal(customerContact({ contactPhone: '097 111 2222', customer: { phone: '+1 202 555 0100' } }), '855971112222');
+  const links = contactLinks('85512345678', 'Hello & welcome');
+  assert.equal(links.whatsapp, 'https://wa.me/85512345678');
+  assert.equal(links.telegram, 'https://t.me/+85512345678');
+  assert.equal(links.sms, 'sms:+85512345678?body=Hello%20%26%20welcome');
+  assert.equal(links.tel, 'tel:+85512345678');
+});

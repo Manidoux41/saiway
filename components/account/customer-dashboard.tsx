@@ -160,7 +160,7 @@ export function CustomerDashboard() {
     {section === "profile" ? <CustomerProfile /> : <>
       <section className={styles.metrics} aria-label={t("customer.trips")}>{[{ key: "upcoming", title: t("customer.upcoming"), value: upcoming.length, icon: CalendarDays }, { key: "payment", title: t("customer.waitingPayment"), value: awaiting.length, icon: CreditCard }, { key: "history", title: t("courses.completed"), value: courses.filter((course) => course.status === "TRIP_COMPLETED").length, icon: CheckCheck }].map(({ key, title, value, icon: Icon }) => <button type="button" key={key} onClick={() => setView(key as typeof view)}><span><Icon size={17} />{title}</span><strong>{loaded ? value : "…"}</strong></button>)}</section>
       {next && <button type="button" className={styles.nextTrip} onClick={() => { setSelectedId(next.id); setView("all"); setQuery(""); }}><Clock3 size={20} /><span><small>{t("customer.next")}</small><strong>{date(next.pickupAt)}</strong></span><span className={styles.nextDestination}>{next.toAddress}</span><ArrowRight size={18} /></button>}
-      {(error || actionError) && <p role="alert" className={styles.error}>{error || actionError}</p>}{message && <p role="status" className={styles.success}>{message}</p>}
+      {(error || actionError) && <div role="alert" className={styles.error}><p>{error || actionError}</p>{error && <button type="button" className={styles.secondaryButton} disabled={loading || pending} onClick={refresh}><RefreshCw size={16} />{t("customer.refresh")}</button>}</div>}{message && <p role="status" className={styles.success}>{message}</p>}
       <div className={styles.workspace}>
         <section className={styles.list} aria-busy={loading}><div className={styles.sectionHeading}><h2>{t("customer.trips")}</h2><button type="button" className={styles.iconButton} disabled={loading || pending} onClick={refresh} title={t("customer.refresh")} aria-label={t("customer.refresh")}><RefreshCw size={17} /></button></div>
           <div className={styles.filters} role="group" aria-label={t("customer.trips")}>{(["all", "upcoming", "payment", "history"] as const).map((value) => <button key={value} type="button" aria-pressed={view === value} onClick={() => setView(value)}>{t(value === "payment" ? "customer.waitingPayment" : `customer.${value}`)}</button>)}</div>
@@ -198,7 +198,7 @@ export function CustomerDashboard() {
           {payable(selected) && processing && <button type="button" className={styles.secondaryButton} disabled={pending || loading} onClick={() => void payment(selected, "verify")}><RefreshCw size={16} />{t("customer.verify")}</button>}
           {paid(selected) && !["CANCELLED", "NO_SHOW", "REFUNDED"].includes(selected.status) && <p className={styles.success}><CheckCheck size={18} />{t("customer.paid")}</p>}
           {!closed(selected) && ["PENDING_PAYMENT", "CONFIRMED", "DRIVER_ASSIGNMENT_PENDING", "DRIVER_ASSIGNED"].includes(selected.status) && <button type="button" className={styles.cancelButton} disabled={pending || loading} onClick={() => void cancel(selected)}>{t("courses.cancel")}</button>}
-        </> : <div className={styles.empty}><MapPin size={30} /><p>{t("customer.empty")}</p></div>}</section>
+        </> : <div className={styles.empty}><MapPin size={30} /><p>{t(!loaded ? error ? "courses.loadUnavailable" : "admin.loading" : "customer.empty")}</p></div>}</section>
       </div>
     </>}
   </div>;

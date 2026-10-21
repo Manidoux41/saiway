@@ -65,7 +65,7 @@ export default function BookingPage() {
       const response = await fetch("/api/bookings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
         fromAddress: direction === "airport-to-city" ? "SAI Airport" : hotel,
         toAddress: direction === "airport-to-city" ? hotel : "SAI Airport",
-        direction: apiDirection, tripType: apiTripType, paymentMethod,
+        direction: apiDirection, tripType: apiTripType, paymentMethod, contactPhone: passenger.phone.trim(),
         pickupAt: new Date(`${pickupDate}T${pickupTime}:00+07:00`).toISOString(), passengers,
         luggageCount: passenger.luggageCount, specialNeeds: passenger.specialNeeds, flightNumber: passenger.flightNumber,
         pickupNotes: `${passenger.pickupNotes}\nPassenger: ${passenger.name}; ${passenger.email}; ${passenger.phone}`,
@@ -168,7 +168,7 @@ export default function BookingPage() {
                     </div>
                     <div>
                       <label htmlFor="phone" className="mb-2 block text-sm font-semibold text-[var(--color-text)]">{t("booking.phone")}</label>
-                      <input id="phone" type="tel" required value={passenger.phone} onChange={(event) => setPassenger({ ...passenger, phone: event.target.value })} placeholder="+855 ..." className="w-full rounded-2xl border border-slate-200 bg-[var(--color-input)] px-4 py-3.5 text-[var(--color-text)] outline-none focus:border-[var(--color-primary)]" />
+                      <input id="phone" type="tel" required maxLength={30} pattern="\+?[\d\s\(\)\.\-]{8,}" autoComplete="tel" value={passenger.phone} onChange={(event) => setPassenger({ ...passenger, phone: event.target.value })} placeholder="+855 ..." className="w-full rounded-2xl border border-slate-200 bg-[var(--color-input)] px-4 py-3.5 text-[var(--color-text)] outline-none focus:border-[var(--color-primary)]" />
                     </div>
                   </div>
                   <div className="grid gap-5 sm:grid-cols-2">

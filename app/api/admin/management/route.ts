@@ -9,7 +9,7 @@ const name = z.string().trim().min(1).max(500);
 const cents = z.number().int().nonnegative().max(100000000);
 const date = z.coerce.date();
 const fields = {
-  user: z.object({ name, email: z.string().trim().toLowerCase().pipe(z.email()), status: z.enum(["ACTIVE", "SUSPENDED", "INVITED"]), phone: z.string().max(50).nullable().optional(), isAvailable: z.boolean().optional(), licenseNo: z.string().max(100).nullable().optional() }),
+  user: z.object({ name, email: z.string().trim().toLowerCase().pipe(z.email()), status: z.enum(["ACTIVE", "SUSPENDED", "INVITED"]), phone: z.string().max(50).nullable().optional(), isAvailable: z.boolean().optional(), licenseNo: z.string().trim().max(100).nullable().optional(), licenseExpiresAt: z.union([z.literal("").transform(() => null), z.string().regex(/^\d{4}-\d{2}-\d{2}$/).transform((value) => new Date(`${value}T00:00:00Z`))]).nullable().optional() }),
   vehicle: z.object({ name, plate: name, seats: z.coerce.number().int().min(1).max(50), active: z.boolean().optional() }),
   accounting: z.object({ type: z.enum(["REVENUE", "EXPENSE", "CREDIT", "PURCHASE"]), label: name, amountCents: cents, currency: z.literal("USD").optional(), notes: z.string().max(2000).optional(), paidAt: date.nullable().optional() }),
   forecast: z.object({ month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/).transform((value) => new Date(`${value}-01T00:00:00Z`)), expectedRevenueCents: cents, expectedExpenseCents: cents, notes: z.string().max(2000).optional() }),
@@ -23,7 +23,7 @@ export async function GET(request: Request) {
   try {
     if (!await authorize(request, "ADMIN")) return Response.json({ error: "Administrator access required" }, { status: 403 });
     const [users, vehicles, entries, forecasts, contracts, pricing, settings, receipts] = await Promise.all([
-      prisma.user.findMany({ select: { id: true, name: true, email: true, role: true, status: true, phone: true, driver: { select: { id: true, isAvailable: true, licenseNo: true } } }, orderBy: { createdAt: "desc" } }),
+      prisma.user.findMany({ select: { id: true, name: true, email: true, role: true, status: true, phone: true, driver: { select: { id: true, isAvailable: true, licenseNo: true, licenseExpiresAt: true, licenseImages: { select: { side: true, sizeBytes: true, uploadedAt: true }, orderBy: { side: "asc" } } } } }, orderBy: { createdAt: "desc" } }),
       prisma.vehicle.findMany({ orderBy: { createdAt: "desc" } }),
       prisma.accountingEntry.findMany({ orderBy: { createdAt: "desc" } }),
       prisma.forecastLine.findMany({ orderBy: { month: "asc" } }),
@@ -62,10 +62,11 @@ async function mutate(request: Request) {
         if (entity === "contract") result = await tx.vehicleContract.update({ where: { id }, data: { status: "INACTIVE" } });
       } else {
         if (entity === "user") {
-          const { isAvailable, licenseNo, ...value } = fields.user.partial().strict().parse(data);
+          const { isAvailable, licenseNo, licenseExpiresAt, ...value } = fields.user.partial().strict().parse(data);
           const existing = await tx.user.findUniqueOrThrow({ where: { id } });
-          if ((isAvailable !== undefined || licenseNo !== undefined) && existing.role !== "DRIVER") throw new z.ZodError([{ code: "custom", path: ["isAvailable"], message: "Driver fields require a driver account" }]);
-          result = await tx.user.update({ where: { id }, data: { ...value, ...(isAvailable !== undefined || licenseNo !== undefined ? { driver: { update: { isAvailable, licenseNo } } } : {}) }, select: { id: true, name: true, email: true, role: true, status: true } });
+          const driverFields = isAvailable !== undefined || licenseNo !== undefined || licenseExpiresAt !== undefined;
+          if (driverFields && existing.role !== "DRIVER") throw new z.ZodError([{ code: "custom", path: ["isAvailable"], message: "Driver fields require a driver account" }]);
+          result = await tx.user.update({ where: { id }, data: { ...value, ...(driverFields ? { driver: { update: { isAvailable, licenseNo: licenseNo === "" ? null : licenseNo, licenseExpiresAt } } } : {}) }, select: { id: true, name: true, email: true, role: true, status: true } });
         }
         if (entity === "vehicle") {
           const value = updating ? fields.vehicle.partial().parse(data) : fields.vehicle.parse(data);

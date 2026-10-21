@@ -40,6 +40,33 @@ export function navigationUrl(course: Pick<Course, "fromAddress" | "toAddress">)
   return `https://www.google.com/maps/dir/?${params}`;
 }
 
+export type ContactApp = "whatsapp" | "telegram";
+
+// Returns an international number without "+" (Cambodian local numbers starting with 0 get +855).
+export function internationalPhone(value: string | null | undefined) {
+  const raw = value?.trim() ?? "";
+  if (!raw) return null;
+  let digits = raw.replace(/\D/g, "");
+  if (!raw.startsWith("+")) {
+    if (digits.startsWith("00")) digits = digits.slice(2);
+    else if (digits.startsWith("0")) digits = `855${digits.slice(1)}`;
+  }
+  return digits.length >= 8 && digits.length <= 15 ? digits : null;
+}
+
+export function customerContact(course: Pick<Course, "contactPhone" | "customer">) {
+  return internationalPhone(course.contactPhone) ?? internationalPhone(course.customer.phone);
+}
+
+export function contactLinks(phone: string, smsBody = "") {
+  return {
+    whatsapp: `https://wa.me/${phone}`,
+    telegram: `https://t.me/+${phone}`,
+    sms: `sms:+${phone}${smsBody ? `?body=${encodeURIComponent(smsBody)}` : ""}`,
+    tel: `tel:+${phone}`,
+  };
+}
+
 export const demoLocations: Record<string, Coordinates> = {
   "Siem Reap Angkor International Airport (SAI), Cambodia": [13.3692, 104.2231],
   "Raffles Grand Hotel d'Angkor, Siem Reap": [13.3643, 103.8597],

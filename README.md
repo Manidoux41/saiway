@@ -90,6 +90,11 @@ in the assigned driver's schedule. Demo driver trips remain page-local and never
 contribute to admin counts. New/edit pickup inputs explicitly use Cambodia time,
 independently of the administrator's browser timezone.
 
+Trip-list refreshes wait for an in-flight request instead of aborting it on each
+15-second poll or focus event. Requests have a 30-second timeout. Authentication,
+temporary service, timeout and invalid-response failures are shown separately;
+customers can retry loading without resubmitting a saved reservation.
+
 ### Customer accounts and ABA PayWay / KHQR
 
 Public registration at `/auth` requires only name, email and an 8-128 character
@@ -221,6 +226,47 @@ self-hosted services for production volume. This is not live GPS or traffic.
 Run the isolated dashboard checks with Node.js 22.18+ using
 `node --test tests/driver-dashboard.test.mjs` (no database required).
 
+### Contacting the passenger
+
+The booking form stores the passenger phone in `Booking.contactPhone` (digits,
+spaces, `+ ( ) . -`, max 30 characters). Booking APIs return it, with the
+customer's profile phone as a fallback, only to the customer, administrators and
+the driver assigned to that booking. In a real trip, **Contact passenger** shows:
+
+- a WhatsApp / Telegram choice, remembered in the driver's browser;
+- **Call on WhatsApp/Telegram**, which opens `https://wa.me/<number>` or
+  `https://t.me/+<number>`. Those apps open the conversation; the driver then
+  taps their call button. Telegram works only if the passenger has Telegram and
+  their privacy settings allow being found by phone number;
+- **Send SMS**, which opens the phone's own SMS app (`sms:`) with a prefilled
+  message. The SMS is sent from the driver's phone plan; SAIWAY uses no SMS
+  provider and stores no message;
+- the number itself as a `tel:` link for a normal phone call.
+
+Numbers entered with a leading `0` are treated as Cambodian (+855); `00` and `+`
+prefixes are kept as international numbers. Demo trips have no contact actions.
+
+### Driving licence and employment contract
+
+On `/driver`, **Driving licence** lets the driver upload or replace one front and
+one back photo (JPEG, PNG or WebP, 5 MB maximum). The server checks the file
+signature rather than trusting its name or MIME type, and stores the image in
+PostgreSQL (`DriverLicenseImage`, one row per side, bytes in `BYTEA`). Each upload
+is recorded in the audit log.
+
+Photos are served only by `GET /api/drivers/{driverId}/license/{FRONT|BACK}` to
+that driver or an administrator, with `Cache-Control: private, no-store`,
+`nosniff` and a restrictive CSP. Each administrator view is audited. Other
+drivers, customers and anonymous visitors receive 403.
+
+Only administrators set the licence number and expiry date, under **Edit records
+and settings** → Accounts → driver (`licenseNo`, `licenseExpiresAt`). The driver
+sees them read-only. **Fleet & management** lists every driver with these
+details, links to both photos, and marks the file **Ready for contract** when the
+number, a future expiry date and both photos are present. The application does
+not generate the contract document itself. Images live in the main database, so
+include it in backups and remember that it stores personal identity data.
+
 Accounts, vehicles, fares and contracts are deactivated rather than deleted.
 Trips are cancelled, not removed. Financial history cannot be deleted through the
 management API. Use **Edit records and settings** to edit existing records or
@@ -229,7 +275,8 @@ suspend themselves. Driver availability and license details are editable.
 Homepage image settings are now shared through the database.
 
 ABA PayWay payment processing requires the merchant configuration above.
-Shared live GPS and driver messaging are not connected.
+Shared live GPS and in-app driver messaging are not connected (drivers contact
+passengers through WhatsApp, Telegram, SMS or phone; see above).
 The tracking screen shows real trip statuses, not a simulated driver map.
 Static marketing content is not a general-purpose CMS.
 The service worker caches only local icons and the manifest, never APIs, pages or
@@ -241,7 +288,8 @@ With the application running (`npm run dev`) and database variables configured,
 run `npm test`. The tests exercise driver creation and login, customer profiles,
 fleet, accounting and forecasts against the real application and database.
 They also exercise the role/page/API access matrix, booking ownership, dispatch,
-driver progression, concurrent updates, fare/contract editing and archival history.
+driver progression, concurrent updates, fare/contract editing and archival history,
+plus driver licence photo storage/access isolation and passenger phone visibility.
 They create uniquely named test accounts and records, then remove them in cleanup.
 Prefer a dedicated test database and run the application against that same database.
 Integration files run sequentially to limit simultaneous remote database connections;

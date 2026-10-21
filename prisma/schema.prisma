@@ -122,11 +122,31 @@ model DriverProfile {
   userId       String          @unique
   user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   licenseNo    String?
+  licenseExpiresAt DateTime?
+  licenseImages DriverLicenseImage[]
   isAvailable  Boolean         @default(true)
   bookings     Booking[]       @relation("DriverBookings")
   locations    DriverLocation[]
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
+}
+
+enum LicenseSide {
+  FRONT
+  BACK
+}
+
+model DriverLicenseImage {
+  id         String        @id @default(cuid())
+  driverId   String
+  driver     DriverProfile @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  side       LicenseSide
+  mimeType   String
+  sizeBytes  Int
+  data       Bytes
+  uploadedAt DateTime      @default(now())
+
+  @@unique([driverId, side])
 }
 
 model Vehicle {
@@ -199,6 +219,7 @@ model Booking {
   tripType       TripType
   pickupAt       DateTime
   flightNumber   String?
+  contactPhone   String?
   passengers     Int
   luggageCount   Int             @default(0)
   specialNeeds   String?

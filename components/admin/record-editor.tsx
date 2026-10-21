@@ -8,10 +8,10 @@ import { useAuth } from "@/components/auth/auth-provider";
 
 type Entity = "user" | "vehicle" | "accounting" | "forecast" | "pricing" | "contract" | "setting";
 type Label = keyof typeof operations.en;
-type Field = { key: string; label: Label; type?: "number" | "datetime-local" | "month" | "url" | "email"; options?: string[]; optional?: boolean };
+type Field = { key: string; label: Label; type?: "number" | "datetime-local" | "date" | "month" | "url" | "email"; options?: string[]; optional?: boolean };
 const categories: Record<Entity, Label> = { user: "records.users", vehicle: "records.vehicles", accounting: "records.accounting", forecast: "records.forecasts", pricing: "records.pricing", contract: "records.contracts", setting: "records.settings" };
 const fields: Record<Entity, Field[]> = {
-  user: [{ key: "name", label: "records.name" }, { key: "email", label: "records.email", type: "email" }, { key: "phone", label: "records.phone", optional: true }, { key: "status", label: "records.status", options: ["ACTIVE", "SUSPENDED", "INVITED"] }, { key: "isAvailable", label: "records.available", options: ["true", "false"] }, { key: "licenseNo", label: "records.license", optional: true }],
+  user: [{ key: "name", label: "records.name" }, { key: "email", label: "records.email", type: "email" }, { key: "phone", label: "records.phone", optional: true }, { key: "status", label: "records.status", options: ["ACTIVE", "SUSPENDED", "INVITED"] }, { key: "isAvailable", label: "records.available", options: ["true", "false"] }, { key: "licenseNo", label: "records.license", optional: true }, { key: "licenseExpiresAt", label: "license.expiry", type: "date", optional: true }],
   vehicle: [{ key: "name", label: "records.name" }, { key: "plate", label: "records.plate" }, { key: "seats", label: "records.seats", type: "number" }, { key: "active", label: "records.active", options: ["true", "false"] }],
   accounting: [{ key: "type", label: "records.type", options: ["REVENUE", "EXPENSE", "CREDIT", "PURCHASE"] }, { key: "label", label: "records.description" }, { key: "amountCents", label: "records.amount", type: "number" }],
   forecast: [{ key: "month", label: "records.month", type: "month" }, { key: "expectedRevenueCents", label: "records.revenue", type: "number" }, { key: "expectedExpenseCents", label: "records.expenses", type: "number" }],
@@ -29,12 +29,12 @@ export function RecordEditor({ data, disabled, refresh }: { data: ManagementData
   const [error, setError] = useState<ReturnType<typeof adminErrorKey> | null>(null);
   const [saved, setSaved] = useState(false);
   const records: Record<Entity, Array<Record<string, unknown>>> = {
-    user: data.users.filter((item) => item.id !== user?.id).map((item) => ({ ...item, ...(item.driver ? { isAvailable: item.driver.isAvailable, licenseNo: item.driver.licenseNo } : {}) })),
+    user: data.users.filter((item) => item.id !== user?.id).map((item) => ({ ...item, ...(item.driver ? { isAvailable: item.driver.isAvailable, licenseNo: item.driver.licenseNo, licenseExpiresAt: item.driver.licenseExpiresAt } : {}) })),
     vehicle: data.vehicles, accounting: data.entries, forecast: data.forecasts,
     pricing: data.pricing, contract: data.contracts, setting: data.settings,
   };
   const record = records[entity].find((item) => (item.id ?? item.key) === selected);
-  const visibleFields = fields[entity].filter((field) => entity !== "user" || record?.role === "DRIVER" || !["isAvailable", "licenseNo"].includes(field.key));
+  const visibleFields = fields[entity].filter((field) => entity !== "user" || record?.role === "DRIVER" || !["isAvailable", "licenseNo", "licenseExpiresAt"].includes(field.key));
   function defaultValue(field: Field) {
     const value = record?.[field.key];
     if (typeof value !== "string" && typeof value !== "number" && typeof value !== "boolean") return field.options?.[0] ?? "";
@@ -43,6 +43,7 @@ export function RecordEditor({ data, disabled, refresh }: { data: ManagementData
       return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
     }
     if (field.type === "month") return String(value).slice(0, 7);
+    if (field.type === "date") return String(value).slice(0, 10);
     return String(value);
   }
   async function submit(event: FormEvent<HTMLFormElement>) {

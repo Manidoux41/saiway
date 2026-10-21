@@ -12,6 +12,14 @@ const en = {
   "driver.mapPrivacy": "Map: OpenStreetMap. Addresses are sent to Photon and OSRM to estimate the route. No live driver tracking.",
   "driver.pickupPoint": "Pickup", "driver.dropoffPoint": "Drop-off", "driver.account": "Account security", "driver.refresh": "Refresh trips", "driver.updated": "Trip updated.",
   "driver.tripFare": "Booking fare", "driver.minute": "min", "driver.kilometer": "km", "driver.overdue": "Pickup time passed", "driver.allStatuses": "All statuses", "driver.noShow": "No-show", "driver.refunded": "Refunded",
+  "contact.title": "Contact passenger", "contact.app": "Calling app", "contact.call": "Call on", "contact.sms": "Send SMS", "contact.noPhone": "No phone number for this passenger. Use email or contact the office.",
+  "contact.telegramNote": "Telegram opens the chat only if the passenger's number allows it; otherwise use WhatsApp or SMS.", "contact.smsBody": "Hello {name}, this is your SAIWAY driver for booking {reference}.",
+  "license.title": "Driving licence", "license.intro": "Upload a clear photo of both sides. Only you and SAIWAY administrators can see them; they are used to prepare your employment contract.",
+  "license.number": "Licence number", "license.expiry": "Expiry date", "license.adminManaged": "Set by an administrator from your licence photos.", "license.FRONT": "Front", "license.BACK": "Back",
+  "license.missing": "Not uploaded", "license.upload": "Upload photo", "license.replace": "Replace photo", "license.uploaded": "Uploaded", "license.saved": "Licence photo saved.",
+  "license.rules": "JPEG, PNG or WebP · 5 MB maximum", "license.tooLarge": "The photo must be 5 MB or smaller.", "license.badType": "Use a JPEG, PNG or WebP photo.", "license.error": "The licence could not be loaded or saved. Try again.", "license.loading": "Loading licence…",
+  "license.adminTitle": "Driver licences · employment contracts", "license.adminIntro": "Licence number, expiry date and recto/verso photos for each driver. Edit the number and expiry date in “Edit records and settings”. Opening a photo is recorded in the audit log.",
+  "license.driver": "Driver", "license.photos": "Photos", "license.complete": "Ready for contract", "license.incomplete": "Incomplete", "license.expired": "Expired", "license.noDrivers": "No driver accounts.",
 };
 const fr: typeof en = {
   "driver.greeting": "Votre journée au volant", "driver.planning": "Planning des courses", "driver.map": "Carte du trajet",
@@ -27,5 +35,13 @@ const fr: typeof en = {
   "driver.mapPrivacy": "Carte : OpenStreetMap. Les adresses sont envoyées à Photon et OSRM pour estimer le trajet. Pas de suivi du chauffeur en direct.",
   "driver.pickupPoint": "Prise en charge", "driver.dropoffPoint": "Dépose", "driver.account": "Sécurité du compte", "driver.refresh": "Actualiser les courses", "driver.updated": "Course mise à jour.",
   "driver.tripFare": "Tarif de la réservation", "driver.minute": "min", "driver.kilometer": "km", "driver.overdue": "Heure de prise en charge dépassée", "driver.allStatuses": "Tous les statuts", "driver.noShow": "Absent", "driver.refunded": "Remboursée",
+  "contact.title": "Contacter le passager", "contact.app": "Application d’appel", "contact.call": "Appeler via", "contact.sms": "Envoyer un SMS", "contact.noPhone": "Aucun numéro pour ce passager. Utilisez l’e-mail ou contactez le bureau.",
+  "contact.telegramNote": "Telegram n’ouvre la conversation que si le numéro du passager le permet ; sinon utilisez WhatsApp ou le SMS.", "contact.smsBody": "Bonjour {name}, je suis votre chauffeur SAIWAY pour la réservation {reference}.",
+  "license.title": "Permis de conduire", "license.intro": "Envoyez une photo nette du recto et du verso. Seuls vous et les administrateurs SAIWAY peuvent les voir ; elles servent à établir votre contrat de travail.",
+  "license.number": "Numéro de permis", "license.expiry": "Date d’expiration", "license.adminManaged": "Renseigné par un administrateur à partir des photos.", "license.FRONT": "Recto", "license.BACK": "Verso",
+  "license.missing": "Non envoyé", "license.upload": "Envoyer la photo", "license.replace": "Remplacer la photo", "license.uploaded": "Envoyé le", "license.saved": "Photo du permis enregistrée.",
+  "license.rules": "JPEG, PNG ou WebP · 5 Mo maximum", "license.tooLarge": "La photo doit faire 5 Mo maximum.", "license.badType": "Utilisez une photo JPEG, PNG ou WebP.", "license.error": "Impossible de charger ou d’enregistrer le permis. Réessayez.", "license.loading": "Chargement du permis…",
+  "license.adminTitle": "Permis des chauffeurs · contrats de travail", "license.adminIntro": "Numéro, date d’expiration et photos recto/verso du permis de chaque chauffeur. Modifiez le numéro et la date dans « Modifier les éléments et paramètres ». L’ouverture d’une photo est enregistrée dans le journal d’audit.",
+  "license.driver": "Chauffeur", "license.photos": "Photos", "license.complete": "Prêt pour le contrat", "license.incomplete": "Incomplet", "license.expired": "Expiré", "license.noDrivers": "Aucun compte chauffeur.",
 };
 export const driverCopy = { en, fr };

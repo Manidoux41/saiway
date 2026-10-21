@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const managementSchema = z.object({
-  users: z.array(z.object({ id: z.string(), name: z.string(), email: z.string(), phone: z.string().nullable(), role: z.enum(["ADMIN", "DRIVER", "CUSTOMER"]), status: z.enum(["ACTIVE", "SUSPENDED", "INVITED"]), driver: z.object({ id: z.string(), isAvailable: z.boolean(), licenseNo: z.string().nullable() }).nullable() })),
+  users: z.array(z.object({ id: z.string(), name: z.string(), email: z.string(), phone: z.string().nullable(), role: z.enum(["ADMIN", "DRIVER", "CUSTOMER"]), status: z.enum(["ACTIVE", "SUSPENDED", "INVITED"]), driver: z.object({ id: z.string(), isAvailable: z.boolean(), licenseNo: z.string().nullable(), licenseExpiresAt: z.string().nullable().optional(), licenseImages: z.array(z.object({ side: z.enum(["FRONT", "BACK"]), sizeBytes: z.number(), uploadedAt: z.string() })).optional() }).nullable() })),
   vehicles: z.array(z.object({ id: z.string(), name: z.string(), plate: z.string(), seats: z.number(), active: z.boolean() })),
   entries: z.array(z.object({ id: z.string(), type: z.string(), label: z.string(), amountCents: z.number(), currency: z.string(), paidAt: z.string().nullable() })),
   receipts: z.array(z.object({ id: z.string(), amountCents: z.number(), currency: z.string(), provider: z.string(), collectionMethod: z.enum(["CASH", "CARD", "ABA", "OTHER"]).nullable(), updatedAt: z.string(), booking: z.object({ reference: z.string(), status: z.string(), driver: z.object({ user: z.object({ name: z.string() }) }).nullable() }) })),

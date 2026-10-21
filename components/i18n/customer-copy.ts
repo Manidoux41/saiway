@@ -1,4 +1,8 @@
 const en = {
+  "courses.loadUnavailable": "Trips are temporarily unavailable. Please retry; this does not mean your reservation failed.",
+  "courses.sessionExpired": "Your session has expired or no longer has access. Please sign in again.",
+  "courses.invalidResponse": "The trips response could not be read. Please retry or contact support.",
+  "courses.loadTimeout": "Loading trips is taking too long. Please retry; do not submit your reservation again.",
   "customer.sessionError": "Your session could not be renewed. Check your connection and reload the page.",
   "booking.heroTitle": "Arrive relaxed. We’ll take you the rest of the way.",
   "booking.heroText": "Your private transfer to Siem Reap, with a clear fare and payment your way.",
@@ -34,6 +38,10 @@ const en = {
   "customer.emailExists": "An account already exists for this email. Sign in instead.", "customer.invalidRegistration": "Enter a valid name, email and password of 8 to 128 characters.", "customer.registerTitle": "Your SAIWAY account", "customer.paymentLabel": "Payment", "customer.noPayment": "Not paid", "customer.paymentInProgress": "Payment in progress", "customer.profileLoad": "Loading your profile…",
 };
 const fr: typeof en = {
+  "courses.loadUnavailable": "Les courses sont temporairement indisponibles. Réessayez ; cela ne signifie pas que votre réservation a échoué.",
+  "courses.sessionExpired": "Votre session a expiré ou ne dispose plus des accès nécessaires. Reconnectez-vous.",
+  "courses.invalidResponse": "Impossible de lire la réponse des courses. Réessayez ou contactez l’assistance.",
+  "courses.loadTimeout": "Le chargement des courses prend trop de temps. Réessayez sans soumettre à nouveau votre réservation.",
   "customer.sessionError": "Votre session n’a pas pu être renouvelée. Vérifiez votre connexion et rechargez la page.",
   "booking.heroTitle": "Arrivez sereinement. Nous nous occupons de la suite.",
   "booking.heroText": "Votre transfert privé vers Siem Reap, avec un tarif clair et le choix du paiement.",

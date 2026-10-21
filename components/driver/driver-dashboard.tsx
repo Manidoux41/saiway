@@ -3,13 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { z } from "zod";
-import { ArrowDown, ArrowRight, BriefcaseBusiness, CalendarDays, Check, CheckCheck, ChevronRight, Clock3, ExternalLink, FlaskConical, Mail, MapPin, Navigation, Plane, RefreshCw, Search, ShieldCheck, Users, Wallet } from "lucide-react";
+import { ArrowDown, ArrowRight, BriefcaseBusiness, CalendarDays, Check, CheckCheck, ChevronRight, Clock3, ExternalLink, FlaskConical, Mail, MapPin, MessageSquareText, Navigation, Phone, PhoneOff, Plane, RefreshCw, Search, ShieldCheck, Users, Wallet } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { ChangePasswordForm } from "@/components/auth/change-password-form";
 import { courseSchema, type Course } from "@/components/booking/course-dashboard";
 import { useBookings } from "@/components/booking/use-bookings";
 import { useLanguage } from "@/components/i18n/language-provider";
-import { closedDriverStatuses, createDemoCourses, driverNextStatus, driverSummary, driverTimeZone, filterDriverCourses, navigationUrl, type DriverTab } from "@/lib/driver-dashboard";
+import { closedDriverStatuses, contactLinks, createDemoCourses, customerContact, driverNextStatus, driverSummary, driverTimeZone, filterDriverCourses, navigationUrl, type ContactApp, type DriverTab } from "@/lib/driver-dashboard";
+import { DriverLicenseCard } from "./driver-license-card";
 import styles from "./driver-dashboard.module.css";
 
 const TripMap = dynamic(() => import("./trip-map"), { ssr: false, loading: () => <div className="h-[370px] animate-pulse bg-slate-100" /> });
@@ -36,6 +37,13 @@ export function DriverDashboard() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [now, setNow] = useState(() => new Date());
   const [collection, setCollection] = useState<{ bookingId: string; method: "CASH" | "CARD" | "ABA" | "OTHER" } | null>(null);
+  // The contact block only renders after trips load in the browser, so reading storage here cannot cause a hydration mismatch.
+  const [contactApp, setContactApp] = useState<ContactApp>(() => typeof window !== "undefined" && window.localStorage.getItem("saiway.driver.contactApp") === "telegram" ? "telegram" : "whatsapp");
+
+  function chooseContactApp(value: ContactApp) {
+    setContactApp(value);
+    window.localStorage.setItem("saiway.driver.contactApp", value);
+  }
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 30_000);
@@ -48,6 +56,8 @@ export function DriverDashboard() {
   const visible = filterDriverCourses(source, tab, query, now).filter((course) => !status || course.status === status);
   const selected = visible.find((course) => course.id === selectedId) ?? visible[0];
   const receipt = selected?.payments?.find((item) => item.status === "PAID");
+  const phone = selected && !demo ? customerContact(selected) : null;
+  const links = phone && selected ? contactLinks(phone, t("contact.smsBody").replace("{name}", selected.customer.name.split(" ")[0]).replace("{reference}", selected.reference)) : null;
   const scheduled = filterDriverCourses(source, "upcoming", "", now);
   const next = scheduled.find((course) => ["DRIVER_EN_ROUTE", "DRIVER_ARRIVED", "TRIP_STARTED"].includes(course.status)) ?? scheduled[0];
   const formatDate = (value: string | Date, options: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat(language, { ...options, timeZone: driverTimeZone }).format(new Date(value));
@@ -170,6 +180,20 @@ export function DriverDashboard() {
           </dl>
           {selected.pickupNotes && <div className={styles.notes}><h4>{t("booking.notes")}</h4><p>{selected.pickupNotes}</p></div>}
           {selected.specialNeeds && <div className={styles.specialNeeds}><h4>{t("booking.specialNeeds")}</h4><p>{selected.specialNeeds}</p></div>}
+          {!demo && <section className={styles.contact} aria-label={t("contact.title")}>
+            <h4><Phone size={17} />{t("contact.title")}</h4>
+            {links && phone ? <>
+              <a className={styles.contactPhone} href={links.tel}>+{phone}</a>
+              <div className={styles.segment} role="group" aria-label={t("contact.app")}>
+                {(["whatsapp", "telegram"] as const).map((app) => <button key={app} type="button" aria-pressed={contactApp === app} onClick={() => chooseContactApp(app)}>{app === "whatsapp" ? "WhatsApp" : "Telegram"}</button>)}
+              </div>
+              <div className={styles.contactActions}>
+                <a href={links[contactApp]} target="_blank" rel="noopener noreferrer"><Phone size={16} />{t("contact.call")} {contactApp === "whatsapp" ? "WhatsApp" : "Telegram"}</a>
+                <a href={links.sms}><MessageSquareText size={16} />{t("contact.sms")}</a>
+              </div>
+              {contactApp === "telegram" && <p>{t("contact.telegramNote")}</p>}
+            </> : <p className="flex items-center gap-2"><PhoneOff size={15} aria-hidden="true" />{t("contact.noPhone")}</p>}
+          </section>}
           {steps.includes(selected.status as typeof steps[number]) && <ol className={styles.progress} aria-label={t("records.status")}>{steps.map((step, index) => <li key={step} data-done={index <= steps.indexOf(selected.status as typeof steps[number])} aria-current={step === selected.status ? "step" : undefined}><span>{index < steps.indexOf(selected.status as typeof steps[number]) ? <Check size={12} /> : index + 1}</span><small>{label(step)}</small></li>)}</ol>}
           {!demo && <section className={styles.collection} aria-label={t("customer.paymentLabel")}>
             <h4><Wallet size={17} />{t("customer.paymentLabel")}</h4>
@@ -193,6 +217,7 @@ export function DriverDashboard() {
       </section>
     </div>
 
+    <DriverLicenseCard />
     <details className={styles.account}><summary><ShieldCheck size={18} />{t("driver.account")}</summary><ChangePasswordForm /></details>
   </div>;
 }
