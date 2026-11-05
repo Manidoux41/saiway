@@ -1,0 +1,141 @@
+.card {
+  position: relative;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: 24mm 1fr;
+  grid-template-rows: 10mm 23mm 1fr;
+  column-gap: 3mm;
+  width: 85mm;
+  height: 55mm;
+  overflow: hidden;
+  border: 0.2mm solid #d5dcef;
+  border-radius: 3mm;
+  background: #fff;
+  color: #101b3d;
+  font-family: var(--font-sans, system-ui, sans-serif);
+  break-inside: avoid;
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+
+.band {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1mm 3mm;
+  border-bottom: 0.5mm solid #e00025;
+  background: #fff;
+  color: #032ea1;
+}
+
+.tagline {
+  max-width: 34mm;
+  text-align: right;
+  font-size: 2mm;
+  font-weight: 600;
+}
+
+.brand > div {
+  gap: 1.5mm;
+}
+
+.brand > div > div:first-child {
+  width: 6.5mm;
+  height: 6.5mm;
+  border-radius: 1.8mm;
+}
+
+.brand > div > div:last-child > div {
+  font-size: 4mm;
+  letter-spacing: 0.6mm;
+}
+
+.photo {
+  align-self: center;
+  justify-self: end;
+  width: 18mm;
+  height: 18mm;
+  margin-left: 3mm;
+  border: 0.6mm solid #e00025;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #eef2fb;
+}
+
+.placeholder {
+  display: grid;
+  place-items: center;
+  color: #032ea1;
+  font-size: 7mm;
+  font-weight: 800;
+}
+
+.identity {
+  align-self: center;
+  min-width: 0;
+  padding-right: 3mm;
+}
+
+.name {
+  margin: 0;
+  font-size: 3.5mm;
+  font-weight: 800;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.role {
+  margin: 0.8mm 0 0;
+  font-size: 2.2mm;
+  color: #4c5877;
+}
+
+.label {
+  margin: 1mm 0 0;
+  font-size: 2.1mm;
+  font-weight: 700;
+  letter-spacing: 0.2mm;
+  text-transform: uppercase;
+  color: #e00025;
+}
+
+.phone {
+  margin: 0.3mm 0 0;
+  font-size: 3.5mm;
+  font-weight: 800;
+  color: #032ea1;
+  overflow-wrap: anywhere;
+}
+
+.qrRow {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: center;
+  align-items: start;
+  gap: 5mm;
+  padding-bottom: 1mm;
+}
+
+.qr {
+  text-align: center;
+  font-size: 1.9mm;
+  line-height: 1.2;
+  color: #4c5877;
+}
+
+.qr svg,
+.qr img {
+  display: block;
+  width: 18mm;
+  height: 18mm;
+  object-fit: contain;
+  background: #fff;
+  margin: 0 auto 0.5mm;
+}
+
+@media screen {
+  .card {
+    box-shadow: 0 8px 24px rgba(3, 46, 161, 0.12);
+  }
+}

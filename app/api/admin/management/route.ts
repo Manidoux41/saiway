@@ -23,7 +23,7 @@ export async function GET(request: Request) {
   try {
     if (!await authorize(request, "ADMIN")) return Response.json({ error: "Administrator access required" }, { status: 403 });
     const [users, vehicles, entries, forecasts, contracts, pricing, settings, receipts] = await Promise.all([
-      prisma.user.findMany({ select: { id: true, name: true, email: true, role: true, status: true, phone: true, driver: { select: { id: true, isAvailable: true, licenseNo: true, licenseExpiresAt: true, licenseImages: { select: { side: true, sizeBytes: true, uploadedAt: true }, orderBy: { side: "asc" } } } } }, orderBy: { createdAt: "desc" } }),
+      prisma.user.findMany({ select: { id: true, name: true, email: true, role: true, status: true, phone: true, driver: { select: { id: true, isAvailable: true, licenseNo: true, licenseExpiresAt: true, licenseImages: { select: { side: true, sizeBytes: true, uploadedAt: true }, orderBy: { side: "asc" } }, photo: { select: { uploadedAt: true } }, contactQrImages: { select: { channel: true, uploadedAt: true }, orderBy: { channel: "asc" } } } } }, orderBy: { createdAt: "desc" } }),
       prisma.vehicle.findMany({ orderBy: { createdAt: "desc" } }),
       prisma.accountingEntry.findMany({ orderBy: { createdAt: "desc" } }),
       prisma.forecastLine.findMany({ orderBy: { month: "asc" } }),

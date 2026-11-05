@@ -11,6 +11,7 @@ import { useBookings } from "@/components/booking/use-bookings";
 import { useLanguage } from "@/components/i18n/language-provider";
 import { closedDriverStatuses, contactLinks, createDemoCourses, customerContact, driverNextStatus, driverSummary, driverTimeZone, filterDriverCourses, navigationUrl, type ContactApp, type DriverTab } from "@/lib/driver-dashboard";
 import { DriverLicenseCard } from "./driver-license-card";
+import { DriverContactQrCard } from "./driver-contact-qr-card";
 import { useLocationSharing } from "./use-location-sharing";
 import styles from "./driver-dashboard.module.css";
 
@@ -231,6 +232,7 @@ export function DriverDashboard() {
     </div>
 
     <DriverLicenseCard />
+    <DriverContactQrCard />
     <details className={styles.account}><summary><ShieldCheck size={18} />{t("driver.account")}</summary><ChangePasswordForm /></details>
   </div>;
 }

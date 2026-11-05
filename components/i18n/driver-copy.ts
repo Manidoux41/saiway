@@ -1,4 +1,12 @@
 const en = {
+  "contactQr.title": "My WhatsApp & Telegram QR codes",
+  "contactQr.intro": "Upload your personal contact QR images. Administrators can include them on your SAIWAY business card.",
+  "contactQr.instructions": "Save the QR image from WhatsApp or Telegram. Keep the complete QR code and its white border, without the surrounding app screen. Check that it opens your own contact before uploading.",
+  "contactQr.upload": "Upload QR image", "contactQr.replace": "Replace QR image", "contactQr.remove": "Remove QR image",
+  "contactQr.saved": "QR image saved for your business card.", "contactQr.deleted": "QR image removed.",
+  "contactQr.error": "Unable to load or update your QR images. Please retry.",
+  "cards.printError": "Printing cancelled: a card image could not be loaded. Refresh the page and retry.",
+  "cards.contactIntro": "The driver's WhatsApp and Telegram QR images appear here once uploaded from their driver dashboard. Refresh this page to retrieve the latest images.",
   "driver.greeting": "Your driving day", "driver.planning": "Trip planning", "driver.map": "Trip map",
   "driver.remaining": "Trips remaining today", "driver.completedToday": "Completed today", "driver.expectedFares": "Today's booking value", "driver.expectedNote": "Booking fares, not driver earnings or payments received.",
   "driver.passengersToday": "Passengers to collect", "driver.real": "Assigned trips", "driver.demo": "Demo trips",
@@ -20,8 +28,17 @@ const en = {
   "license.rules": "JPEG, PNG or WebP · 5 MB maximum", "license.tooLarge": "The photo must be 5 MB or smaller.", "license.badType": "Use a JPEG, PNG or WebP photo.", "license.error": "The licence could not be loaded or saved. Try again.", "license.loading": "Loading licence…",
   "license.adminTitle": "Driver licences · employment contracts", "license.adminIntro": "Licence number, expiry date and recto/verso photos for each driver. Edit the number and expiry date in “Edit records and settings”. Opening a photo is recorded in the audit log.",
   "license.driver": "Driver", "license.photos": "Photos", "license.complete": "Ready for contract", "license.incomplete": "Incomplete", "license.expired": "Expired", "license.noDrivers": "No driver accounts.",
+  "cards.title": "Driver business cards", "cards.intro": "Photo, name and booking phone number of each driver, ready to print (85 × 55 mm, 8 cards per A4 page). Upload a photo, then print one card or all of them.", "cards.tagline": "Your easy way to Siem Reap", "cards.role": "Private driver · Siem Reap", "cards.bookWith": "Book your ride", "cards.scan": "Book online", "cards.print": "Print card", "cards.printAll": "Print all cards", "cards.addPhoto": "Add photo", "cards.replacePhoto": "Replace photo", "cards.removePhoto": "Remove photo", "cards.noPhone": "No phone number: add one in “Edit records and settings” to generate this card.", "cards.saved": "Photo saved.", "cards.error": "The photo could not be saved.",
 };
 const fr: typeof en = {
+  "contactQr.title": "Mes QR codes WhatsApp et Telegram",
+  "contactQr.intro": "Chargez les images de vos QR codes personnels. L’administration pourra les intégrer à votre carte de visite SAIWAY.",
+  "contactQr.instructions": "Enregistrez l’image du QR code depuis WhatsApp ou Telegram. Gardez le code entier et sa bordure blanche, sans le reste de l’écran de l’application. Vérifiez qu’il ouvre votre propre contact avant de le charger.",
+  "contactQr.upload": "Charger l’image du QR code", "contactQr.replace": "Remplacer l’image du QR code", "contactQr.remove": "Supprimer le QR code",
+  "contactQr.saved": "QR code enregistré pour votre carte de visite.", "contactQr.deleted": "QR code supprimé.",
+  "contactQr.error": "Impossible de charger ou de modifier vos QR codes. Réessayez.",
+  "cards.printError": "Impression annulée : une image de la carte n’a pas pu être chargée. Actualisez la page et réessayez.",
+  "cards.contactIntro": "Les QR codes WhatsApp et Telegram du chauffeur apparaissent ici après leur chargement depuis son espace conducteur. Actualisez cette page pour récupérer les dernières images.",
   "driver.greeting": "Votre journée au volant", "driver.planning": "Planning des courses", "driver.map": "Carte du trajet",
   "driver.remaining": "Courses restantes aujourd’hui", "driver.completedToday": "Terminées aujourd’hui", "driver.expectedFares": "Valeur des courses du jour", "driver.expectedNote": "Tarifs des réservations, pas un revenu chauffeur ni des paiements reçus.",
   "driver.passengersToday": "Passagers à prendre en charge", "driver.real": "Courses attribuées", "driver.demo": "Courses de démonstration",
@@ -43,5 +60,6 @@ const fr: typeof en = {
   "license.rules": "JPEG, PNG ou WebP · 5 Mo maximum", "license.tooLarge": "La photo doit faire 5 Mo maximum.", "license.badType": "Utilisez une photo JPEG, PNG ou WebP.", "license.error": "Impossible de charger ou d’enregistrer le permis. Réessayez.", "license.loading": "Chargement du permis…",
   "license.adminTitle": "Permis des chauffeurs · contrats de travail", "license.adminIntro": "Numéro, date d’expiration et photos recto/verso du permis de chaque chauffeur. Modifiez le numéro et la date dans « Modifier les éléments et paramètres ». L’ouverture d’une photo est enregistrée dans le journal d’audit.",
   "license.driver": "Chauffeur", "license.photos": "Photos", "license.complete": "Prêt pour le contrat", "license.incomplete": "Incomplet", "license.expired": "Expiré", "license.noDrivers": "Aucun compte chauffeur.",
+  "cards.title": "Cartes de visite des chauffeurs", "cards.intro": "Photo, nom et téléphone de réservation de chaque chauffeur, prêts à imprimer (85 × 55 mm, 8 cartes par page A4). Ajoutez une photo, puis imprimez une carte ou toutes les cartes.", "cards.tagline": "Votre chemin facile vers Siem Reap", "cards.role": "Chauffeur privé · Siem Reap", "cards.bookWith": "Réservez votre course", "cards.scan": "Réserver en ligne", "cards.print": "Imprimer la carte", "cards.printAll": "Imprimer toutes les cartes", "cards.addPhoto": "Ajouter une photo", "cards.replacePhoto": "Remplacer la photo", "cards.removePhoto": "Supprimer la photo", "cards.noPhone": "Aucun numéro de téléphone : ajoutez-en un dans « Modifier les éléments et paramètres » pour générer cette carte.", "cards.saved": "Photo enregistrée.", "cards.error": "La photo n’a pas pu être enregistrée.",
 };
 export const driverCopy = { en, fr };

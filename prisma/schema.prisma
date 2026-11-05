@@ -129,6 +129,8 @@ model DriverProfile {
   licenseExpiresAt DateTime?
   licenseCategory String?
   licenseImages DriverLicenseImage[]
+  photo        DriverPhoto?
+  contactQrImages DriverContactQrImage[]
   dateOfBirth  DateTime?
   nationality  String?
   idDocumentNo String?
@@ -160,6 +162,34 @@ model DriverLicenseImage {
   uploadedAt DateTime      @default(now())
 
   @@unique([driverId, side])
+}
+
+model DriverPhoto {
+  id         String        @id @default(cuid())
+  driverId   String        @unique
+  driver     DriverProfile @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  mimeType   String
+  sizeBytes  Int
+  data       Bytes
+  uploadedAt DateTime      @default(now())
+}
+
+enum DriverContactChannel {
+  WHATSAPP
+  TELEGRAM
+}
+
+model DriverContactQrImage {
+  id         String               @id @default(cuid())
+  driverId   String
+  driver     DriverProfile        @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  channel    DriverContactChannel
+  mimeType   String
+  sizeBytes  Int
+  data       Bytes
+  uploadedAt DateTime             @default(now())
+
+  @@unique([driverId, channel])
 }
 
 enum EmploymentContractStatus {

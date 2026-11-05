@@ -39,3 +39,26 @@ body {
 ::selection {
   background: rgba(224, 0, 37, 0.18);
 }
+
+.driver-cards-print-root {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 10mm;
+  }
+
+  body > :not(.driver-cards-print-root) {
+    display: none !important;
+  }
+
+  .driver-cards-print-root {
+    display: grid;
+    grid-template-columns: repeat(2, 85mm);
+    gap: 5mm;
+    justify-content: center;
+    background: #fff;
+  }
+}

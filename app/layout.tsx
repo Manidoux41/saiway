@@ -30,7 +30,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   const account = await currentAccount();
   const initialUser = account ? { id: account.id, name: account.name, email: account.email, role: account.role.toLowerCase() as UserRole } : null;
   return (
-    <html lang="en" className={`${inter.variable} h-full antialiased`}>
+    <html lang="en" data-scroll-behavior="smooth" className={`${inter.variable} h-full antialiased`}>
       <body className="min-h-full bg-[var(--color-background)] text-[var(--color-text)]">
         <LanguageProvider>
           <AuthProvider initialUser={initialUser}>

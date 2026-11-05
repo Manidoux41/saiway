@@ -18,6 +18,25 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 ## Database and administration
 
+### Driver business cards and contact QR images
+
+In **Admin → Fleet & management**, business cards reuse the homepage SAIWAY logo
+and display the driver's photo, booking phone number and online booking QR code.
+Drivers upload, replace or delete their personal WhatsApp and Telegram QR images
+under **My WhatsApp & Telegram QR codes** on their driver dashboard. Refresh the
+admin dashboard to include the latest images on cards.
+
+Uploads accept JPEG, PNG or WebP up to 5 MB. Use the complete QR image with its
+white border, not a screenshot containing the rest of the app interface, and
+verify the contact in WhatsApp/Telegram before uploading. Images are stored in
+the database, accessible only to the owning driver and active administrators;
+mutations are audited. Deploy schema changes with `npx prisma migrate deploy`.
+
+Cards print at 85 × 55 mm, eight per A4 page. Use 100% print scale, disable browser
+headers/footers and enable background graphics, or save as PDF. Printing waits
+for photos and contact QR images to load and reports a failure rather than
+printing incomplete cards.
+
 Saiway uses PostgreSQL through Prisma. Configure `DATABASE_URL` for migrations and
 `PRISMA_DATABASE_URL` (or `DATABASE_URL` as a fallback) for the application; both
 must point to the same database. Set `AUTH_SECRET` to a private, strong value.
