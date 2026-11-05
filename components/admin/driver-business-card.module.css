@@ -3,19 +3,37 @@
   box-sizing: border-box;
   display: grid;
   grid-template-columns: 24mm 1fr;
-  grid-template-rows: 10mm 23mm 1fr;
+  grid-template-rows: 12mm 5mm 18mm 1fr;
   column-gap: 3mm;
   width: 85mm;
   height: 55mm;
   overflow: hidden;
-  border: 0.2mm solid #d5dcef;
+  border: 0.2mm solid #d5bc85;
   border-radius: 3mm;
-  background: #fff;
+  background: #f6f3ea;
   color: #101b3d;
   font-family: var(--font-sans, system-ui, sans-serif);
+  -webkit-font-smoothing: antialiased;
   break-inside: avoid;
   print-color-adjust: exact;
   -webkit-print-color-adjust: exact;
+}
+
+.landscape {
+  position: absolute;
+  right: 0;
+  top: 17mm;
+  width: 62mm;
+  height: auto;
+  pointer-events: none;
+}
+
+.band,
+.photo,
+.identity,
+.business,
+.qrRow {
+  position: relative;
 }
 
 .band {
@@ -24,7 +42,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 1mm 3mm;
-  border-bottom: 0.5mm solid #e00025;
+  border-bottom: 0.5mm solid #dfb56b;
   background: #fff;
   color: #032ea1;
 }
@@ -32,8 +50,23 @@
 .tagline {
   max-width: 34mm;
   text-align: right;
-  font-size: 2mm;
+  font-size: 2.3mm;
+  font-weight: 500;
+  font-style: italic;
+  line-height: 1.45;
+}
+
+.business {
+  grid-column: 1 / -1;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #032ea1;
+  color: #fff;
+  font-size: 2.3mm;
   font-weight: 600;
+  letter-spacing: 0.1mm;
 }
 
 .brand > div {
@@ -54,10 +87,10 @@
 .photo {
   align-self: center;
   justify-self: end;
-  width: 18mm;
-  height: 18mm;
+  width: 15mm;
+  height: 15mm;
   margin-left: 3mm;
-  border: 0.6mm solid #e00025;
+  border: 0.4mm solid #dfb56b;
   border-radius: 50%;
   object-fit: cover;
   background: #eef2fb;
@@ -67,8 +100,8 @@
   display: grid;
   place-items: center;
   color: #032ea1;
-  font-size: 7mm;
-  font-weight: 800;
+  font-size: 5mm;
+  font-weight: 600;
 }
 
 .identity {
@@ -79,31 +112,33 @@
 
 .name {
   margin: 0;
-  font-size: 3.5mm;
-  font-weight: 800;
-  line-height: 1.15;
+  font-size: 3.1mm;
+  font-weight: 600;
+  letter-spacing: -0.03mm;
+  line-height: 1.2;
   overflow-wrap: anywhere;
 }
 
 .role {
-  margin: 0.8mm 0 0;
-  font-size: 2.2mm;
+  margin: 0.5mm 0 0;
+  font-size: 2mm;
   color: #4c5877;
 }
 
 .label {
   margin: 1mm 0 0;
-  font-size: 2.1mm;
-  font-weight: 700;
-  letter-spacing: 0.2mm;
+  font-size: 1.8mm;
+  font-weight: 600;
+  letter-spacing: 0.12mm;
   text-transform: uppercase;
   color: #e00025;
 }
 
 .phone {
   margin: 0.3mm 0 0;
-  font-size: 3.5mm;
-  font-weight: 800;
+  font-size: 3mm;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
   color: #032ea1;
   overflow-wrap: anywhere;
 }
@@ -113,29 +148,45 @@
   display: flex;
   justify-content: center;
   align-items: start;
-  gap: 5mm;
+  gap: 7mm;
+  padding-top: 2mm;
   padding-bottom: 1mm;
 }
 
 .qr {
+  border-radius: 1.5mm;
+  background: #fff;
   text-align: center;
   font-size: 1.9mm;
   line-height: 1.2;
   color: #4c5877;
 }
 
-.qr svg,
-.qr img {
+.qr > svg,
+.qr > img {
   display: block;
-  width: 18mm;
-  height: 18mm;
+  width: 14mm;
+  height: 14mm;
   object-fit: contain;
   background: #fff;
   margin: 0 auto 0.5mm;
 }
 
+.qrCaption {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6mm;
+}
+
+.qrCaption svg {
+  width: 2.5mm;
+  height: 2.5mm;
+  flex: none;
+}
+
 @media screen {
   .card {
-    box-shadow: 0 8px 24px rgba(3, 46, 161, 0.12);
+    box-shadow: 0 10px 30px rgba(3, 46, 161, 0.16);
   }
 }

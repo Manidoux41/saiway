@@ -1,4 +1,5 @@
 const en = {
+  "cards.business": "Airport transfers & private transport",
   "contactQr.title": "My WhatsApp & Telegram QR codes",
   "contactQr.intro": "Upload your personal contact QR images. Administrators can include them on your SAIWAY business card.",
   "contactQr.instructions": "Save the QR image from WhatsApp or Telegram. Keep the complete QR code and its white border, without the surrounding app screen. Check that it opens your own contact before uploading.",
@@ -6,7 +7,10 @@ const en = {
   "contactQr.saved": "QR image saved for your business card.", "contactQr.deleted": "QR image removed.",
   "contactQr.error": "Unable to load or update your QR images. Please retry.",
   "cards.printError": "Printing cancelled: a card image could not be loaded. Refresh the page and retry.",
-  "cards.contactIntro": "The driver's WhatsApp and Telegram QR images appear here once uploaded from their driver dashboard. Refresh this page to retrieve the latest images.",
+  "cards.contactIntro": "Add WhatsApp and Telegram QR images using the controls below each card. Drivers can also upload them from their dashboard. The card includes an illustrated Angkor Wat background.",
+  "cards.downloadPdf": "Download PDF · 8 cards / A4", "cards.downloadAll": "Download all · A4 PDF", "cards.preparingPdf": "Preparing PDF…",
+  "cards.pdfError": "Unable to download the PDF. Check your session and replace any damaged card images, then retry.",
+  "cards.photoDeleted": "Photo removed.",
   "driver.greeting": "Your driving day", "driver.planning": "Trip planning", "driver.map": "Trip map",
   "driver.remaining": "Trips remaining today", "driver.completedToday": "Completed today", "driver.expectedFares": "Today's booking value", "driver.expectedNote": "Booking fares, not driver earnings or payments received.",
   "driver.passengersToday": "Passengers to collect", "driver.real": "Assigned trips", "driver.demo": "Demo trips",
@@ -31,6 +35,7 @@ const en = {
   "cards.title": "Driver business cards", "cards.intro": "Photo, name and booking phone number of each driver, ready to print (85 × 55 mm, 8 cards per A4 page). Upload a photo, then print one card or all of them.", "cards.tagline": "Your easy way to Siem Reap", "cards.role": "Private driver · Siem Reap", "cards.bookWith": "Book your ride", "cards.scan": "Book online", "cards.print": "Print card", "cards.printAll": "Print all cards", "cards.addPhoto": "Add photo", "cards.replacePhoto": "Replace photo", "cards.removePhoto": "Remove photo", "cards.noPhone": "No phone number: add one in “Edit records and settings” to generate this card.", "cards.saved": "Photo saved.", "cards.error": "The photo could not be saved.",
 };
 const fr: typeof en = {
+  "cards.business": "Transferts aéroport et transport privé",
   "contactQr.title": "Mes QR codes WhatsApp et Telegram",
   "contactQr.intro": "Chargez les images de vos QR codes personnels. L’administration pourra les intégrer à votre carte de visite SAIWAY.",
   "contactQr.instructions": "Enregistrez l’image du QR code depuis WhatsApp ou Telegram. Gardez le code entier et sa bordure blanche, sans le reste de l’écran de l’application. Vérifiez qu’il ouvre votre propre contact avant de le charger.",
@@ -38,7 +43,10 @@ const fr: typeof en = {
   "contactQr.saved": "QR code enregistré pour votre carte de visite.", "contactQr.deleted": "QR code supprimé.",
   "contactQr.error": "Impossible de charger ou de modifier vos QR codes. Réessayez.",
   "cards.printError": "Impression annulée : une image de la carte n’a pas pu être chargée. Actualisez la page et réessayez.",
-  "cards.contactIntro": "Les QR codes WhatsApp et Telegram du chauffeur apparaissent ici après leur chargement depuis son espace conducteur. Actualisez cette page pour récupérer les dernières images.",
+  "cards.contactIntro": "Ajoutez les QR codes WhatsApp et Telegram avec les boutons sous chaque carte. Le chauffeur peut aussi les charger depuis son espace. La carte comporte un fond illustré d’Angkor Wat.",
+  "cards.downloadPdf": "Télécharger le PDF · 8 cartes / A4", "cards.downloadAll": "Tout télécharger · PDF A4", "cards.preparingPdf": "Préparation du PDF…",
+  "cards.pdfError": "Impossible de télécharger le PDF. Vérifiez votre session et remplacez les images endommagées de la carte, puis réessayez.",
+  "cards.photoDeleted": "Photo supprimée.",
   "driver.greeting": "Votre journée au volant", "driver.planning": "Planning des courses", "driver.map": "Carte du trajet",
   "driver.remaining": "Courses restantes aujourd’hui", "driver.completedToday": "Terminées aujourd’hui", "driver.expectedFares": "Valeur des courses du jour", "driver.expectedNote": "Tarifs des réservations, pas un revenu chauffeur ni des paiements reçus.",
   "driver.passengersToday": "Passagers à prendre en charge", "driver.real": "Courses attribuées", "driver.demo": "Courses de démonstration",
