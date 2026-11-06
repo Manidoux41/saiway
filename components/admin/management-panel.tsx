@@ -9,6 +9,7 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { adminErrorKey, adminRequest, type ManagementData } from "@/lib/admin-client";
 import { DriverLicenses } from "@/components/admin/driver-licenses";
 import { DriverBusinessCards } from "@/components/admin/driver-business-cards";
+import { gpsRetentionSettingKey } from "@/lib/cron-settings";
 
 const VehicleIconPreview = dynamic(() => import("@/components/maps/vehicle-icon-preview").then((module) => module.VehicleIconPreview), { ssr: false, loading: () => <div className="h-[320px] animate-pulse rounded-xl bg-slate-100" /> });
 const vehicleIconCategories = ["TUK_TUK", "PASSAPP", "SEDAN", "SUV", "MINIVAN", "MINIBUS", "VAN", "OTHER"] as const;
@@ -69,6 +70,10 @@ export function ManagementPanel({ data, loading, loadError, onReload }: { data: 
   const buttonClass = "rounded-full bg-[var(--color-primary)] p-3 text-sm font-semibold text-white";
 
   return <div className="mt-8 space-y-8">
+    <nav aria-label={t("dispatch.management")} className="flex flex-wrap gap-3">
+      <a href="#fleet-management" className={buttonClass}>{t("fleet.addVehicle")}</a>
+      <a href="#cron-heading" className={buttonClass}>{t("cron.title")}</a>
+    </nav>
     {error && <p role="alert" className="rounded-2xl bg-red-50 p-4 text-sm text-[var(--color-error)]">{t(error)}{error === "admin.sessionExpired" && <> <Link href="/auth" className="underline">{t("admin.openSignIn")}</Link></>}</p>}
     {saved && <p role="status" className="text-sm font-semibold text-emerald-700">{t("admin.recordSaved")}</p>}
     <fieldset disabled={pending || loading || Boolean(loadError)} className="contents">
@@ -79,29 +84,42 @@ export function ManagementPanel({ data, loading, loadError, onReload }: { data: 
         <div className="mt-4 overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr><th>{t("customer.abaReference")}</th><th>{t("payment.receivedVia")}</th><th>{t("admin.driver")}</th><th>{t("booking.date")}</th><th>{t("customer.abaAmount")}</th></tr></thead><tbody>{data.receipts.map((receipt) => <tr key={receipt.id} className="border-t"><td className="py-3">{receipt.booking.reference}<small className="block text-slate-500">{receipt.provider} · {receipt.booking.status}</small></td><td>{receipt.collectionMethod ? t(`payment.${receipt.collectionMethod}`) : receipt.provider === "ABA_PAYWAY" ? t("payment.ABA") : t("payment.legacyMethod")}</td><td>{receipt.booking.driver?.user.name ?? "—"}</td><td>{new Intl.DateTimeFormat(language, { dateStyle: "short", timeStyle: "short", timeZone: "Asia/Phnom_Penh" }).format(new Date(receipt.updatedAt))}</td><td>{new Intl.NumberFormat(language, { style: "currency", currency: receipt.currency }).format(receipt.amountCents / 100)}</td></tr>)}</tbody></table>{!data.receipts.length && <p className="py-4 text-slate-500">{t("payment.noReceipts")}</p>}</div>
       </section>
       <section className="rounded-[28px] bg-white p-6 shadow-sm"><h2 className="text-xl font-bold">Accounts and roles</h2><div className="mt-4 overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th /></tr></thead><tbody>{data.users.map((item) => <tr key={item.id} className="border-t"><td className="py-3">{item.name}</td><td>{item.email}</td><td>{item.role}</td><td>{item.status}</td><td>{item.status !== "SUSPENDED" && item.id !== user?.id && <button type="button" onClick={() => { if (window.confirm(t("courses.confirmArchive"))) void mutate("DELETE", { entity: "user", id: item.id }); }} className="text-[var(--color-error)]">Suspend</button>}</td></tr>)}</tbody></table></div></section>
-      <DriverLicenses users={data.users} />
-      <DriverBusinessCards users={data.users} onChanged={onReload} />
+      <section className="rounded-[28px] bg-white p-6 shadow-sm" aria-labelledby="cron-heading">
+        <h2 id="cron-heading" className="text-xl font-bold">{t("cron.title")}</h2>
+        <p className="mt-2 text-sm text-slate-600">{t("cron.description")}</p>
+        <p className="mt-2 text-sm text-slate-500">{t("cron.schedule")}</p>
+        {!data.cron.configured && <p role="alert" className="mt-3 text-sm text-[var(--color-error)]">{t("cron.notConfigured")}</p>}
+        <label className="mt-4 flex items-center gap-3 font-semibold">
+          <input type="checkbox" role="switch" checked={data.cron.gpsRetentionEnabled} disabled={pending || loading || Boolean(loadError)} onChange={(event) => void mutate("POST", { entity: "setting", data: { key: gpsRetentionSettingKey, value: event.target.checked } })} className="h-5 w-5 accent-[var(--color-primary)]" />
+          {t("cron.gpsRetention")} · {t(data.cron.gpsRetentionEnabled ? "cron.enabled" : "cron.disabled")}
+        </label>
+      </section>
       <section className="grid gap-8 lg:grid-cols-2">
-        <div className="rounded-[28px] bg-white p-6 shadow-sm"><h2 className="text-xl font-bold">Fleet management</h2>
+        <div id="fleet-management" className="scroll-mt-6 rounded-[28px] bg-white p-6 shadow-sm"><h2 className="text-xl font-bold">{t("fleet.management")}</h2>
+          <p className="mt-2 text-sm text-slate-500">{t("fleet.addVehicleHelp")}</p>
           <form onSubmit={(event) => create(event, "vehicle")} className="mt-4 grid gap-3 sm:grid-cols-3">
-            <input name="name" required placeholder="Vehicle" className={inputClass} /><input name="plate" required placeholder="Plate" className={inputClass} />
-            <input name="seats" required type="number" min="1" max="50" defaultValue="4" placeholder="Seats" className={inputClass} />
-            <select name="iconCategory" className={`${inputClass} sm:col-span-2`}>{vehicleIconCategories.map((category) => <option key={category} value={category}>{t(vehicleCategoryLabels[category])}</option>)}</select>
-            <button className={`${buttonClass} sm:col-span-3`}>Add vehicle</button>
+            <label className="grid gap-2 text-sm">{t("fleet.vehicleName")}<input name="name" required maxLength={500} className={inputClass} /></label>
+            <label className="grid gap-2 text-sm">{t("fleet.plate")}<input name="plate" required maxLength={500} className={inputClass} /></label>
+            <label className="grid gap-2 text-sm">{t("fleet.seats")}<input name="seats" required type="number" min="1" max="50" defaultValue="4" className={inputClass} /></label>
+            <label className="grid gap-2 text-sm sm:col-span-3">{t("fleet.iconCategory")}<select name="iconCategory" defaultValue="OTHER" className={inputClass}>{vehicleIconCategories.map((category) => <option key={category} value={category}>{t(vehicleCategoryLabels[category])}</option>)}</select></label>
+            <button type="submit" className={`${buttonClass} sm:col-span-3`}>{t("fleet.addVehicle")}</button>
           </form>
+          {!data.vehicles.length && <p className="mt-4 text-sm text-slate-500">{t("fleet.empty")}</p>}
           <div className="mt-5 space-y-3">{data.vehicles.map((item) => <div key={item.id} className="grid gap-2 border-t pt-3 text-sm sm:grid-cols-[1fr_auto] sm:items-center">
-            <span>{item.name} · {item.plate} · {item.seats} seats</span>
+            <span>{item.name} · {item.plate} · {item.seats} {t("fleet.seats")} · {t(item.active ? "fleet.activeVehicle" : "fleet.inactiveVehicle")}</span>
             <div className="flex flex-wrap items-center gap-2">
               <select aria-label={`${t("fleet.iconCategory")} · ${item.name}`} className={inputClass} value={item.iconCategory} disabled={pending} onChange={(event) => void mutate("PATCH", { entity: "vehicle", id: item.id, data: { iconCategory: event.target.value } })}>{vehicleIconCategories.map((category) => <option key={category} value={category}>{t(vehicleCategoryLabels[category])}</option>)}</select>
               <button type="button" className={`${buttonClass} inline-flex items-center gap-2`} onClick={() => setPreviewVehicleId(item.id)}><MapPinned size={16} aria-hidden="true" />{t("fleet.previewIcon")}</button>
               <label className={`${buttonClass} cursor-pointer`}>{t(item.iconImage ? "fleet.replaceIcon" : "fleet.uploadIcon")}<input className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" disabled={pending} onChange={(event) => { void uploadVehicleIcon(item.id, event.currentTarget.files?.[0]); event.currentTarget.value = ""; }} /></label>
               {item.iconImage && <button type="button" className="text-[var(--color-error)]" disabled={pending} onClick={() => void adminRequest(`/api/admin/vehicles/${encodeURIComponent(item.id)}/icon`, { method: "DELETE" }).then(() => { setSaved(true); onReload(); }).catch((failure) => setError(adminErrorKey(failure)))}>{t("fleet.removeIcon")}</button>}
-              {item.active && <button type="button" onClick={() => { if (window.confirm(t("courses.confirmArchive"))) void mutate("DELETE", { entity: "vehicle", id: item.id }); }} className="text-[var(--color-error)]">Disable</button>}
+              {item.active && <button type="button" onClick={() => { if (window.confirm(t("courses.confirmArchive"))) void mutate("DELETE", { entity: "vehicle", id: item.id }); }} className="text-[var(--color-error)]">{t("fleet.disableVehicle")}</button>}
             </div>
           </div>)}</div>
         </div>
         <div className="rounded-[28px] bg-white p-6 shadow-sm"><h2 className="text-xl font-bold">Accounting entries</h2><form onSubmit={(event) => create(event, "accounting")} className="mt-4 grid gap-3 sm:grid-cols-3"><select name="type" className={inputClass}>{["REVENUE", "EXPENSE", "CREDIT", "PURCHASE"].map((value) => <option key={value}>{value}</option>)}</select><input name="label" required placeholder="Description" className={inputClass} /><input name="amount" required type="number" min="0" step="0.01" placeholder="USD" className={inputClass} /><button className={`${buttonClass} sm:col-span-3`}>Add entry</button></form><div className="mt-5 space-y-2">{data.entries.map((item) => <div key={item.id} className="flex justify-between border-t pt-3 text-sm"><span>{item.type} · {item.label}</span><span>${(item.amountCents / 100).toFixed(2)}</span></div>)}</div></div>
       </section>
+      <DriverLicenses users={data.users} />
+      <DriverBusinessCards users={data.users} onChanged={onReload} />
       <section className="rounded-[28px] bg-white p-6 shadow-sm">
         <h2 className="text-xl font-bold">{t("fleet.hubs")}</h2>
         <p className="mt-2 text-sm text-slate-500">{t("fleet.hubsHelp")}</p>

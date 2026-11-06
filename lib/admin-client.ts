@@ -2,6 +2,7 @@ import { z } from "zod";
 import { contactQrImageSchema } from "@/lib/driver-contact-qr-client";
 
 export const managementSchema = z.object({
+  cron: z.object({ gpsRetentionEnabled: z.boolean(), configured: z.boolean() }),
   users: z.array(z.object({ id: z.string(), name: z.string(), email: z.string(), phone: z.string().nullable(), role: z.enum(["ADMIN", "DRIVER", "CUSTOMER"]), status: z.enum(["ACTIVE", "SUSPENDED", "INVITED"]), driver: z.object({ id: z.string(), isAvailable: z.boolean(), licenseNo: z.string().nullable(), licenseExpiresAt: z.string().nullable().optional(), licenseImages: z.array(z.object({ side: z.enum(["FRONT", "BACK"]), sizeBytes: z.number(), uploadedAt: z.string() })).optional(), photo: z.object({ uploadedAt: z.string() }).nullable().optional(), contactQrImages: z.array(contactQrImageSchema).optional() }).nullable() })),
   vehicles: z.array(z.object({ id: z.string(), name: z.string(), plate: z.string(), seats: z.number(), active: z.boolean(), iconCategory: z.enum(["TUK_TUK", "PASSAPP", "SEDAN", "SUV", "MINIVAN", "MINIBUS", "VAN", "OTHER"]), iconImage: z.object({ sizeBytes: z.number(), uploadedAt: z.string() }).nullable() })),
   hubs: z.array(z.object({ id: z.string(), name: z.string(), address: z.string().nullable(), latitude: z.number(), longitude: z.number(), active: z.boolean() })),
@@ -15,7 +16,7 @@ export const managementSchema = z.object({
 
 export type ManagementData = z.infer<typeof managementSchema>;
 
-type AdminErrorKey = "admin.sessionExpired" | "admin.emailExists" | "admin.invalidAccount" | "admin.invalidRecord" | "admin.requestFailed" | "admin.serverUnavailable" | "admin.invalidResponse";
+type AdminErrorKey = "admin.sessionExpired" | "admin.emailExists" | "admin.recordExists" | "admin.invalidAccount" | "admin.invalidRecord" | "admin.requestFailed" | "admin.serverUnavailable" | "admin.invalidResponse";
 
 export class AdminRequestError extends Error {
   constructor(public readonly key: AdminErrorKey) {
@@ -32,6 +33,7 @@ export async function adminRequest(path: string, options?: RequestInit): Promise
   if (!response.ok) {
     if (response.status === 401 || response.status === 403) throw new AdminRequestError("admin.sessionExpired");
     if (response.status === 409 && path === "/api/admin/users") throw new AdminRequestError("admin.emailExists");
+    if (response.status === 409 && path === "/api/admin/management" && options?.method === "POST") throw new AdminRequestError("admin.recordExists");
     if (response.status >= 500) throw new AdminRequestError("admin.serverUnavailable");
     throw new AdminRequestError(path === "/api/admin/users" ? "admin.invalidAccount" : "admin.invalidRecord");
   }

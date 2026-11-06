@@ -5,12 +5,18 @@ test('fleet, accounting and forecast records persist and can be managed', async 
   const ctx = await setup();
   let vehicleId, entryId, forecastId;
   try {
-    const vehicle = { entity: 'vehicle', data: { name: ctx.prefix, plate: ctx.prefix, seats: 4 } };
+    const vehicle = { entity: 'vehicle', data: { name: ctx.prefix, plate: ctx.prefix, seats: 4, iconCategory: 'SUV' } };
     assert.equal((await request('/api/admin/management', 'POST', vehicle)).status, 403);
     const createdVehicle = await request('/api/admin/management', 'POST', vehicle, ctx.cookie);
     assert.equal(createdVehicle.status, 201);
     vehicleId = createdVehicle.data.item.id;
     assert.equal((await ctx.prisma.vehicle.findUnique({ where: { id: vehicleId } })).seats, 4);
+    assert.equal(createdVehicle.data.item.iconCategory, 'SUV');
+    assert.equal(createdVehicle.data.item.active, true);
+    assert.equal((await request('/api/admin/management', 'POST', vehicle, ctx.cookie)).status, 409);
+    for (const seats of [0, 51, 2.5]) {
+      assert.equal((await request('/api/admin/management', 'POST', { ...vehicle, data: { ...vehicle.data, plate: `${ctx.prefix}-invalid`, seats } }, ctx.cookie)).status, 400);
+    }
     const createdEntry = await request('/api/admin/management', 'POST', { entity: 'accounting', data: { type: 'REVENUE', label: ctx.prefix, amountCents: 1250 } }, ctx.cookie);
     assert.equal(createdEntry.status, 201);
     entryId = createdEntry.data.item.id;

@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { authorize } from "@/lib/access";
+import { gpsRetentionEnabled, gpsRetentionSettingKey } from "@/lib/cron-settings";
 
 export const runtime = "nodejs";
 
@@ -16,7 +17,10 @@ const fields = {
   forecast: z.object({ month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/).transform((value) => new Date(`${value}-01T00:00:00Z`)), expectedRevenueCents: cents, expectedExpenseCents: cents, notes: z.string().max(2000).optional() }),
   pricing: z.object({ name, amountCents: cents, currency: z.literal("USD").optional(), direction: z.enum(["AIRPORT_TO_CITY", "CITY_TO_AIRPORT"]).nullable().optional(), tripType: z.enum(["AIRPORT_TRANSFER", "PRIVATE_TRANSFER", "HOTEL_TRANSFER"]).nullable().optional(), active: z.boolean().optional(), effectiveAt: date }),
   contract: z.object({ vehicleId: name, provider: name, monthlyCents: cents, startsAt: date, endsAt: date.nullable().optional(), status: z.enum(["ACTIVE", "INACTIVE"]) }),
-  setting: z.object({ key: z.literal("heroBackground"), value: z.url().refine((value) => value.startsWith("https://"), "HTTPS image required") }),
+  setting: z.discriminatedUnion("key", [
+    z.object({ key: z.literal("heroBackground"), value: z.url().refine((value) => value.startsWith("https://"), "HTTPS image required") }).strict(),
+    z.object({ key: z.literal(gpsRetentionSettingKey), value: z.boolean().transform(String) }).strict(),
+  ]),
 };
 const input = z.object({ entity: z.enum(["user", "vehicle", "hub", "accounting", "forecast", "pricing", "contract", "setting"]), id: z.string().optional(), data: z.record(z.string(), z.unknown()).optional() });
 
@@ -31,14 +35,15 @@ export async function GET(request: Request) {
       prisma.forecastLine.findMany({ orderBy: { month: "asc" } }),
       prisma.vehicleContract.findMany({ include: { vehicle: { select: { name: true, plate: true } } }, orderBy: { startsAt: "desc" } }),
       prisma.pricingRule.findMany({ orderBy: { effectiveAt: "desc" } }),
-      prisma.systemSetting.findMany({ where: { key: "heroBackground" } }),
+      prisma.systemSetting.findMany({ where: { key: { in: ["heroBackground", gpsRetentionSettingKey] } } }),
       prisma.payment.findMany({
         where: { status: "PAID", provider: { not: "ABA_PAYWAY_SANDBOX" } },
         select: { id: true, amountCents: true, currency: true, provider: true, collectionMethod: true, updatedAt: true, booking: { select: { reference: true, status: true, driver: { select: { user: { select: { name: true } } } } } } },
         orderBy: { updatedAt: "desc" },
       }),
     ]);
-    return Response.json({ users, vehicles, hubs: hubs.map((hub) => ({ ...hub, latitude: Number(hub.latitude), longitude: Number(hub.longitude) })), entries, forecasts, contracts, pricing, settings, receipts }, { headers: { "Cache-Control": "no-store" } });
+    const retentionEnabled = gpsRetentionEnabled(settings.find((setting) => setting.key === gpsRetentionSettingKey)?.value);
+    return Response.json({ users, vehicles, hubs: hubs.map((hub) => ({ ...hub, latitude: Number(hub.latitude), longitude: Number(hub.longitude) })), entries, forecasts, contracts, pricing, settings, receipts, cron: { gpsRetentionEnabled: retentionEnabled, configured: Boolean(process.env.CRON_SECRET) } }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) { return failure(error); }
 }
 
@@ -98,7 +103,7 @@ async function mutate(request: Request) {
           result = await tx.systemSetting.upsert({ where: { key: value.key }, create: value, update: { value: value.value } });
         }
       }
-      await tx.auditLog.create({ data: { actorId: actor.id, entity, entityId: id ?? null, action: removing ? "ARCHIVE" : updating ? "UPDATE" : "CREATE" } });
+      await tx.auditLog.create({ data: { actorId: actor.id, entity, entityId: entity === "setting" ? fields.setting.parse(data).key : id ?? null, action: removing ? "ARCHIVE" : updating ? "UPDATE" : "CREATE", ...(entity === "setting" && data.key === gpsRetentionSettingKey ? { metadata: { enabled: data.value === true } } : {}) } });
       return result;
     });
     return Response.json(removing ? { ok: true } : { item }, { status: updating || removing ? 200 : 201 });

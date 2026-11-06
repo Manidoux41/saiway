@@ -208,6 +208,25 @@ long random secret. `vercel.json` schedules the retention endpoint daily at
 02:00 UTC; Vercel sends that value as a bearer token. Other hosts must configure
 an equivalent daily authenticated schedule, or old GPS records are not purged.
 
+In **Admin → Fleet & management → Scheduled tasks (Cron)**, administrators can
+enable or pause GPS retention. The existing `SystemSetting` record
+`gpsRetentionEnabled` stores `"true"` or `"false"`; absence preserves the previous
+enabled behavior. No schema migration is needed. `POST /api/admin/management`
+with `{ "entity": "setting", "data": { "key": "gpsRetentionEnabled", "value": false } }`
+pauses cleanup; use the boolean `true` to enable it. Changes are admin-only and
+audited. The management response includes `cron.gpsRetentionEnabled` and
+`cron.configured` (secret presence only; no secret is returned). An authenticated
+scheduled call while paused returns `{ "skipped": true, "reason": "DISABLED",
+"removed": 0 }` without deleting positions. The hosting schedule remains active;
+enabling does not run an immediate purge, and an already running cleanup may
+finish. Invalid stored settings fail explicitly rather than deleting data.
+
+The vehicle registration form appears above driver documents and business cards
+in the same management section. Enter the model/name, unique registration plate,
+1–50 passenger seats and vehicle icon category. Vehicles are active on creation
+and available through the existing dispatch assignment APIs. Duplicate plates
+are rejected; custom map icons can be uploaded after registration.
+
 Configure these optional public map settings in the deployment. The defaults
 work for development only; public OSM/OSRM/Photon services do not provide an
 unlimited production SLA. `NEXT_PUBLIC_GEOCODING_URL` is the complete Photon API
