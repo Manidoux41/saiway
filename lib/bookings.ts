@@ -5,8 +5,12 @@ import { prisma } from "@/lib/prisma";
 import { authorize } from "@/lib/access";
 import type { SessionRole } from "@/lib/auth-session";
 import { parseCoordinateAddress } from "@/lib/booking-location";
-import { circuitSchema, distanceBetween, extraTourHours, fareDetailsSchema, farePolicy, farePolicyKey, measuredDistance, priceFare, type FareDetails } from "@/lib/fare-policy";
+import { circuitSchema, extraTourHours, fareDetailsSchema, measuredDistance, priceFare, type FareDetails } from "@/lib/fare-policy";
 import { routeDistance } from "@/lib/fare-routing";
+import { activeFarePolicy } from "@/lib/fare-store";
+import { autonomousSelection, airportEndpoint, previewTrip, readTripQuote, TripInputError } from "@/lib/autonomous-trips";
+import { locationPointSchema, routeDetailsSchema } from "@/lib/route-details";
+import { fareSupplements } from "@/lib/fare-policy";
 
 const text = z.string().trim().min(1).max(500);
 const address = text.refine((value) => !/^GPS:/i.test(value) || parseCoordinateAddress(value) !== null, "Invalid GPS coordinates");
@@ -25,9 +29,12 @@ const adminCreate = details.extend({ customerId: text, driverId: nullableId, veh
 const customerCreate = details.extend({ paymentMethod: z.enum(["ONLINE", "DRIVER"]).optional(), contactPhone: z.string().trim().max(30).regex(/^\+?[\d\s().-]*$/, "Invalid phone number").optional(), tourCircuit: circuitSchema.optional(), tourHours: z.number().min(1).max(48).optional() });
 const adminEdit = details.partial().extend({ id: text, pickupAt: z.iso.datetime({ offset: true }).optional(), driverId: nullableId, vehicleId: nullableId, priceCents: z.number().int().nonnegative().max(100000000).optional() });
 const adminConfirm = z.object({ id: text, status: z.literal("CONFIRMED") }).strict();
-const adminPatch = z.union([adminEdit.strict(), adminConfirm]);
-const command = z.object({ id: text, status: z.enum(BookingStatus), confirmEstimatedDistance: z.boolean().optional(), tourCircuit: circuitSchema.optional() }).strict();
-const walkupCreate = details.omit({ pickupAt: true }).extend({ customerEmail: z.email(), vehicleId: text }).strict();
+const priceCorrection = z.object({ id: text, finalPriceCents: z.number().int().nonnegative().max(10000000), priceReason: z.string().trim().min(3).max(2000) }).strict();
+const adminPatch = z.union([adminEdit.strict(), adminConfirm, priceCorrection]);
+const command = z.object({ id: text, status: z.enum(BookingStatus), confirmEstimatedDistance: z.boolean().optional(), tourCircuit: circuitSchema.optional(), observations: z.string().trim().max(2000).optional(), finalPoint: locationPointSchema.optional() }).strict();
+const passengerFields = z.object({ customerEmail: z.email().optional(), passengerName: z.string().trim().max(200).optional(), contactPhone: z.string().trim().max(50).optional(), passengers: z.number().int().min(1).max(50) });
+const walkupCreate = details.omit({ pickupAt: true }).extend({ customerEmail: z.email().optional(), passengerName: z.string().trim().max(200).optional(), contactPhone: z.string().trim().max(50).optional(), vehicleId: text }).strict();
+const quotedStart = passengerFields.extend({ quoteToken: z.string().max(3000000), agreedPriceCents: z.number().int().nonnegative().max(10000000).optional(), priceReason: z.string().trim().min(3).max(2000).optional() }).strict();
 const terminal: BookingStatus[] = ["CANCELLED", "TRIP_COMPLETED", "NO_SHOW", "REFUNDED"];
 const driverTransitions: Partial<Record<BookingStatus, BookingStatus>> = {
   DRIVER_ASSIGNED: "DRIVER_ACCEPTED", DRIVER_ACCEPTED: "DRIVER_EN_ROUTE",
@@ -38,24 +45,22 @@ export const bookingInclude = {
   customer: { select: { id: true, name: true, email: true, phone: true } },
   driver: { select: { id: true, user: { select: { name: true } } } },
   vehicle: { select: { id: true, name: true, plate: true, seats: true, iconCategory: true } },
+  statusHistory: { orderBy: { createdAt: "asc" }, select: { status: true, note: true, createdAt: true } },
 } satisfies Prisma.BookingInclude;
 
 function isAirportTrip(value: { fromAddress: string; toAddress: string; tripType: TripType }) {
   return value.tripType !== "TOURIST_TOUR" && (value.tripType === "AIRPORT_TRANSFER" || [value.fromAddress, value.toAddress].some((address) => {
-    const point = parseCoordinateAddress(address);
-    return /^(SAI Airport|Siem Reap Angkor International Airport)/i.test(address)
-      || Boolean(point && distanceBetween(point, { latitude: 13.3692, longitude: 104.2231 }) < 2000);
+    return airportEndpoint(address);
   }));
 }
 
 async function fare(value: { fromAddress: string; toAddress: string; tripType: TripType; tourCircuit?: z.infer<typeof circuitSchema>; tourHours?: number }) {
-  const stored = await prisma.systemSetting.findUnique({ where: { key: farePolicyKey } });
-  const policy = farePolicy(stored?.value);
+  const { policy, tariffId } = await activeFarePolicy();
   if (value.tripType === "TOURIST_TOUR" && value.tourCircuit === "REMOTE" && policy.remoteCircuitCents === null) throw new BookingError("Remote circuit price must be configured by an administrator", 422);
   const mode = value.tripType === "TOURIST_TOUR" ? "TOUR" : isAirportTrip(value) ? "AIRPORT" : "CITY";
   const bookedHours = value.tourHours ?? policy.tourIncludedHours;
   const snapshot: FareDetails = {
-    mode, policy, distanceMeters: mode === "CITY" ? await routeDistance(value.fromAddress, value.toAddress) : null,
+    mode, policy, tariffId, supplements: mode === "CITY" ? fareSupplements(policy, undefined, new Date()) : [], distanceMeters: mode === "CITY" ? await routeDistance(value.fromAddress, value.toAddress) : null,
     distanceSource: mode === "CITY" ? "ROUTE" : "PACKAGE", circuit: mode === "TOUR" ? value.tourCircuit ?? "SMALL" : null,
     bookedHours, extraHours: mode === "TOUR" ? extraTourHours(bookedHours, 0, policy.tourIncludedHours) : 0, startedAt: null, finalized: false,
   };
@@ -112,30 +117,52 @@ export async function bookingRequest(request: Request, role: SessionRole) {
     const body: unknown = await request.json();
     if (request.method === "POST") {
       if (role === "DRIVER") {
-        const input = walkupCreate.parse(body);
-        if (input.tripType !== "CITY_TRANSFER") throw new BookingError("Walk-up trips must be city trips");
-        const quote = await fare(input);
+        const preview = z.object({ action: z.literal("preview"), selection: autonomousSelection }).strict().safeParse(body);
+        if (preview.success) return Response.json(await previewTrip(preview.data.selection, account.id), { headers: { "Cache-Control": "no-store" } });
+        const start = quotedStart.safeParse(body);
+        const legacy = start.success ? null : walkupCreate.parse(body);
+        if (legacy && legacy.tripType !== "CITY_TRANSFER") throw new BookingError("Walk-up trips must be city trips");
+        const quote = start.success ? readTripQuote(start.data.quoteToken, account.id) : await previewTrip({ fromAddress: legacy!.fromAddress, toAddress: legacy!.toAddress, vehicleId: legacy!.vehicleId }, account.id);
+        if (!quote) throw new BookingError("Invalid trip quote; calculate a new route");
+        const duplicate = await prisma.booking.findUnique({ where: { startRequestId: quote.requestId }, include: bookingInclude });
+        if (duplicate) return Response.json({ booking: duplicate });
+        if (quote.expiresAt < Date.now()) throw new BookingError("Trip quote expired; calculate a new route", 409);
+        const passenger = start.success ? start.data : passengerFields.parse(legacy);
+        const outside = quote.fareDetails.mode === "OUTSIDE";
+        if (outside && (!start.success || start.data.agreedPriceCents === undefined || !start.data.priceReason)) throw new BookingError("Outside-zone trips require an agreed price and reason", 422);
+        if (!outside && start.success && (start.data.agreedPriceCents !== undefined || start.data.priceReason)) throw new BookingError("Automatic fares cannot be overridden by the driver");
+        const priceCents = outside && start.success ? start.data.agreedPriceCents! : quote.priceCents!;
         const created = await prisma.$transaction(async (tx) => {
           const driver = await tx.driverProfile.findUniqueOrThrow({ where: { userId: account.id } });
           if (!driver.isAvailable) throw new BookingError("Driver must be available", 409);
           await tx.driverProfile.update({ where: { id: driver.id }, data: { returningToHub: false } });
           if (await tx.booking.count({ where: { driverId: driver.id, status: { in: ["DRIVER_EN_ROUTE", "DRIVER_ARRIVED", "TRIP_STARTED"] } } })) throw new BookingError("Finish the current trip first", 409);
-          if (await tx.booking.count({ where: { vehicleId: input.vehicleId, status: { in: ["DRIVER_EN_ROUTE", "DRIVER_ARRIVED", "TRIP_STARTED"] } } })) throw new BookingError("Vehicle already in use", 409);
-          const customer = await tx.user.findUnique({ where: { email: input.customerEmail.toLowerCase() } });
-          if (!customer || customer.role !== "CUSTOMER" || customer.status !== "ACTIVE") throw new BookingError("Select an existing active customer");
-          const vehicle = await tx.vehicle.findUnique({ where: { id: input.vehicleId } });
-          if (!vehicle?.active || vehicle.seats < input.passengers) throw new BookingError("Invalid vehicle capacity");
+          if (await tx.booking.count({ where: { vehicleId: quote.selection.vehicleId, status: { in: ["DRIVER_EN_ROUTE", "DRIVER_ARRIVED", "TRIP_STARTED"] } } })) throw new BookingError("Vehicle already in use", 409);
+          const customer = passenger.customerEmail ? await tx.user.findUnique({ where: { email: passenger.customerEmail.toLowerCase() } }) : null;
+          if (passenger.customerEmail && (!customer || customer.role !== "CUSTOMER" || customer.status !== "ACTIVE")) throw new BookingError("Select an existing active customer");
+          const vehicle = await tx.vehicle.findUnique({ where: { id: quote.selection.vehicleId } });
+          if (!vehicle?.active || vehicle.seats < passenger.passengers) throw new BookingError("Invalid vehicle capacity");
+          if (vehicle.iconCategory !== quote.vehicleCategory) throw new BookingError("Vehicle category changed; calculate a new quote", 409);
           const latest = await tx.driverLocation.findFirst({ where: { driverId: driver.id }, orderBy: { recordedAt: "desc" } });
-          if (!latest || Date.now() - latest.recordedAt.getTime() > 60000 || latest.accuracy === null || Number(latest.accuracy) > 50) throw new BookingError("A recent accurate driver GPS fix is required", 409);
           const startedAt = new Date();
-          const { customerEmail, ...fields } = input; void customerEmail;
+          const snapshot: FareDetails = { ...quote.fareDetails, initialPriceCents: priceCents, negotiatedPriceCents: outside ? priceCents : null, startedAt: startedAt.toISOString() };
           const booking = await tx.booking.create({
-            data: { ...fields, ...quote, fareDetails: { ...quote.fareDetails, startedAt: startedAt.toISOString() }, metered: true, reference: `SW-${randomUUID().toUpperCase()}`, customerId: customer.id, driverId: driver.id, pickupAt: startedAt, paymentMethod: "DRIVER", status: "TRIP_STARTED", statusHistory: { create: { status: "TRIP_STARTED", note: "Driver started unreserved city trip; final fare uses GPS distance" } } }, include: bookingInclude,
+            data: { fromAddress: quote.selection.fromAddress, toAddress: quote.selection.toAddress, vehicleId: vehicle.id, passengers: passenger.passengers, passengerName: passenger.passengerName || null, contactPhone: passenger.contactPhone || null,
+              direction: airportEndpoint(quote.selection.toAddress, quote.route.to) ? "CITY_TO_AIRPORT" : "AIRPORT_TO_CITY", tripType: snapshot.mode === "AIRPORT" ? "AIRPORT_TRANSFER" : "CITY_TRANSFER",
+              priceCents, currency: "USD", fareDetails: snapshot, metered: snapshot.mode === "CITY", routeDetails: quote.route, estimatedPriceCents: priceCents, pricingStatus: outside ? "DRIVER_AGREED" : "AUTOMATIC",
+              originType: "DRIVER", startRequestId: quote.requestId, startedAt, reference: `SW-${randomUUID().toUpperCase()}`, customerId: customer?.id, driverId: driver.id, pickupAt: startedAt, paymentMethod: "DRIVER", status: "TRIP_STARTED",
+              statusHistory: { create: { status: "TRIP_STARTED", note: outside && start.success ? `DRIVER_AGREED: ${start.data.priceReason}` : "Driver started autonomous trip; estimate retained" } } }, include: bookingInclude,
           });
-          await tx.driverLocation.create({ data: { driverId: driver.id, bookingId: booking.id, latitude: latest.latitude, longitude: latest.longitude, accuracy: latest.accuracy, recordedAt: startedAt } });
-          await tx.auditLog.create({ data: { actorId: account.id, entity: "Booking", entityId: booking.id, action: "START_METERED_TRIP" } });
+          if (latest && Date.now() - latest.recordedAt.getTime() <= 60000 && latest.accuracy !== null && Number(latest.accuracy) <= 50) await tx.driverLocation.create({ data: { driverId: driver.id, bookingId: booking.id, latitude: latest.latitude, longitude: latest.longitude, accuracy: latest.accuracy, recordedAt: startedAt } });
+          await tx.auditLog.create({ data: { actorId: account.id, entity: "Booking", entityId: booking.id, action: "START_AUTONOMOUS_TRIP", metadata: { priceCents, pricingStatus: booking.pricingStatus, reason: start.success ? start.data.priceReason ?? null : null, tariffId: snapshot.tariffId ?? null } } });
           return booking;
-        }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+        }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }).catch(async (error: unknown) => {
+          if (error instanceof Prisma.PrismaClientKnownRequestError && ["P2034", "P2002"].includes(error.code)) {
+            const duplicate = await prisma.booking.findFirst({ where: { startRequestId: quote.requestId, driver: { userId: account.id } }, include: bookingInclude });
+            if (duplicate) return duplicate;
+          }
+          throw error;
+        });
         return Response.json({ booking: created }, { status: 201 });
       }
       const parsed = role === "ADMIN" ? adminCreate.strict().safeParse(body) : customerCreate.strict().safeParse(body);
@@ -152,7 +179,7 @@ export async function bookingRequest(request: Request, role: SessionRole) {
         await assignment(tx, admin?.driverId, admin?.vehicleId, value.passengers);
         const status: BookingStatus = admin?.driverId ? "DRIVER_ASSIGNED" : "PENDING_PAYMENT";
         const created = await tx.booking.create({
-          data: { ...details.parse(value), ...(admin ? {} : (({ paymentMethod, contactPhone }) => ({ paymentMethod, contactPhone: contactPhone || null }))(customerCreate.parse(value))), customerId, reference: `SW-${randomUUID().toUpperCase()}`, pickupAt: new Date(value.pickupAt), ...quote, driverId: admin?.driverId, vehicleId: admin?.vehicleId, status, statusHistory: { create: { status, note: "Booking created; payment is tracked separately" } } },
+          data: { ...details.parse(value), ...(admin ? {} : (({ paymentMethod, contactPhone }) => ({ paymentMethod, contactPhone: contactPhone || null }))(customerCreate.parse(value))), customerId, originType: admin ? "ADMIN" : "CUSTOMER", estimatedPriceCents: quote.priceCents, reference: `SW-${randomUUID().toUpperCase()}`, pickupAt: new Date(value.pickupAt), ...quote, driverId: admin?.driverId, vehicleId: admin?.vehicleId, status, statusHistory: { create: { status, note: "Booking created; payment is tracked separately" } } },
           include: bookingInclude,
         });
         await tx.auditLog.create({ data: { actorId: account.id, entity: "Booking", entityId: created.id, action: "CREATE" } });
@@ -165,13 +192,23 @@ export async function bookingRequest(request: Request, role: SessionRole) {
     if (role === "DRIVER" && ending.success && ending.data.status === "TRIP_COMPLETED" && ending.data.confirmEstimatedDistance) {
       const own = await prisma.booking.findFirst({ where: { ...scope, id: ending.data.id, status: "TRIP_STARTED", metered: true } });
       if (!own) throw new BookingError("Active metered trip not found", 404);
-      confirmedRoute = await routeDistance(own.fromAddress, own.toAddress);
+      confirmedRoute = own.routeDetails ? routeDetailsSchema.parse(own.routeDetails).distanceMeters : await routeDistance(own.fromAddress, own.toAddress);
     }
     const booking = await prisma.$transaction(async (tx) => {
       const parsed = request.method === "PATCH" && role === "ADMIN" ? adminPatch.safeParse(body) : command.safeParse(body);
       if (!parsed.success) throw new BookingError("Invalid booking update");
       const existing = await tx.booking.findFirst({ where: { ...scope, id: parsed.data.id }, include: { payments: { select: { status: true } } } });
       if (!existing) throw new BookingError("Booking not found", 404);
+      if (role === "ADMIN" && "finalPriceCents" in parsed.data) {
+        const correction = priceCorrection.parse(body);
+        if (existing.payments.some((payment) => ["PAID", "PROCESSING"].includes(payment.status))) throw new BookingError("A paid or processing fare cannot be changed", 409);
+        if (isAirportTrip(existing) && correction.finalPriceCents > 3000) throw new BookingError("Airport transfers cannot exceed USD 30");
+        const snapshot = existing.fareDetails === null ? null : fareDetailsSchema.parse(existing.fareDetails);
+        if (snapshot) snapshot.adjustmentCents = (snapshot.adjustmentCents ?? 0) + correction.finalPriceCents - existing.priceCents;
+        const updated = await tx.booking.update({ where: { id: existing.id, updatedAt: existing.updatedAt }, data: { priceCents: correction.finalPriceCents, pricingStatus: "ADMIN_ADJUSTED", ...(snapshot ? { fareDetails: snapshot } : {}), statusHistory: { create: { status: existing.status, note: `PRICE_ADJUSTMENT ${existing.priceCents} -> ${correction.finalPriceCents} USD cents: ${correction.priceReason}` } } }, include: bookingInclude });
+        await tx.auditLog.create({ data: { actorId: account.id, entity: "Booking", entityId: existing.id, action: "PRICE_ADJUSTMENT", metadata: { oldCents: existing.priceCents, newCents: correction.finalPriceCents, reason: correction.priceReason } } });
+        return updated;
+      }
       if (terminal.includes(existing.status)) throw new BookingError("A closed booking cannot be modified", 409);
       let update: Prisma.BookingUpdateInput;
       let status = existing.status;
@@ -186,6 +223,7 @@ export async function bookingRequest(request: Request, role: SessionRole) {
         const driverId = changes.driverId === undefined ? existing.driverId : changes.driverId;
         if (changes.priceCents !== undefined && changes.priceCents !== existing.priceCents && existing.payments.some((payment) => ["PAID", "PROCESSING"].includes(payment.status))) throw new BookingError("A paid or processing fare cannot be changed", 409);
         const fareChanged = (["fromAddress", "toAddress", "tripType", "priceCents"] as const).some((key) => changes[key] !== undefined && changes[key] !== existing[key]);
+        if (existing.originType === "DRIVER" && fareChanged) throw new BookingError("Use a justified price correction; the recorded autonomous route is immutable", 409);
         if (fareChanged && isAirportTrip({ tripType: changes.tripType ?? existing.tripType, fromAddress: changes.fromAddress ?? existing.fromAddress, toAddress: changes.toAddress ?? existing.toAddress })) {
           if ((changes.priceCents ?? existing.priceCents) > 3000) throw new BookingError("Airport transfers cannot exceed USD 30");
         }
@@ -210,7 +248,11 @@ export async function bookingRequest(request: Request, role: SessionRole) {
         status = next;
         update = {};
         const fareValue = existing.fareDetails === null ? null : fareDetailsSchema.parse(existing.fareDetails);
-        if (fareValue && next === "TRIP_STARTED") update.fareDetails = { ...fareValue, startedAt: new Date().toISOString() };
+        if (next === "TRIP_STARTED") {
+          const startTime = new Date();
+          update.startedAt = startTime;
+          if (fareValue) update.fareDetails = { ...fareValue, startedAt: startTime.toISOString() };
+        }
         if (fareValue && next === "TRIP_COMPLETED") {
           const finished = new Date();
           const snapshot: FareDetails = { ...fareValue, finalized: true };
@@ -233,10 +275,16 @@ export async function bookingRequest(request: Request, role: SessionRole) {
           if (finalPrice !== existing.priceCents && existing.payments.some((p) => ["PAID", "PROCESSING"].includes(p.status))) throw new BookingError("Payment already started; administrator review required", 409);
           update = { ...update, priceCents: finalPrice, fareDetails: snapshot };
         }
+        if (next === "TRIP_COMPLETED") {
+          const finished = new Date();
+          const input = command.parse(body);
+          const startTime = existing.startedAt ?? (fareValue?.startedAt ? new Date(fareValue.startedAt) : null);
+          update = { ...update, completedAt: finished, actualDurationSeconds: startTime ? Math.max(0, Math.round((finished.getTime() - startTime.getTime()) / 1000)) : null, driverObservations: input.observations || null, ...(input.finalPoint ? { finalLatitude: input.finalPoint.latitude, finalLongitude: input.finalPoint.longitude } : {}) };
+        }
       }
       const confirming = role === "ADMIN" && request.method === "PATCH" && "status" in parsed.data;
-      const result = await tx.booking.update({ where: { id: existing.id, updatedAt: existing.updatedAt }, data: { ...update, status, statusHistory: { create: { status, note: confirming ? "ADMIN operational confirmation; payment tracked separately" : `${role} update` } } }, include: bookingInclude });
-      await tx.auditLog.create({ data: { actorId: account.id, entity: "Booking", entityId: existing.id, action: confirming ? "CONFIRM" : request.method === "DELETE" ? "CANCEL" : "UPDATE" } });
+      const result = await tx.booking.update({ where: { id: existing.id, updatedAt: existing.updatedAt }, data: { ...update, status, statusHistory: { create: { status, note: confirming ? "ADMIN operational confirmation; payment tracked separately" : status === "TRIP_COMPLETED" ? `FARE_FINALIZED ${existing.priceCents} -> ${String(update.priceCents ?? existing.priceCents)} USD cents; ${confirmedRoute !== null ? "driver confirmed road estimate" : existing.metered ? "GPS distance" : "agreed/package fare"}; ${ending.success ? ending.data.observations ?? "" : ""}` : `${role} update` } } }, include: bookingInclude });
+      await tx.auditLog.create({ data: { actorId: account.id, entity: "Booking", entityId: existing.id, action: confirming ? "CONFIRM" : request.method === "DELETE" ? "CANCEL" : "UPDATE", metadata: { oldCents: existing.priceCents, newCents: result.priceCents, status, confirmedEstimatedDistance: confirmedRoute !== null } } });
       if (status === "TRIP_COMPLETED" && existing.driverId && await tx.hub.count({ where: { active: true } })) {
         await tx.driverProfile.update({ where: { id: existing.driverId }, data: { returningToHub: true } });
       }
@@ -245,6 +293,7 @@ export async function bookingRequest(request: Request, role: SessionRole) {
     return Response.json({ booking });
   } catch (error) {
     if (error instanceof BookingError) return Response.json({ error: error.message }, { status: error.status });
+    if (error instanceof TripInputError) return Response.json({ error: error.message }, { status: 422 });
     if (error instanceof SyntaxError || error instanceof z.ZodError) return Response.json({ error: "Invalid request values" }, { status: 400 });
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034") return Response.json({ error: "Concurrent trip update; retry" }, { status: 409 });
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") return Response.json({ error: "Booking changed; reload and retry" }, { status: 409 });

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-export type SharingPhase = "starting" | "sharing" | "denied" | "unavailable" | "unsupported" | "error" | "inactive";
+export type SharingPhase = "starting" | "sharing" | "denied" | "unavailable" | "timeout" | "unsupported" | "error" | "inactive";
 type Fix = { latitude: number; longitude: number; accuracy: number | null; heading: number | null };
 type Hub = { id: string; name: string; address: string | null; latitude: number; longitude: number };
 type Vehicle = { id: string; name: string; plate: string; iconCategory: "TUK_TUK" | "PASSAPP" | "SEDAN" | "SUV" | "MINIVAN" | "MINIBUS" | "VAN" | "OTHER" };
@@ -23,9 +23,11 @@ export function distanceMeters(a: { latitude: number; longitude: number }, b: { 
 export function useLocationSharing(bookingId: string | null, enabled: boolean) {
   const [state, setState] = useState<{ bookingId: string | null; attempt: number; phase: SharingPhase; lastSent: Date | null; point: Fix | null; returningToHub: boolean; hubs: Hub[]; vehicle: Vehicle | null }>({ bookingId: null, attempt: 0, phase: "starting", lastSent: null, point: null, returningToHub: false, hubs: [], vehicle: null });
   const [attempt, setAttempt] = useState(0);
+  const [detectedAt, setDetectedAt] = useState<Date | null>(null);
   const last = useRef<{ fix: Fix; at: number } | null>(null);
   const pending = useRef<Fix | null>(null);
   const latest = useRef<Fix | null>(null);
+  const acquiredAt = useRef(0);
   const inFlight = useRef(false);
 
   useEffect(() => {
@@ -49,6 +51,7 @@ export function useLocationSharing(bookingId: string | null, enabled: boolean) {
     last.current = null;
     pending.current = null;
     latest.current = null;
+    acquiredAt.current = 0;
 
     async function send(fix: Fix) {
       if (inFlight.current) { pending.current = fix; return; }
@@ -83,6 +86,8 @@ export function useLocationSharing(bookingId: string | null, enabled: boolean) {
         heading: Number.isFinite(position.coords.heading) && position.coords.heading !== null ? position.coords.heading : null,
       };
       latest.current = fix;
+      acquiredAt.current = position.timestamp;
+      setDetectedAt(new Date(position.timestamp));
       setState((current) => ({ ...current, bookingId, attempt, point: fix }));
       const previous = last.current;
       const elapsed = previous ? Date.now() - previous.at : Infinity;
@@ -90,7 +95,7 @@ export function useLocationSharing(bookingId: string | null, enabled: boolean) {
     }
 
     function onError(error: GeolocationPositionError) {
-      update(error.code === error.PERMISSION_DENIED ? "denied" : "unavailable");
+      update(error.code === error.PERMISSION_DENIED ? "denied" : error.code === error.TIMEOUT ? "timeout" : "unavailable");
     }
 
     async function keepAwake() {
@@ -112,7 +117,7 @@ export function useLocationSharing(bookingId: string | null, enabled: boolean) {
         heartbeat = window.setInterval(() => {
           const fix = latest.current;
           const elapsed = last.current ? Date.now() - last.current.at : Infinity;
-          if (fix && (elapsed >= heartbeatMs || fix !== last.current?.fix && elapsed >= minIntervalMs)) void send(fix);
+          if (fix && Date.now() - acquiredAt.current <= 60000 && (elapsed >= heartbeatMs || fix !== last.current?.fix && elapsed >= minIntervalMs)) void send(fix);
         }, 5_000);
       } catch {
         if (!stopped) update("error");
@@ -133,6 +138,7 @@ export function useLocationSharing(bookingId: string | null, enabled: boolean) {
     phase: current ? state.phase : "starting" as SharingPhase,
     lastSent: current ? state.lastSent : null,
     point: current ? state.point : null,
+    detectedAt: current ? detectedAt : null,
     returningToHub: current && state.returningToHub,
     hubs: current ? state.hubs : [],
     vehicle: current ? state.vehicle : null,

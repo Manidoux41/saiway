@@ -31,12 +31,12 @@ const destinations = [
   { name: "Royal Residence Park", detail: "Sivutha Boulevard, Siem Reap", kind: "Address" },
 ];
 
-export function HotelSearch({ value, onChange, label, placeholder }: { value: string; onChange: (value: string) => void; label?: string; placeholder?: string }) {
+export function HotelSearch({ value, onChange, label, placeholder, onSelectPoint, cambodiaOnly = false }: { value: string; onChange: (value: string) => void; label?: string; placeholder?: string; onSelectPoint?: (point: { latitude: number; longitude: number }) => void; cambodiaOnly?: boolean }) {
   const { t } = useLanguage();
   const { user } = useAuth();
   const id = useId();
   const [focused, setFocused] = useState(false);
-  const [remote, setRemote] = useState<{ query: string; places: { name: string; detail: string; kind: string }[] } | null>(null);
+  const [remote, setRemote] = useState<{ query: string; places: { name: string; detail: string; kind: string; latitude?: number; longitude?: number }[] } | null>(null);
   const [history, setHistory] = useState<{ userId: string; places: string[] } | null>(null);
   const [failure, setFailure] = useState<"places.historyError" | "places.searchError" | null>(null);
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -55,17 +55,18 @@ export function HotelSearch({ value, onChange, label, placeholder }: { value: st
     if (!focused || query.length < 2 || /^GPS:/i.test(query)) return;
     const controller = new AbortController();
     const timer = setTimeout(() => {
-      void searchPlaces(query, AbortSignal.any([controller.signal, AbortSignal.timeout(8000)])).then((places) => {
-        if (!controller.signal.aborted) { setRemote({ query, places: places.map((place) => ({ name: place.name, detail: place.detail, kind: t("places.place") })) }); setFailure(null); }
+      void searchPlaces(query, AbortSignal.any([controller.signal, AbortSignal.timeout(8000)]), cambodiaOnly).then((places) => {
+        if (!controller.signal.aborted) { setRemote({ query, places: places.map((place) => ({ ...place, kind: t("places.place") })) }); setFailure(null); }
       }).catch(() => { if (!controller.signal.aborted) setFailure("places.searchError"); });
     }, 350);
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [value, focused, t]);
+  }, [value, focused, t, cambodiaOnly]);
   const suggestions = useMemo(() => {
     const query = value.trim().toLowerCase();
     const previous = history?.userId === user?.id ? history?.places.map((name) => ({ name, detail: "", kind: t("places.previous") })) ?? [] : [];
     const online = remote?.query === value.trim() ? remote.places : [];
-    const all = [...previous, ...online, ...destinations].filter((place) => !query || `${place.name} ${place.detail}`.toLowerCase().includes(query));
+    const matches = (place: { name: string; detail: string }) => !query || `${place.name} ${place.detail}`.toLowerCase().includes(query);
+    const all = [...previous.filter(matches), ...online, ...destinations.filter(matches)];
     const seen = new Set<string>();
     return all.filter((place) => { const key = `${place.name}, ${place.detail}`.toLowerCase(); if (seen.has(key)) return false; seen.add(key); return true; }).slice(0, 8);
   }, [value, remote, history, user?.id, t]);
@@ -74,6 +75,7 @@ export function HotelSearch({ value, onChange, label, placeholder }: { value: st
     const place = suggestions[index];
     if (!place) return;
     onChange([place.name, place.detail].filter(Boolean).join(", "));
+    if ("latitude" in place && "longitude" in place && typeof place.latitude === "number" && typeof place.longitude === "number") onSelectPoint?.({ latitude: place.latitude, longitude: place.longitude });
     setFocused(false); setActiveIndex(-1);
   }
 

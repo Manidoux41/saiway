@@ -1,0 +1,56 @@
+import { test } from 'node:test';
+import { assert, request, setup, createAccount } from './helpers.mjs';
+
+test('outside-zone driver agreement can start, finish and collect without approval; administrator sees its audit and receipt', async () => {
+  const ctx = await setup();
+  try {
+    const driver = await createAccount(ctx, 'DRIVER');
+    const customer = await createAccount(ctx, 'CUSTOMER');
+    const vehicle = await ctx.prisma.vehicle.create({ data: { name: ctx.prefix, plate: ctx.prefix, seats: 4 } });
+    const selection = { vehicleId: vehicle.id, fromAddress: 'GPS: 13.36, 103.85', toAddress: 'GPS: 13.8, 104.5' };
+    assert.equal((await request('/api/driver/bookings', 'POST', { action: 'preview', selection })).status, 403);
+    const preview = await request('/api/driver/bookings', 'POST', { action: 'preview', selection }, driver.cookie);
+    assert.equal(preview.status, 200);
+    assert.equal(preview.data.priceCents, null);
+    assert.equal(preview.data.fareDetails.mode, 'OUTSIDE');
+    const body = { quoteToken: preview.data.token, passengers: 2, passengerName: 'Walk-up passenger', contactPhone: '+85512345678' };
+    assert.equal((await request('/api/driver/bookings', 'POST', body, driver.cookie)).status, 422);
+    assert.equal((await request('/api/driver/bookings', 'POST', { ...body, agreedPriceCents: 4200 }, driver.cookie)).status, 422);
+    const started = await request('/api/driver/bookings', 'POST', { ...body, agreedPriceCents: 4200, priceReason: 'Passenger agreed to intercity fare before departure' }, driver.cookie);
+    assert.equal(started.status, 201);
+    const id = started.data.booking.id;
+    assert.equal(started.data.booking.pricingStatus, 'DRIVER_AGREED');
+    assert.equal(started.data.booking.metered, false);
+    assert.equal(started.data.booking.priceCents, 4200);
+    assert.equal((await request('/api/bookings', 'GET', undefined, customer.cookie)).data.bookings.length, 0);
+    const done = await request('/api/driver/bookings', 'PATCH', { id, status: 'TRIP_COMPLETED', observations: 'Intercity destination reached' }, driver.cookie);
+    assert.equal(done.status, 200);
+    assert.equal(done.data.booking.priceCents, 4200);
+    assert.equal(done.data.booking.estimatedPriceCents, 4200);
+    const paid = await request('/api/driver/payments', 'POST', { bookingId: id, received: true, collectionMethod: 'CASH' }, driver.cookie);
+    assert.equal(paid.status, 200);
+    const admin = (await request('/api/admin/bookings', 'GET', undefined, ctx.cookie)).data.bookings.find((item) => item.id === id);
+    assert.equal(admin.payments[0].status, 'PAID');
+    assert.equal(admin.payments[0].amountCents, 4200);
+    assert.equal(admin.payments[0].collectionMethod, 'CASH');
+    assert.ok(admin.statusHistory.some((item) => item.note.includes('Passenger agreed')));
+    const ledger = await request('/api/admin/management', 'GET', undefined, ctx.cookie);
+    assert.ok(ledger.data.receipts.some((receipt) => receipt.booking.reference === admin.reference && receipt.amountCents === 4200));
+    const audit = await ctx.prisma.auditLog.findFirst({ where: { entityId: id, action: 'START_AUTONOMOUS_TRIP' } });
+    assert.equal(audit.metadata.reason, 'Passenger agreed to intercity fare before departure');
+    assert.equal((await request('/api/admin/bookings', 'PATCH', { id, finalPriceCents: 4000, priceReason: 'Too late: already paid' }, ctx.cookie)).status, 409);
+    const airportPreview = await request('/api/driver/bookings', 'POST', { action: 'preview', selection: { ...selection, toAddress: 'GPS: 13.3692, 104.2231' } }, driver.cookie);
+    assert.equal(airportPreview.data.fareDetails.mode, 'AIRPORT');
+    assert.equal(airportPreview.data.priceCents, 3000);
+    const airport = await request('/api/driver/bookings', 'POST', { quoteToken: airportPreview.data.token, passengers: 1 }, driver.cookie);
+    assert.equal(airport.status, 201);
+    assert.equal(airport.data.booking.direction, 'CITY_TO_AIRPORT');
+    assert.equal(airport.data.booking.metered, false);
+    assert.equal((await request('/api/admin/bookings', 'PATCH', { id: airport.data.booking.id, finalPriceCents: 3100, priceReason: 'Over cap rejected' }, ctx.cookie)).status, 400);
+    assert.equal((await request('/api/admin/bookings', 'PATCH', { id: airport.data.booking.id, finalPriceCents: 2800, priceReason: 'Agreed airport discount' }, ctx.cookie)).status, 200);
+    const airportDone = await request('/api/driver/bookings', 'PATCH', { id: airport.data.booking.id, status: 'TRIP_COMPLETED' }, driver.cookie);
+    assert.equal(airportDone.status, 200);
+    assert.equal(airportDone.data.booking.priceCents, 2800);
+    assert.equal(airportDone.data.booking.estimatedPriceCents, 3000);
+  } finally { await ctx.cleanup(); }
+});

@@ -316,8 +316,20 @@ model ForecastLine {
 model Booking {
   id             String          @id @default(cuid())
   reference      String          @unique
-  customerId     String
-  customer       User            @relation("CustomerBookings", fields: [customerId], references: [id])
+  customerId     String?
+  customer       User?           @relation("CustomerBookings", fields: [customerId], references: [id], onDelete: Restrict)
+  passengerName  String?
+  originType     String          @default("CUSTOMER")
+  startRequestId String?         @unique
+  routeDetails   Json?
+  estimatedPriceCents Int?
+  pricingStatus  String          @default("AUTOMATIC")
+  startedAt      DateTime?
+  completedAt    DateTime?
+  actualDurationSeconds Int?
+  driverObservations String?
+  finalLatitude  Decimal?        @db.Decimal(10, 7)
+  finalLongitude Decimal?        @db.Decimal(10, 7)
   driverId       String?
   driver         DriverProfile?  @relation("DriverBookings", fields: [driverId], references: [id], onDelete: SetNull)
   vehicleId      String?
@@ -344,6 +356,8 @@ model Booking {
   statusHistory  BookingStatusHistory[]
   payments       Payment[]
   messages       DriverMessage[]
+
+  @@index([originType, pickupAt])
 }
 
 model BookingStatusHistory {
@@ -392,6 +406,7 @@ model PricingRule {
   currency    String   @default("USD")
   active      Boolean  @default(true)
   effectiveAt DateTime @default(now())
+  policy      Json?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }

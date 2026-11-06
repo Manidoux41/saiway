@@ -15,6 +15,20 @@ test('coordinate addresses preserve accurate points, including zero and negative
   assert.throws(() => coordinateAddress({ latitude: NaN, longitude: 3 }));
 });
 
+test('driver place searches can scope Cambodia without dropping English or Khmer input', async () => {
+  const original = globalThis.fetch;
+  try {
+    globalThis.fetch = async (url) => {
+      const params = new URL(url).searchParams;
+      assert.equal(params.get('bbox'), '102.3,9.9,107.7,14.8');
+      assert.equal(params.get('q'), 'សៀមរាប');
+      return Response.json({ features: [{ geometry: { coordinates: [103.85, 13.36] }, properties: { name: 'សៀមរាប', country: 'Cambodia' } }] });
+    };
+    const places = await searchPlaces('សៀមរាប', new AbortController().signal, true);
+    assert.equal(places[0].name, 'សៀមរាប');
+  } finally { globalThis.fetch = original; }
+});
+
 test('driver navigation sends coordinate pairs without the stored GPS prefix', () => {
   const url = new URL(navigationUrl({ fromAddress: 'GPS: 13.3612345, 103.8567891', toAddress: 'Phnom Penh' }));
   assert.equal(url.searchParams.get('origin'), '13.3612345, 103.8567891');

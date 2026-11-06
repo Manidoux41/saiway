@@ -24,13 +24,27 @@ const iconGlyph: Record<VehicleIconCategory, string> = {
 };
 
 export function vehicleMarkerIcon(category: VehicleIconCategory, heading: number | null, customIconUrl?: string | null) {
-  const content = customIconUrl
-    ? `<img src="${customIconUrl}" alt="" class="saiway-vehicle-image">`
-    : `<span aria-hidden="true">${iconGlyph[category]}</span>`;
   const angle = heading === null || !Number.isFinite(heading) ? 0 : heading;
+  const content = document.createElement("span");
+  content.className = "saiway-vehicle-marker";
+  content.style.setProperty("--vehicle-heading", `${angle}deg`);
+  const glyph = document.createElement("span");
+  glyph.setAttribute("aria-hidden", "true");
+  glyph.textContent = iconGlyph[category];
+  content.append(glyph);
+  if (customIconUrl) {
+    const image = document.createElement("img");
+    image.alt = "";
+    image.className = "saiway-vehicle-image";
+    image.hidden = true;
+    image.onload = () => { glyph.hidden = true; image.hidden = false; };
+    image.onerror = () => { glyph.hidden = false; image.hidden = true; };
+    image.src = customIconUrl;
+    content.append(image);
+  }
   return L.divIcon({
     className: "",
-    html: `<span class="saiway-vehicle-marker" style="--vehicle-heading:${angle}deg">${content}</span>`,
+    html: content,
     iconSize: [42, 42],
     iconAnchor: [21, 21],
   });

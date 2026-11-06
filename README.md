@@ -78,6 +78,7 @@ variables take precedence over files. Restart the server after changing values.
 | `NEXT_PUBLIC_APP_URL` | Public site origin, e.g. `http://localhost:3000` locally; set the actual HTTPS origin in production. |
 | `NEXT_PUBLIC_MAP_TILE_URL`, `NEXT_PUBLIC_MAP_TILE_ATTRIBUTION` | Map tile template and required provider attribution. |
 | `NEXT_PUBLIC_ROUTING_URL`, `NEXT_PUBLIC_GEOCODING_URL` | OSRM-compatible routing root and Photon-compatible geocoding endpoint. |
+| `NEXT_PUBLIC_REVERSE_GEOCODING_URL` | Optional Photon-compatible reverse endpoint. Defaults to the geocoding URL with its trailing `/api` replaced by `/reverse`. |
 | `CRON_SECRET` | Private bearer secret for scheduled GPS retention. Configure the same value in the scheduler. |
 | `PAYWAY_ENVIRONMENT`, `PAYWAY_MERCHANT_ID`, `PAYWAY_API_KEY`, `PAYWAY_PUBLIC_URL` | Optional PayWay configuration; all four are needed for online checkout. |
 | `VALIDATION_URL` | Optional base URL for integration tests; defaults to `http://localhost:3000`. Use an isolated test database. |
@@ -100,7 +101,7 @@ administrator password.
 | Role | Dashboard | Permitted operations |
 |------|-----------|----------------------|
 | Administrator | `/admin` | Create customer/driver/admin accounts; manage fleet, fares, contracts, financial records and homepage image; create, edit, assign and cancel trips |
-| Driver | `/driver` | Read only assigned trips and advance them through the authorized trip stages |
+| Driver | `/driver` | Start autonomous trips, read only own assigned/created trips, advance authorized stages and record collection |
 | Customer | `/account` | Manage personal details; reserve at `/booking`; read only personal bookings; cancel before the driver accepts |
 
 Roles come from the database and cannot be changed through account editing.
@@ -165,8 +166,13 @@ customers can retry loading without resubmitting a saved reservation.
 
 ### Automatic transport tariffs
 
-**Admin → Fleet & management → Automatic transport fares** edits the existing
-`SystemSetting` key `transportFarePolicy`. Only administrators may change it.
+**Admin → Fleet & management → Automatic transport fares** publishes immutable
+full-policy versions in the existing `PricingRule.policy` JSON field. Only
+administrators may change tariffs. `SystemSetting.transportFarePolicy` remains
+the compatibility baseline until the first version is published; its current
+value is then preserved as a baseline version. The latest effective active
+version is selected; scheduled versions do not change today's tariff. Dates
+and time supplements use Cambodia time. Old versions cannot be edited or archived.
 Defaults: airport USD 30 per vehicle in either direction (hard maximum USD 30);
 city USD 0.65/km with no starting fee or minimum; Small Circuit USD 35 per vehicle
 including 8 continuous hours, the 35 km Small Circuit, waiting, driver meal and
@@ -190,18 +196,84 @@ No straight-line or default-price fallback is used if routing fails. Amounts
 are rounded to the nearest cent. Reservation creation recalculates the quote.
 `Booking.fareDetails` records the policy, distance source, circuit, start time
 and finalization state. Changes to the tariff never rewrite existing snapshots.
-Manual administrator fare/route changes discard the automatic snapshot, except
-metered trips cannot be manually edited while open. Airport price edits and new
-airport bookings cannot exceed USD 30; old higher-priced records are preserved.
+Legacy administrator fare/route edits retain their existing semantics; autonomous
+routes and original estimates are immutable. Use the justified correction
+operation below rather than rewriting the snapshot. Airport fares cannot exceed
+USD 30; existing legacy amounts are not rewritten.
 
-From the driver's real activity view, **Start an unreserved city trip** uses
-`POST /api/driver/bookings` with `customerEmail` (existing active customer),
-`vehicleId`, `fromAddress`, `toAddress`, `direction`, `tripType=CITY_TRANSFER` and
-`passengers`; no `pickupAt`, driver ID or customer-supplied fare is accepted.
-The booking starts at server time with `metered=true`, `TRIP_STARTED` and payment
-at driver. An accurate GPS fix under a minute old is required. Driver/vehicle
+From the driver's real activity view, **Start a new trip** opens a mobile-friendly
+GPS departure, vehicle and destination form. It reuses the existing single GPS
+stream, attempts reverse geocoding and preserves exact coordinates separately
+from the address label. GPS permission refusal, timeout, provider/network errors
+are shown; manual addresses or `GPS: latitude, longitude` remain usable without
+a GPS fix. English/Khmer Photon searches are scoped to a Cambodia bounding box
+in this flow (other existing place searches retain their previous scope).
+Selecting a remote suggestion retains its coordinates; editing clears them.
+OSRM calculates and signs the server-authoritative road route, distance,
+duration and tariff snapshot, shown on a map before confirmation. No live
+traffic information is supplied. Optional reverse geocoding needs a
+Photon-compatible endpoint with browser CORS support; configure
+`NEXT_PUBLIC_REVERSE_GEOCODING_URL` when it is not derived from `/api`.
+
+The initial city zone is a 20 km circle around **13.36, 103.85**. Every route
+vertex and both endpoints must remain inside an active configured zone; otherwise
+the intracity rate is not applied. Airport endpoints take precedence, including
+trips outside the circle. Administrators can edit/add/deactivate city circles,
+pickup/minimum charges, vehicle, Cambodia-hour (including overnight) and
+exceptional supplements. Defaults remain zero supplements/pickup/minimum.
+USD is the settlement currency; **KHR is indicative only**, using the
+administrator's snapshotted exchange rate. It remains unset until configured.
+Each city uses the common published tariff; there is no separate per-city rate.
+
+**Outside-zone trips do not require administrative approval:** the driver must
+enter the fare agreed with the passenger and a reason before departure.
+They may finish and collect independently; the agreed amount, justification
+and receipt are visible to administrators. Drivers cannot override automatic
+city/airport fares. A passenger may have no account; name and phone are optional.
+An optional customer email must refer to an existing active customer. No fake
+customer account is created.
+
+Existing API extensions:
+
+- `POST /api/driver/bookings` with
+  `{action:"preview", selection:{vehicleId,fromAddress,toAddress,fromPoint?,toPoint?}}`
+  returns `route`, `fareDetails`, nullable `priceCents`, and `token`.
+  Points use `{latitude,longitude}`; route coordinates use `[longitude,latitude]`.
+  Quotes are account-bound, signed using domain-separated `AUTH_SECRET` HMAC,
+  and valid for 10 minutes. Provider failure never produces a guessed route/fare.
+- Confirm with `{quoteToken,passengers,customerEmail?,passengerName?,contactPhone?}`.
+  Outside-zone confirmations also require `agreedPriceCents` and `priceReason`
+  (at least three characters). Price and geometry cannot be supplied by clients.
+  Each token carries a unique `startRequestId`: replay returns the same booking,
+  even after quote expiry. A concurrent conflict may require retrying the same
+  token. Vehicle activity/capacity/category and driver availability are rechecked.
+  Changes to tariffs after preview do not invalidate a still-valid signed quote.
+- The previous city `POST` body with `vehicleId`, `fromAddress`, `toAddress`,
+  `direction`, `tripType=CITY_TRANSFER`, `passengers` and optional customer fields
+  remains supported; new clients should use the preview/confirmation workflow.
+- `PATCH /api/driver/bookings` completion accepts `observations` (max 2000 chars)
+  and optional `finalPoint:{latitude,longitude}`. Start/end server timestamps,
+  actual duration, optional final GPS and observations are persisted.
+- `PATCH /api/admin/bookings` accepts
+  `{id,finalPriceCents,priceReason}` for a justified correction, including on
+  completed unpaid trips. Initial estimate/policy/route remain intact; an
+  explicit adjustment is included at finalization. Paid/processing amounts
+  cannot change and the airport USD 30 ceiling remains enforced.
+- `POST /api/admin/management` with `entity:"setting"` and
+  `data:{key:"transportFarePolicy",value:<full policy>,effectiveAt?:<ISO date>}`
+  creates a version, never rewrites an existing one. GET includes active
+  `farePolicy` and the latest 100 `tariffHistory` versions.
+- Existing booking GET responses now include nullable `customer`, optional
+  passenger details, `originType`, `routeDetails`, `estimatedPriceCents`,
+  `pricingStatus`, lifecycle fields and ordered `statusHistory`. Guest trips
+  remain accessible only to their own driver and administrators; they are
+  not made public. `priceCents` is the current/final amount.
+
+The booking starts at server time with `TRIP_STARTED`, `originType=DRIVER`
+and payment at driver; only city-zone trips have `metered=true`. Driver/vehicle
 overlaps are rejected in a serializable transaction. The existing single GPS
-stream supplies positions; no second watch is started. Completion calculates
+stream supplies positions; stale fixes are not replayed indefinitely by
+heartbeats. Completion calculates
 the distance from this driver's recorded trip positions. Samples with missing/
 poor accuracy (over 50 m), gaps over 60 seconds, stale start/end or speeds over
 160 km/h require an explicit fallback confirmation. Segments below 5 m are
@@ -209,7 +281,8 @@ ignored, and movement must exceed the combined reported accuracy since the
 last accepted point to reduce stationary jitter without discarding cumulative
 slow motion; GPS remains an approximate, non-certified meter.
 If incomplete, completion returns `409 GPS_INCOMPLETE_CONFIRM_ROUTE`; retrying
-with `confirmEstimatedDistance=true` uses server-computed road distance and
+with `confirmEstimatedDistance=true` uses the saved server-computed route distance
+(or computes it for older bookings) and
 records `CONFIRMED_ROUTE`, explicitly excluding unknown detours.
 Tour completion may supply `tourCircuit` to confirm an agreed upgrade.
 Final fare and status are saved atomically before the existing driver payment
@@ -223,6 +296,26 @@ after testing against an isolated database. Enum additions do not have a safe
 automatic down migration; do not remove them while referenced by bookings.
 No new dependencies or environment variables are required.
 
+The additive migration `20261106120000_autonomous_trips` allows nullable
+`Booking.customerId`, adds passenger/provenance/idempotency/route/estimate/
+pricing-status/start/end/duration/observation/final-GPS fields and indexes, and
+adds `PricingRule.policy`. It neither drops records nor resets existing data.
+`routeDetails` holds endpoint coordinates, geometry, distance and duration;
+`fareDetails` holds pickup/km/supplement/zone/version snapshots. Existing
+`BookingStatusHistory`, `AuditLog` and `Payment` preserve trip events, justified
+price changes and collections. No parallel API or replacement ledger was added.
+Back up and verify on a restored copy before `npx prisma migrate deploy` on a
+target environment. There is no destructive automatic rollback: reverting
+nullable customer IDs is unsafe while anonymous trips exist, and dropping added
+columns would discard history. Prefer a forward fix or a verified backup restore.
+
+In **Admin → Bookings**, the existing auto-refresh (10-second polling) includes
+autonomous trips, receipt status, vehicle, distance/duration, original/current
+prices, timestamps and origin. Filter by driver, vehicle, date/range, status,
+city/zone and origin. Select a trip for its saved route/GPS, fare breakdown,
+events/observations and justified correction. Existing payment/financial
+sections show driver receipts. There is no new WebSocket infrastructure.
+
 Fare integration tests use the deterministic provider in
 `tests/fixtures/fare-provider.mjs` (5 km / 10 minutes for each requested route).
 Start it with `node tests/fixtures/fare-provider.mjs`, then build with
@@ -231,6 +324,11 @@ Start it with `node tests/fixtures/fare-provider.mjs`, then build with
 baked into the build, so overriding them only at `next start` is insufficient.
 Start the application on `127.0.0.1:4370` with **both** `DATABASE_URL` and
 `PRISMA_DATABASE_URL` pointing to the same isolated migrated PostgreSQL database.
+`npm test` includes autonomous guest/idempotency/ownership, outside-zone
+agreement/collection, scheduled-tariff/correction and tariff-zone/supplement
+journeys. The provider is a deterministic contract fixture, not evidence of
+live-provider uptime or real-world GPS accuracy; validate production routing
+coverage and operational map-provider quotas separately.
 Run `VALIDATION_URL=http://127.0.0.1:4370 npm test` with the same database overrides.
 Never use the production database for these tests. Stop the fixtures and rebuild
 without test provider overrides before running the application normally.
@@ -284,7 +382,9 @@ Map paths use dark gold (`#D6A000`) to the pickup, orange (`#F58220`) during a
 trip, and green (`#2E9D50`) for a return to a hub. Vehicle icon categories and
 optional JPEG, PNG, or WebP custom icons are managed under **Admin → Fleet &
 management**; administrators can preview the selected icon on a map. The same
-vehicle marker is used on admin, driver, and customer maps. Hubs are managed in
+vehicle marker is used on admin, driver, and customer maps. The category marker
+remains visible until a custom image loads, or if no custom image is available.
+Hubs are managed in
 the same section and are deactivated rather than deleted.
 
 | Endpoint | Access | Purpose |

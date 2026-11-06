@@ -18,8 +18,10 @@ import type { FleetDriver } from "@/components/maps/fleet-map";
 import { WalkupTrip } from "./walkup-trip";
 import { FareSummary } from "@/components/booking/fare-summary";
 import { circuitSchema } from "@/lib/fare-policy";
+import { coordinateAddress } from "@/lib/booking-location";
 
 const TripMap = dynamic(() => import("./trip-map"), { ssr: false, loading: () => <div className="h-[370px] animate-pulse bg-slate-100" /> });
+const SavedRouteMap = dynamic(() => import("@/components/maps/saved-route-map").then((module) => module.SavedRouteMap), { ssr: false });
 const DriverFleetMap = dynamic(() => import("@/components/maps/fleet-map").then((module) => module.FleetMap), { ssr: false, loading: () => <div className="h-full animate-pulse bg-slate-100" /> });
 const transitionKeys = {
   DRIVER_ASSIGNED: "driver.acceptTrip", DRIVER_ACCEPTED: "driver.depart", DRIVER_EN_ROUTE: "driver.arrive", DRIVER_ARRIVED: "driver.start", TRIP_STARTED: "driver.finish",
@@ -44,6 +46,7 @@ export function DriverDashboard() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [trackingOpen, setTrackingOpen] = useState(false);
   const [tourCircuits, setTourCircuits] = useState<Record<string, "SMALL" | "GRAND" | "REMOTE" | "">>({});
+  const [observations, setObservations] = useState<Record<string, string>>({});
   const [now, setNow] = useState(() => new Date());
   const [collection, setCollection] = useState<{ bookingId: string; method: "CASH" | "CARD" | "ABA" | "OTHER" } | null>(null);
   // The contact block only renders after trips load in the browser, so reading storage here cannot cause a hydration mismatch.
@@ -72,6 +75,7 @@ export function DriverDashboard() {
   const liveTrip = demo ? undefined : courses.filter((course) => ["DRIVER_ASSIGNED", "DRIVER_ACCEPTED", "DRIVER_EN_ROUTE", "DRIVER_ARRIVED", "TRIP_STARTED"].includes(course.status))
     .sort((a, b) => ["TRIP_STARTED", "DRIVER_EN_ROUTE", "DRIVER_ARRIVED", "DRIVER_ACCEPTED", "DRIVER_ASSIGNED"].indexOf(a.status) - ["TRIP_STARTED", "DRIVER_EN_ROUTE", "DRIVER_ARRIVED", "DRIVER_ACCEPTED", "DRIVER_ASSIGNED"].indexOf(b.status))[0];
   const sharing = useLocationSharing(liveTrip?.id ?? null, !demo && loaded);
+  const currentPoint = sharing.detectedAt && now.getTime() - sharing.detectedAt.getTime() < 60000 ? sharing.point : null;
   const formatDate = (value: string | Date, options: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat(language, { ...options, timeZone: driverTimeZone }).format(new Date(value));
   const money = (cents: number, currency: string) => new Intl.NumberFormat(language, { style: "currency", currency }).format(cents / 100);
   const label = (value: string) => t(statusKeys[value as keyof typeof statusKeys] ?? "courses.pending");
@@ -91,7 +95,7 @@ export function DriverDashboard() {
     booking: liveTrip ? { id: liveTrip.id, reference: liveTrip.reference, status: liveTrip.status } : null,
     vehicle: liveTrip?.vehicle ? { ...liveTrip.vehicle, iconCategory: liveTrip.vehicle.iconCategory } : sharing.vehicle,
     target: liveTrip
-      ? { address: liveTrip.status === "TRIP_STARTED" ? liveTrip.toAddress : liveTrip.fromAddress, hub: null }
+      ? { address: liveTrip.routeDetails ? coordinateAddress(liveTrip.status === "TRIP_STARTED" ? liveTrip.routeDetails.to : liveTrip.routeDetails.from) : liveTrip.status === "TRIP_STARTED" ? liveTrip.toAddress : liveTrip.fromAddress, hub: null }
       : sharing.returningToHub && nearestHub ? { address: null, hub: nearestHub } : null,
     stale: false,
   }] : [];
@@ -117,7 +121,7 @@ export function DriverDashboard() {
     try {
       const selectedCircuit = circuitSchema.safeParse(tourCircuits[course.id]);
       if (nextStatus === "TRIP_COMPLETED" && selectedCircuit.success && selectedCircuit.data !== course.fareDetails?.circuit && !window.confirm(t("fare.confirmUpgrade"))) return;
-      const body = { id: course.id, status: nextStatus, ...(nextStatus === "TRIP_COMPLETED" && selectedCircuit.success ? { tourCircuit: selectedCircuit.data } : {}) };
+      const body = { id: course.id, status: nextStatus, ...(nextStatus === "TRIP_COMPLETED" ? { observations: observations[course.id] ?? "", ...(currentPoint ? { finalPoint: { latitude: currentPoint.latitude, longitude: currentPoint.longitude } } : {}) } : {}), ...(nextStatus === "TRIP_COMPLETED" && selectedCircuit.success ? { tourCircuit: selectedCircuit.data } : {}) };
       let response = await fetch("/api/driver/bookings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       if (response.status === 409 && course.metered) {
         const failure = z.object({ error: z.string() }).safeParse(await response.clone().json());
@@ -166,7 +170,7 @@ export function DriverDashboard() {
     {demo && <p className={styles.demoNotice}><FlaskConical size={18} aria-hidden="true" />{t("driver.demoNotice")}</p>}
     {error && <p role="alert" className={styles.error}>{error}</p>}
     {message && <p role="status" className={styles.success}><Check size={16} />{message}</p>}
-    <WalkupTrip disabled={demo || loading || pending || courses.some((course) => ["DRIVER_EN_ROUTE", "DRIVER_ARRIVED", "TRIP_STARTED"].includes(course.status))} onStarted={() => { setMode("real"); setTab("today"); refresh(); }} />
+    <WalkupTrip location={currentPoint} gpsPhase={sharing.phase} retryGps={sharing.retry} disabled={demo || loading || pending || courses.some((course) => ["DRIVER_EN_ROUTE", "DRIVER_ARRIVED", "TRIP_STARTED"].includes(course.status))} onStarted={() => { setMode("real"); setTab("today"); refresh(); }} />
     {selected && <FareSummary details={selected.fareDetails} />}
     {selected?.status === "TRIP_STARTED" && selected.fareDetails?.mode === "TOUR" && <label className="my-3 block text-sm">{t("fare.circuitAtFinish")}
       <select value={tourCircuits[selected.id] ?? ""} onChange={(event) => {
@@ -185,7 +189,7 @@ export function DriverDashboard() {
         <span>{liveTrip ? `${liveTrip.reference} · ${liveTrip.customer.name}` : t("live.adminOnlySharing")}{sharing.lastSent ? ` · ${t("live.lastSent")} ${formatDate(sharing.lastSent, { hour: "2-digit", minute: "2-digit", second: "2-digit" })}` : ""}</span>
         <small>{t("live.keepOpen")}</small>
       </div>
-      {["denied", "unavailable", "error"].includes(sharing.phase) && <button type="button" onClick={sharing.retry}>{t("live.retry")}</button>}
+      {["denied", "unavailable", "timeout", "error"].includes(sharing.phase) && <button type="button" onClick={sharing.retry}>{t("live.retry")}</button>}
     </section>}
 
     {trackingOpen && <div className={styles.gpsOverlay} role="dialog" aria-modal="true" aria-label={t("driver.gpsFollow")}>
@@ -237,7 +241,10 @@ export function DriverDashboard() {
       <section className={styles.detail} aria-label={t("driver.selected")}>
         {selected ? <>
           <div className={styles.sectionTitle}><h2>{t("driver.map")}</h2><a href={navigationUrl(selected)} target="_blank" rel="noopener noreferrer" className={styles.navigationLink}><Navigation size={16} />{t("driver.navigate")}<ExternalLink size={13} /></a></div>
-          <div className={styles.mapFrame}><TripMap key={`${selected.id}-${selected.fromAddress}-${selected.toAddress}-${language}`} course={selected} demo={demo} /></div>
+          <div className={styles.mapFrame}>{selected.routeDetails ? <SavedRouteMap route={selected.routeDetails} position={selected.status === "TRIP_STARTED" ? currentPoint : null} vehicle={selected.vehicle} /> : <TripMap key={`${selected.id}-${selected.fromAddress}-${selected.toAddress}-${language}`} course={selected} demo={demo} />}</div>
+          {selected.routeDetails && <p className="p-3 text-sm">{(selected.routeDetails.distanceMeters / 1000).toFixed(2)} km · {Math.ceil(selected.routeDetails.durationSeconds / 60)} min</p>}
+          {selected.startedAt && <p className="p-3 text-sm">{t("auto.started")}: {formatDate(selected.startedAt, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</p>}
+          {selected.completedAt && <p className="p-3 text-sm">{t("auto.completed")}: {formatDate(selected.completedAt, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })} · {t("auto.actual")}: {Math.ceil((selected.actualDurationSeconds ?? 0) / 60)} min</p>}
           <p className={styles.mapNote}>{t("driver.mapPrivacy")}</p>
           <div className={styles.detailHeading}><div><p className={styles.eyebrow}>{selected.reference}</p><h3>{selected.customer.name}</h3></div><span className={styles.badge} data-status={selected.status}>{label(selected.status)}</span></div>
           <div className={styles.routeDetail}><div><MapPin size={18} className="text-[var(--color-primary)]" /><span><small>{t("driver.pickupPoint")}</small>{selected.fromAddress}</span></div><ArrowDown size={16} className="ml-px text-slate-400" /><div><MapPin size={18} className="text-[var(--color-accent)]" /><span><small>{t("driver.dropoffPoint")}</small>{selected.toAddress}</span></div></div>
@@ -279,9 +286,11 @@ export function DriverDashboard() {
               <button type="button" className={styles.secondaryButton} onClick={() => void collectPayment(selected, false)}>{t("payment.markUnpaid")}</button>
             </fieldset>}
           </section>}
+          {selected.status === "TRIP_STARTED" && !demo && <label className="block p-3 text-sm">{t("auto.observations")}<textarea maxLength={2000} value={observations[selected.id] ?? ""} onChange={(event) => setObservations((current) => ({ ...current, [selected.id]: event.target.value }))} className="mt-2 w-full rounded-xl border p-3" disabled={pending} /></label>}
+          {selected.driverObservations && <p className="p-3 text-sm">{t("auto.observations")}: {selected.driverObservations}</p>}
           <div className={styles.actions}>
             {driverNextStatus[selected.status] && <button type="button" className={styles.primaryButton} disabled={pending || loading} onClick={() => void advance(selected)}>{pending ? t("admin.saving") : t(transitionKeys[selected.status as keyof typeof transitionKeys])}<ArrowRight size={18} /></button>}
-            {!demo && <a className={styles.iconButton} href={`mailto:${selected.customer.email}`} title={t("driver.email")} aria-label={t("driver.email")}><Mail size={19} /></a>}
+            {!demo && selected.customer.email && <a className={styles.iconButton} href={`mailto:${selected.customer.email}`} title={t("driver.email")} aria-label={t("driver.email")}><Mail size={19} /></a>}
           </div>
         </> : <div className={styles.emptyMap}><MapPin size={36} /><p>{t("driver.selectTrip")}</p></div>}
       </section>

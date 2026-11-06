@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { authorize } from "@/lib/access";
 import { gpsRetentionEnabled, gpsRetentionSettingKey } from "@/lib/cron-settings";
 import { farePolicy, farePolicyKey, farePolicySchema } from "@/lib/fare-policy";
+import { activeFarePolicy } from "@/lib/fare-store";
 
 export const runtime = "nodejs";
 
@@ -21,7 +22,7 @@ const fields = {
   setting: z.discriminatedUnion("key", [
     z.object({ key: z.literal("heroBackground"), value: z.url().refine((value) => value.startsWith("https://"), "HTTPS image required") }).strict(),
     z.object({ key: z.literal(gpsRetentionSettingKey), value: z.boolean().transform(String) }).strict(),
-    z.object({ key: z.literal(farePolicyKey), value: farePolicySchema.transform((value) => JSON.stringify(value)) }).strict(),
+    z.object({ key: z.literal(farePolicyKey), value: farePolicySchema.transform((value) => JSON.stringify(value)), effectiveAt: z.iso.datetime({ offset: true }).optional() }).strict(),
   ]),
 };
 const input = z.object({ entity: z.enum(["user", "vehicle", "hub", "accounting", "forecast", "pricing", "contract", "setting"]), id: z.string().optional(), data: z.record(z.string(), z.unknown()).optional() });
@@ -36,7 +37,7 @@ export async function GET(request: Request) {
       prisma.accountingEntry.findMany({ orderBy: { createdAt: "desc" } }),
       prisma.forecastLine.findMany({ orderBy: { month: "asc" } }),
       prisma.vehicleContract.findMany({ include: { vehicle: { select: { name: true, plate: true } } }, orderBy: { startsAt: "desc" } }),
-      prisma.pricingRule.findMany({ orderBy: { effectiveAt: "desc" } }),
+      prisma.pricingRule.findMany({ where: { policy: { equals: Prisma.DbNull } }, orderBy: { effectiveAt: "desc" } }),
       prisma.systemSetting.findMany({ where: { key: { in: ["heroBackground", gpsRetentionSettingKey, farePolicyKey] } } }),
       prisma.payment.findMany({
         where: { status: "PAID", provider: { not: "ABA_PAYWAY_SANDBOX" } },
@@ -45,7 +46,8 @@ export async function GET(request: Request) {
       }),
     ]);
     const retentionEnabled = gpsRetentionEnabled(settings.find((setting) => setting.key === gpsRetentionSettingKey)?.value);
-    return Response.json({ users, vehicles, hubs: hubs.map((hub) => ({ ...hub, latitude: Number(hub.latitude), longitude: Number(hub.longitude) })), entries, forecasts, contracts, pricing, settings, receipts, farePolicy: farePolicy(settings.find((setting) => setting.key === farePolicyKey)?.value), cron: { gpsRetentionEnabled: retentionEnabled, configured: Boolean(process.env.CRON_SECRET) } }, { headers: { "Cache-Control": "no-store" } });
+    const [active, tariffHistory] = await Promise.all([activeFarePolicy(), prisma.pricingRule.findMany({ where: { policy: { not: Prisma.DbNull } }, orderBy: [{ effectiveAt: "desc" }, { createdAt: "desc" }], take: 100, select: { id: true, effectiveAt: true, createdAt: true, policy: true } })]);
+    return Response.json({ users, vehicles, hubs: hubs.map((hub) => ({ ...hub, latitude: Number(hub.latitude), longitude: Number(hub.longitude) })), entries, forecasts, contracts, pricing, settings, receipts, farePolicy: active.policy, tariffHistory, cron: { gpsRetentionEnabled: retentionEnabled, configured: Boolean(process.env.CRON_SECRET) } }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) { return failure(error); }
 }
 
@@ -68,7 +70,10 @@ async function mutate(request: Request) {
         if (entity === "user") result = await tx.user.update({ where: { id }, data: { status: "SUSPENDED" } });
         if (entity === "vehicle") result = await tx.vehicle.update({ where: { id }, data: { active: false } });
         if (entity === "hub") result = await tx.hub.update({ where: { id }, data: { active: false } });
-        if (entity === "pricing") result = await tx.pricingRule.update({ where: { id }, data: { active: false } });
+        if (entity === "pricing") {
+          if ((await tx.pricingRule.findUniqueOrThrow({ where: { id } })).policy !== null) throw new z.ZodError([{ code: "custom", path: ["id"], message: "Tariff history is immutable" }]);
+          result = await tx.pricingRule.update({ where: { id }, data: { active: false } });
+        }
         if (entity === "contract") result = await tx.vehicleContract.update({ where: { id }, data: { status: "INACTIVE" } });
       } else {
         if (entity === "user") {
@@ -88,7 +93,10 @@ async function mutate(request: Request) {
         }
         if (entity === "accounting") result = updating ? await tx.accountingEntry.update({ where: { id }, data: fields.accounting.partial().parse(data) }) : await tx.accountingEntry.create({ data: fields.accounting.parse(data) });
         if (entity === "forecast") result = updating ? await tx.forecastLine.update({ where: { id }, data: fields.forecast.partial().parse(data) }) : await tx.forecastLine.create({ data: fields.forecast.parse(data) });
-        if (entity === "pricing") result = updating ? await tx.pricingRule.update({ where: { id }, data: fields.pricing.partial().parse(data) }) : await tx.pricingRule.create({ data: fields.pricing.parse(data) });
+        if (entity === "pricing") {
+          if (updating && (await tx.pricingRule.findUniqueOrThrow({ where: { id } })).policy !== null) throw new z.ZodError([{ code: "custom", path: ["id"], message: "Tariff history is immutable" }]);
+          result = updating ? await tx.pricingRule.update({ where: { id }, data: fields.pricing.partial().parse(data) }) : await tx.pricingRule.create({ data: fields.pricing.parse(data) });
+        }
         if (entity === "contract") {
           const value = updating ? fields.contract.partial().parse(data) : fields.contract.parse(data);
           const existing = updating ? await tx.vehicleContract.findUniqueOrThrow({ where: { id } }) : null;
@@ -102,7 +110,17 @@ async function mutate(request: Request) {
         }
         if (entity === "setting") {
           const value = fields.setting.parse(data);
-          result = await tx.systemSetting.upsert({ where: { key: value.key }, create: value, update: { value: value.value } });
+          if (value.key === farePolicyKey) {
+            const effectiveAt = "effectiveAt" in value && value.effectiveAt ? new Date(value.effectiveAt) : new Date();
+            if (!await tx.pricingRule.count({ where: { policy: { not: Prisma.DbNull } } })) {
+              const prior = await tx.systemSetting.findUnique({ where: { key: farePolicyKey } });
+              const baseline = await tx.pricingRule.create({ data: { name: "Transport tariff baseline", amountCents: 0, effectiveAt: new Date(0), policy: farePolicy(prior?.value) } });
+              await tx.auditLog.create({ data: { actorId: actor.id, entity: "TransportTariff", entityId: baseline.id, action: "CREATE_BASELINE" } });
+            }
+            const policy = farePolicy(value.value);
+            result = await tx.pricingRule.create({ data: { name: `Transport tariff ${effectiveAt.toISOString()}`, amountCents: 0, effectiveAt, policy } });
+            await tx.auditLog.create({ data: { actorId: actor.id, entity: "TransportTariff", entityId: result.id, action: "CREATE", metadata: { policy, effectiveAt: effectiveAt.toISOString() } } });
+          } else result = await tx.systemSetting.upsert({ where: { key: value.key }, create: { key: value.key, value: value.value }, update: { value: value.value } });
         }
       }
       await tx.auditLog.create({ data: { actorId: actor.id, entity, entityId: entity === "setting" ? fields.setting.parse(data).key : id ?? null, action: removing ? "ARCHIVE" : updating ? "UPDATE" : "CREATE", ...(entity === "setting" && data.key === gpsRetentionSettingKey ? { metadata: { enabled: data.value === true } } : {}) } });

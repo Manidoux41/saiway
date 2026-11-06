@@ -4,6 +4,8 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { authorize } from "@/lib/access";
 import { customerLocationStatuses, trackingStatuses } from "@/lib/trip-location";
+import { routeDetailsSchema } from "@/lib/route-details";
+import { coordinateAddress } from "@/lib/booking-location";
 
 const noStore = { "Cache-Control": "no-store" };
 const minIntervalMs = 2_000;
@@ -130,7 +132,7 @@ export async function adminFleetLocations(request: Request) {
             where: { status: { in: customerLocationStatuses } },
             orderBy: [{ status: "desc" }, { pickupAt: "asc" }],
             take: 1,
-            select: { id: true, reference: true, status: true, fromAddress: true, toAddress: true, vehicle: { select: { id: true, name: true, plate: true, iconCategory: true } } },
+            select: { id: true, reference: true, status: true, fromAddress: true, toAddress: true, routeDetails: true, vehicle: { select: { id: true, name: true, plate: true, iconCategory: true } } },
           },
         },
       }),
@@ -171,8 +173,9 @@ export async function adminFleetLocations(request: Request) {
               return metersBetween(location, { latitude: Number(hub.latitude), longitude: Number(hub.longitude) }) < metersBetween(location, { latitude: Number(nearest.latitude), longitude: Number(nearest.longitude) }) ? hub : nearest;
             }, null)
             : null;
+        const saved = booking?.routeDetails ? routeDetailsSchema.parse(booking.routeDetails) : null;
         const target = booking
-          ? { address: status === "ON_TRIP" ? booking.toAddress : booking.fromAddress, hub: null }
+          ? { address: saved ? coordinateAddress(status === "ON_TRIP" ? saved.to : saved.from) : status === "ON_TRIP" ? booking.toAddress : booking.fromAddress, hub: null }
           : nearestHub
             ? { address: null, hub: { id: nearestHub.id, name: nearestHub.name, address: nearestHub.address, latitude: Number(nearestHub.latitude), longitude: Number(nearestHub.longitude) } }
             : null;

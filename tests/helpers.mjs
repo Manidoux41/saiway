@@ -34,10 +34,12 @@ async function setup() {
     assert.ok(login.cookie);
     return { prisma, prefix, email, password, id: user.id, cookie: login.cookie, cleanup: async () => {
       try {
-        await prisma.booking.deleteMany({ where: { customer: { email: { startsWith: prefix } } } });
+        await prisma.booking.deleteMany({ where: { OR: [{ customer: { email: { startsWith: prefix } } }, { driver: { user: { email: { startsWith: prefix } } } }] } });
         await prisma.hub.deleteMany({ where: { name: { startsWith: prefix } } });
         await prisma.vehicle.deleteMany({ where: { plate: { startsWith: prefix } } });
         await prisma.pricingRule.deleteMany({ where: { name: { startsWith: prefix } } });
+        const tariffs = await prisma.auditLog.findMany({ where: { actorId: user.id, entity: 'TransportTariff' }, select: { entityId: true } });
+        await prisma.pricingRule.deleteMany({ where: { id: { in: tariffs.map((item) => item.entityId) } } });
         await prisma.employmentContract.deleteMany({ where: { driver: { user: { email: { startsWith: prefix } } } } });
         await prisma.auditLog.deleteMany({ where: { actor: { email: { startsWith: prefix } } } });
         await prisma.user.deleteMany({ where: { email: { startsWith: prefix } } });

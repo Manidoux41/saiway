@@ -6,6 +6,7 @@ import type { UserRole } from "@/lib/roles";
 import type { ManagementData } from "@/lib/admin-client";
 import { useLanguage } from "@/components/i18n/language-provider";
 import { fareDetailsSchema } from "@/lib/fare-policy";
+import { routeDetailsSchema } from "@/lib/route-details";
 
 export const courseSchema = z.object({
   id: z.string(), reference: z.string(), fromAddress: z.string(), toAddress: z.string(),
@@ -16,11 +17,17 @@ export const courseSchema = z.object({
   paymentMethod: z.enum(["UNDECIDED", "ONLINE", "DRIVER"]).optional(),
   metered: z.boolean().optional(),
   fareDetails: fareDetailsSchema.nullable().optional(),
+  passengerName: z.string().nullable().optional(), originType: z.string().optional(), pricingStatus: z.string().optional(),
+  routeDetails: routeDetailsSchema.nullable().optional(), estimatedPriceCents: z.number().nullable().optional(),
+  startedAt: z.string().nullable().optional(), completedAt: z.string().nullable().optional(),
+  actualDurationSeconds: z.number().nullable().optional(), driverObservations: z.string().nullable().optional(),
+  finalLatitude: z.coerce.number().nullable().optional(), finalLongitude: z.coerce.number().nullable().optional(),
+  statusHistory: z.array(z.object({ status: z.string(), note: z.string().nullable(), createdAt: z.string() })).optional(),
   payments: z.array(z.object({ status: z.string(), provider: z.string(), amountCents: z.number(), currency: z.string(), collectionMethod: z.enum(["CASH", "CARD", "ABA", "OTHER"]).nullable().optional() })).optional(),
-  customer: z.object({ id: z.string(), name: z.string(), email: z.string(), phone: z.string().nullable().optional() }),
+  customer: z.object({ id: z.string(), name: z.string(), email: z.string(), phone: z.string().nullable().optional() }).nullable(),
   driver: z.object({ id: z.string(), user: z.object({ name: z.string() }) }).nullable(),
   vehicle: z.object({ id: z.string(), name: z.string(), plate: z.string(), seats: z.number(), iconCategory: z.enum(["TUK_TUK", "PASSAPP", "SEDAN", "SUV", "MINIVAN", "MINIBUS", "VAN", "OTHER"]).optional().default("OTHER") }).nullable(),
-});
+}).transform((course) => ({ ...course, customer: course.customer ?? { id: "", name: course.passengerName || "—", email: "", phone: course.contactPhone ?? null } }));
 export type Course = z.infer<typeof courseSchema>;
 const listSchema = z.object({ bookings: z.array(courseSchema) });
 const nextStatus: Record<string, string> = { DRIVER_ASSIGNED: "DRIVER_ACCEPTED", DRIVER_ACCEPTED: "DRIVER_EN_ROUTE", DRIVER_EN_ROUTE: "DRIVER_ARRIVED", DRIVER_ARRIVED: "TRIP_STARTED", TRIP_STARTED: "TRIP_COMPLETED" };

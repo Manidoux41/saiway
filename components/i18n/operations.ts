@@ -5,6 +5,7 @@ import { profileCopy } from "@/components/i18n/profile-copy";
 import { trackingCopy } from "@/components/i18n/tracking-copy";
 import { placeCopy } from "@/components/i18n/place-copy";
 import { fareCopy } from "@/components/i18n/fare-copy";
+import { autonomousCopy } from "@/components/i18n/autonomous-copy";
 
 const en = {
   ...driverCopy.en,
@@ -14,6 +15,8 @@ const en = {
   ...trackingCopy.en,
   ...placeCopy.en,
   ...fareCopy.en,
+  ...autonomousCopy.en,
+  "live.timeout": "GPS request timed out. Retry or enter the departure manually.",
   "password.title": "Change my password", "password.help": "Enter your current password and a different new password (8 to 128 characters). Existing sessions remain signed in.",
   "password.current": "Current password", "password.new": "New password", "password.confirm": "Confirm new password", "password.save": "Change password",
   "password.saved": "Your password has been updated in the database. Use the new password the next time you sign in.",
@@ -53,6 +56,8 @@ const fr: typeof en = {
   ...trackingCopy.fr,
   ...placeCopy.fr,
   ...fareCopy.fr,
+  ...autonomousCopy.fr,
+  "live.timeout": "Délai GPS dépassé. Réessayez ou saisissez le départ manuellement.",
   "password.title": "Changer mon mot de passe", "password.help": "Saisissez votre mot de passe actuel et un nouveau mot de passe différent (8 à 128 caractères). Les sessions existantes restent connectées.",
   "password.current": "Mot de passe actuel", "password.new": "Nouveau mot de passe", "password.confirm": "Confirmer le nouveau mot de passe", "password.save": "Modifier le mot de passe",
   "password.saved": "Votre mot de passe a été mis à jour dans la base de données. Utilisez le nouveau lors de votre prochaine connexion.",
@@ -84,7 +89,7 @@ const fr: typeof en = {
   "courses.saved": "Votre réservation a été enregistrée.", "courses.submitError": "Impossible d'enregistrer votre réservation. Vérifiez les informations et réessayez.",
   "courses.quoteNotice": "Le serveur calcule le tarif selon le type de course, la distance routière ou le forfait touristique convenu. Les courses au kilomètre réel et les dépassements touristiques sont réglés après la course.",
 };
-export const operations = { en, fr, km: { ...en,
+export const operations = { en, fr, km: { ...en, ...autonomousCopy.km, "live.timeout": "អស់ពេលរង់ចាំ GPS។ សូមសាកល្បងម្ដងទៀត ឬបញ្ចូលទីតាំងដោយដៃ។",
   "nav.adminDashboard": "ផ្ទាំងគ្រប់គ្រងអ្នកគ្រប់គ្រង", "nav.driverDashboard": "ផ្ទាំងគ្រប់គ្រងអ្នកបើកបរ", "nav.account": "គណនីរបស់ខ្ញុំ", "nav.signOut": "ចាកចេញ",
   "courses.adminTitle": "ការកក់ និងការចាត់តាំង", "courses.driverTitle": "ការធ្វើដំណើររបស់ខ្ញុំ", "courses.customerTitle": "ការកក់របស់ខ្ញុំ",
   "courses.create": "បង្កើតការធ្វើដំណើរ", "courses.save": "រក្សាទុក", "courses.cancel": "លុបចោលការធ្វើដំណើរ",

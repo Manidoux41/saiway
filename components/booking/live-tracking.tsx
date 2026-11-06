@@ -10,6 +10,7 @@ import { useBookings } from "@/components/booking/use-bookings";
 import { useLanguage } from "@/components/i18n/language-provider";
 import { distanceMeters } from "@/components/driver/use-location-sharing";
 import type { LivePoint } from "./live-tracking-map";
+import { coordinateAddress } from "@/lib/booking-location";
 import styles from "./live-tracking.module.css";
 
 const LiveTrackingMap = dynamic(() => import("./live-tracking-map"), { ssr: false, loading: () => <div className="h-[420px] animate-pulse bg-slate-100 sm:h-[520px]" /> });
@@ -133,7 +134,7 @@ export function LiveTracking() {
       </section>
 
       <section className={`${styles.mapCard} ${mapExpanded ? styles.mapFullscreen : ""}`}>
-        <LiveTrackingMap key={course.id} fromAddress={course.fromAddress} toAddress={course.toAddress} driver={trackingStatuses.includes(status) ? driverPoint : null} me={me.point} status={status} history={current?.data?.history ?? []} vehicle={current?.data?.booking.vehicle ?? null} recenter={recenter} fullScreen={mapExpanded}
+        <LiveTrackingMap key={course.id} fromAddress={course.routeDetails ? coordinateAddress(course.routeDetails.from) : course.fromAddress} toAddress={course.routeDetails ? coordinateAddress(course.routeDetails.to) : course.toAddress} driver={trackingStatuses.includes(status) ? driverPoint : null} me={me.point} status={status} history={current?.data?.history ?? []} vehicle={current?.data?.booking.vehicle ?? null} recenter={recenter} fullScreen={mapExpanded}
           labels={{ map: t("live.title"), driver: t("live.driver"), you: t("live.you"), pickup: t("track.pickup"), destination: t("track.destination"), tiles: t("driver.mapTilesError"), eta: t("live.eta"), remaining: t("live.remaining"), routeUnavailable: t("live.routeUnavailable"), routeLoading: t("live.routeLoading") }} />
         <div className={styles.mapControls}>
           <button type="button" className={styles.mapControl} onClick={() => setRecenter((value) => value + 1)}><Crosshair size={17} aria-hidden="true" />{t("live.recenter")}</button>
