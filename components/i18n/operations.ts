@@ -3,6 +3,7 @@ import { adminCopy } from "@/components/i18n/admin-copy";
 import { customerCopy } from "@/components/i18n/customer-copy";
 import { profileCopy } from "@/components/i18n/profile-copy";
 import { trackingCopy } from "@/components/i18n/tracking-copy";
+import { placeCopy } from "@/components/i18n/place-copy";
 
 const en = {
   ...driverCopy.en,
@@ -10,6 +11,7 @@ const en = {
   ...customerCopy.en,
   ...profileCopy.en,
   ...trackingCopy.en,
+  ...placeCopy.en,
   "password.title": "Change my password", "password.help": "Enter your current password and a different new password (8 to 128 characters). Existing sessions remain signed in.",
   "password.current": "Current password", "password.new": "New password", "password.confirm": "Confirm new password", "password.save": "Change password",
   "password.saved": "Your password has been updated in the database. Use the new password the next time you sign in.",
@@ -47,6 +49,7 @@ const fr: typeof en = {
   ...customerCopy.fr,
   ...profileCopy.fr,
   ...trackingCopy.fr,
+  ...placeCopy.fr,
   "password.title": "Changer mon mot de passe", "password.help": "Saisissez votre mot de passe actuel et un nouveau mot de passe différent (8 à 128 caractères). Les sessions existantes restent connectées.",
   "password.current": "Mot de passe actuel", "password.new": "Nouveau mot de passe", "password.confirm": "Confirmer le nouveau mot de passe", "password.save": "Modifier le mot de passe",
   "password.saved": "Votre mot de passe a été mis à jour dans la base de données. Utilisez le nouveau lors de votre prochaine connexion.",

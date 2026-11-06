@@ -1,0 +1,33 @@
+const en = {
+  "places.place": "Place", "places.previous": "My previous places",
+  "places.historyError": "Your previous places could not be loaded. You can still enter an address.",
+  "places.searchError": "Online suggestions are unavailable. Enter an address manually or retry.",
+  "places.pickupPlaceholder": "Pickup address or latitude, longitude",
+  "places.gpsConsent": "Use your current location only with your permission. Check the pickup point before confirming your booking.",
+  "places.useGps": "Use my current location", "places.locating": "Finding my location…",
+  "places.gpsDenied": "Location permission was denied. Enter an address, coordinates or select a point on the map.",
+  "places.gpsUnavailable": "Current location unavailable. Check location permissions or choose the pickup manually.",
+  "places.pickMap": "Choose on the map", "places.mapHelp": "Tap or click the exact pickup point. You can also enter coordinates using the fields above.",
+  "places.coordinates": "Enter GPS coordinates", "places.applyCoordinates": "Use these coordinates",
+  "places.invalidGps": "Enter latitude between -90 and 90 and longitude between -180 and 180.",
+  "places.share": "Share / copy coordinates", "places.copied": "Coordinates and map link copied.",
+  "places.shareError": "Unable to share or copy. You can copy the coordinates from the pickup field.",
+  "places.searchNotice": "Suggestions include cities, places and your own previous bookings. Text searches are sent to the configured geocoding provider. Service coverage and the fare still require confirmation.",
+};
+const fr: typeof en = {
+  "places.place": "Lieu", "places.previous": "Mes lieux précédents",
+  "places.historyError": "Impossible de charger vos lieux précédents. Vous pouvez saisir une adresse.",
+  "places.searchError": "Suggestions en ligne indisponibles. Saisissez une adresse ou réessayez.",
+  "places.pickupPlaceholder": "Adresse de départ ou latitude, longitude",
+  "places.gpsConsent": "Votre position actuelle est utilisée uniquement avec votre autorisation. Vérifiez le point de départ avant de confirmer la réservation.",
+  "places.useGps": "Utiliser ma position actuelle", "places.locating": "Recherche de ma position…",
+  "places.gpsDenied": "Autorisation GPS refusée. Saisissez une adresse, des coordonnées ou choisissez un point sur la carte.",
+  "places.gpsUnavailable": "Position actuelle indisponible. Vérifiez les autorisations ou choisissez le départ manuellement.",
+  "places.pickMap": "Choisir sur la carte", "places.mapHelp": "Cliquez ou touchez le point de départ exact. Vous pouvez aussi utiliser les champs de coordonnées ci-dessus.",
+  "places.coordinates": "Saisir des coordonnées GPS", "places.applyCoordinates": "Utiliser ces coordonnées",
+  "places.invalidGps": "Saisissez une latitude entre -90 et 90 et une longitude entre -180 et 180.",
+  "places.share": "Partager / copier les coordonnées", "places.copied": "Coordonnées et lien de carte copiés.",
+  "places.shareError": "Impossible de partager ou copier. Vous pouvez copier les coordonnées du champ de départ.",
+  "places.searchNotice": "Les suggestions incluent villes, lieux et vos propres réservations précédentes. Les recherches textuelles sont envoyées au fournisseur de géocodage configuré. La zone de service et le tarif restent à confirmer.",
+};
+export const placeCopy = { en, fr };

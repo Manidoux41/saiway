@@ -4,11 +4,13 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { authorize } from "@/lib/access";
 import type { SessionRole } from "@/lib/auth-session";
+import { parseCoordinateAddress } from "@/lib/booking-location";
 
 const text = z.string().trim().min(1).max(500);
+const address = text.refine((value) => !/^GPS:/i.test(value) || parseCoordinateAddress(value) !== null, "Invalid GPS coordinates");
 const nullableId = z.string().min(1).nullable().optional();
 const details = z.object({
-  fromAddress: text, toAddress: text,
+  fromAddress: address, toAddress: address,
   direction: z.enum(TripDirection), tripType: z.enum(TripType),
   pickupAt: z.iso.datetime({ offset: true }).refine((value) => new Date(value).getTime() > Date.now(), "Pickup must be in the future"),
   passengers: z.number().int().min(1).max(50),

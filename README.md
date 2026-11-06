@@ -163,6 +163,31 @@ Trip-list refreshes wait for an in-flight request instead of aborting it on each
 temporary service, timeout and invalid-response failures are shown separately;
 customers can retry loading without resubmitting a saved reservation.
 
+### Customer pickup and place suggestions
+
+At `/booking`, pickup and destination are independently editable. Pickup can use
+an address, one permission-based current GPS fix, manually entered latitude and
+longitude, or a point selected on the Leaflet map. The client reviews the pickup
+before submitting; no GPS request is made automatically and no continuous
+customer tracking is started. Share uses the device share sheet or copies the
+coordinates and an OpenStreetMap link; sharing does not submit a booking.
+
+Exact locations are stored in the existing `fromAddress` / `toAddress` fields as
+`GPS: latitude, longitude` (seven decimal places). The booking API validates this
+format and coordinate ranges. All shared maps resolve it directly without
+geocoding, and navigation links use plain coordinate pairs. Existing address-only
+bookings remain unchanged; no database migration is required.
+
+Address suggestions combine the existing place list, Photon-compatible online
+search and the signed-in customer's own recent booking addresses.
+`GET /api/bookings/places` returns only that customer's distinct pickup and
+destination strings from their latest 100 bookings, with `Cache-Control: no-store`;
+other roles and anonymous requests are rejected. Suggestions are keyboard
+accessible, debounced and cancellable. Text searches go to
+`NEXT_PUBLIC_GEOCODING_URL`, biased toward Siem Reap but not restricted to it.
+Free-text entry remains available on provider failure; suggestions do not expand
+the service coverage or change the existing fare calculation.
+
 ### Open-source fleet mapping and live tracking
 
 The existing Next.js API and Prisma/PostgreSQL models power fleet tracking; this

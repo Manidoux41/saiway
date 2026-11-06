@@ -1,25 +1,33 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { z } from "zod";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/components/i18n/language-provider";
 import { HotelSearch } from "@/components/booking/hotel-search";
+import { PickupLocation } from "@/components/booking/pickup-location";
 import { useAuth } from "@/components/auth/auth-provider";
 import { ArrowRight, Check, CreditCard, MapPin, Plane, ShieldCheck, Wallet } from "lucide-react";
 
 export default function BookingPage() {
+  return <Suspense><BookingForm /></Suspense>;
+}
+
+function BookingForm() {
+  const params = useSearchParams();
   const { t } = useLanguage();
   const { user } = useAuth();
   const steps = [t("booking.route"), t("booking.details"), t("booking.flightNumber"), t("booking.review")];
   const [step, setStep] = useState(0);
   const [passengers, setPassengers] = useState(2);
-  const [hotel, setHotel] = useState("");
-  const [direction, setDirection] = useState<"airport-to-city" | "city-to-airport">("airport-to-city");
-  const [pickupDate, setPickupDate] = useState(() => new Date(Date.now() + 86400000).toISOString().slice(0, 10));
-  const [pickupTime, setPickupTime] = useState("14:30");
-  const [tripType, setTripType] = useState("private-transfer");
+  const [fromAddress, setFromAddress] = useState(() => (params.get("fromAddress") ?? (params.get("direction") === "city-to-airport" ? params.get("destination") ?? "" : "SAI Airport")).slice(0, 500));
+  const [toAddress, setToAddress] = useState(() => (params.get("toAddress") ?? (params.get("direction") === "city-to-airport" ? "SAI Airport" : params.get("destination") ?? "")).slice(0, 500));
+  const [direction, setDirection] = useState<"airport-to-city" | "city-to-airport">(params.get("direction") === "city-to-airport" ? "city-to-airport" : "airport-to-city");
+  const [pickupDate, setPickupDate] = useState(() => /^\d{4}-\d{2}-\d{2}$/.test(params.get("date") ?? "") ? params.get("date")! : new Date(Date.now() + 86400000).toISOString().slice(0, 10));
+  const [pickupTime, setPickupTime] = useState(() => /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(params.get("time") ?? "") ? params.get("time")! : "14:30");
+  const [tripType, setTripType] = useState(() => ["airport-transfer", "hotel-transfer"].includes(params.get("tripType") ?? "") ? params.get("tripType")! : "private-transfer");
   const [paymentMethod, setPaymentMethod] = useState<"ONLINE" | "DRIVER">("DRIVER");
   const [submitted, setSubmitted] = useState(false);
   const [pending, setPending] = useState(false);
@@ -63,8 +71,7 @@ export default function BookingPage() {
     setPending(true); setError("");
     try {
       const response = await fetch("/api/bookings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
-        fromAddress: direction === "airport-to-city" ? "SAI Airport" : hotel,
-        toAddress: direction === "airport-to-city" ? hotel : "SAI Airport",
+        fromAddress, toAddress,
         direction: apiDirection, tripType: apiTripType, paymentMethod, contactPhone: passenger.phone.trim(),
         pickupAt: new Date(`${pickupDate}T${pickupTime}:00+07:00`).toISOString(), passengers,
         luggageCount: passenger.luggageCount, specialNeeds: passenger.specialNeeds, flightNumber: passenger.flightNumber,
@@ -76,8 +83,6 @@ export default function BookingPage() {
     } catch { setError(t("courses.submitError")); }
     finally { setPending(false); }
   }
-
-  const isAirportToCity = direction === "airport-to-city";
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
@@ -136,10 +141,10 @@ export default function BookingPage() {
               <p className="text-sm text-slate-500">{t("courses.quoteNotice")}</p>
               {step === 0 && (
                 <div className="space-y-5">
-                  <div>
-                    <HotelSearch value={hotel} onChange={setHotel} label={isAirportToCity ? t("booking.cityAddress") : t("booking.destinationLabel")} placeholder={isAirportToCity ? t("booking.destinationPlaceholder") : t("booking.cityAddress")} />
-                  </div>
-                  <button type="button" onClick={() => setDirection((current) => current === "airport-to-city" ? "city-to-airport" : "airport-to-city")} className="inline-flex items-center gap-2 rounded-full border border-[var(--color-primary)]/20 bg-[var(--color-primary)]/5 px-4 py-2 text-sm font-semibold text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10" aria-label={t("booking.swapRoute")}>
+                  <PickupLocation value={fromAddress} onChange={setFromAddress} />
+                  <HotelSearch value={toAddress} onChange={setToAddress} label={t("booking.to")} placeholder={t("booking.destinationPlaceholder")} />
+                  <p className="text-xs text-slate-500">{t("places.searchNotice")}</p>
+                  <button type="button" onClick={() => { setDirection((current) => current === "airport-to-city" ? "city-to-airport" : "airport-to-city"); setFromAddress(toAddress); setToAddress(fromAddress); }} className="inline-flex items-center gap-2 rounded-full border border-[var(--color-primary)]/20 bg-[var(--color-primary)]/5 px-4 py-2 text-sm font-semibold text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10" aria-label={t("booking.swapRoute")}>
                     <span aria-hidden="true" className="text-lg leading-none">⇄</span>{t("booking.swapRoute")}
                   </button>
                   <div className="grid gap-5 sm:grid-cols-2">
@@ -201,8 +206,7 @@ export default function BookingPage() {
               {step === 3 && (
                 <div className="space-y-5"><div className="rounded-3xl bg-[var(--color-background)] p-5 text-sm text-slate-600">
                   <h2 className="mb-5 text-lg font-bold text-[var(--color-text)]">{t("booking.reviewDetails")}</h2>
-                  <div className="flex justify-between gap-4"><span>{t("booking.hotel")}</span><strong className="text-right text-[var(--color-text)]">{hotel}</strong></div>
-                  <div className="flex justify-between gap-4"><span>{t("booking.route")}</span><strong className="text-right text-[var(--color-text)]">{isAirportToCity ? `${t("booking.airport")} → ${hotel}` : `${hotel} → ${t("booking.airport")}`}</strong></div>
+                  <div className="flex justify-between gap-4"><span>{t("booking.route")}</span><strong className="text-right text-[var(--color-text)]">{fromAddress} → {toAddress}</strong></div>
                   <div className="mt-4 flex justify-between gap-4"><span>{t("booking.pickup")}</span><strong className="text-[var(--color-text)]">{pickupDate} · {pickupTime}</strong></div>
                   <div className="mt-4 flex justify-between gap-4"><span>{t("booking.passengers")}</span><strong className="text-[var(--color-text)]">{passengers}</strong></div>
                   <div className="mt-4 flex justify-between gap-4"><span>{t("booking.tripType")}</span><strong className="text-[var(--color-text)]">{tripType === "airport-transfer" ? t("booking.airportTransfer") : tripType === "hotel-transfer" ? t("booking.hotelTransfer") : t("booking.privateTransfer")}</strong></div>
@@ -231,8 +235,8 @@ export default function BookingPage() {
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-white/70">{t("booking.tripDetails")}</p>
           <div className="mt-5 rounded-2xl border border-white/15 bg-white/5 p-5"><p className="text-xs text-white/70">{t("booking.fixedPrice")}</p><p className="mt-2 text-4xl font-black tracking-tight">{submitted ? `${(finalPrice / 100).toFixed(2)} ${finalCurrency}` : priceLabel}</p></div>
           <div className="mt-6 space-y-4 text-sm">
-            <div className="border-b border-white/10 pb-4"><div className="flex items-center gap-2 text-white/60"><MapPin size={14} />{t("booking.from")}</div><div className="mt-1 font-semibold">{isAirportToCity ? t("booking.airport") : hotel || t("booking.cityAddress")}</div></div>
-            <div className="border-b border-white/10 pb-4"><div className="text-white/60">{t("booking.to")}</div><div className="mt-1 font-semibold">{isAirportToCity ? hotel || t("booking.cityAddress") : t("booking.airport")}</div></div>
+            <div className="border-b border-white/10 pb-4"><div className="flex items-center gap-2 text-white/60"><MapPin size={14} />{t("booking.from")}</div><div className="mt-1 font-semibold">{fromAddress || t("booking.cityAddress")}</div></div>
+            <div className="border-b border-white/10 pb-4"><div className="text-white/60">{t("booking.to")}</div><div className="mt-1 font-semibold">{toAddress || t("booking.cityAddress")}</div></div>
             <div className="border-b border-white/10 pb-4"><div className="text-white/60">{t("booking.tripType")}</div><select value={tripType} onChange={(event) => setTripType(event.target.value)} className="mt-1 w-full rounded-xl border border-white/20 bg-white/10 px-3 py-2 font-semibold text-white outline-none"><option value="private-transfer" className="text-[var(--color-text)]">{t("booking.privateTransfer")}</option><option value="airport-transfer" className="text-[var(--color-text)]">{t("booking.airportTransfer")}</option><option value="hotel-transfer" className="text-[var(--color-text)]">{t("booking.hotelTransfer")}</option></select><div className="mt-2 text-sm text-white/70">{t("courses.vehiclePending")}</div></div>
             <div><div className="text-white/60">{t("booking.passengers")}</div><div className="mt-2 flex items-center justify-between"><span className="font-semibold">{t("booking.adults")}</span><div className="flex items-center gap-3"><button type="button" aria-label="Remove passenger" onClick={() => setPassengers((count) => Math.max(1, count - 1))} className="h-8 w-8 rounded-full border border-white/30">−</button><span>{passengers}</span><button type="button" aria-label="Add passenger" onClick={() => setPassengers((count) => Math.min(8, count + 1))} className="h-8 w-8 rounded-full border border-white/30">+</button></div></div></div>
           </div>

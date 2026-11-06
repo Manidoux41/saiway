@@ -36,7 +36,7 @@ export function driverSummary(courses: Course[], now = new Date()) {
 }
 
 export function navigationUrl(course: Pick<Course, "fromAddress" | "toAddress">) {
-  const params = new URLSearchParams({ api: "1", origin: course.fromAddress, destination: course.toAddress, travelmode: "driving" });
+  const params = new URLSearchParams({ api: "1", origin: course.fromAddress.replace(/^GPS:\s*/i, ""), destination: course.toAddress.replace(/^GPS:\s*/i, ""), travelmode: "driving" });
   return `https://www.google.com/maps/dir/?${params}`;
 }
 

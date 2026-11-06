@@ -5,20 +5,22 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/components/i18n/language-provider";
 import { HotelSearch } from "@/components/booking/hotel-search";
+import { PickupLocation } from "@/components/booking/pickup-location";
 
 export function BookingWidget() {
   const { t } = useLanguage();
   const router = useRouter();
   const [airportToCity, setAirportToCity] = useState(true);
+  const [pickup, setPickup] = useState("SAI Airport");
   const [destination, setDestination] = useState("");
-  const [date, setDate] = useState("2026-09-15");
+  const [date, setDate] = useState(() => new Date(Date.now() + 86400000).toISOString().slice(0, 10));
   const [time, setTime] = useState("14:30");
   const [tripType, setTripType] = useState("private-transfer");
 
   function checkPrice() {
     const params = new URLSearchParams({
       direction: airportToCity ? "airport-to-city" : "city-to-airport",
-      destination,
+      fromAddress: pickup, toAddress: destination,
       date,
       time,
       tripType,
@@ -44,11 +46,11 @@ export function BookingWidget() {
 
       <div className="grid gap-4 md:grid-cols-[1.2fr_1.2fr_0.8fr_0.8fr]">
         <div className="rounded-2xl border border-slate-200 bg-[var(--color-input)] p-4">
-          {airportToCity ? <><label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">{t("booking.from")}</label><div className="flex items-center gap-3 text-base font-medium text-[var(--color-text)]"><span aria-hidden="true">✈</span><span>{t("booking.airport")}</span></div></> : <HotelSearch value={destination} onChange={setDestination} label={t("booking.from")} placeholder={t("booking.cityAddress")} />}
+          <PickupLocation value={pickup} onChange={setPickup} />
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-[var(--color-input)] p-4">
-          {airportToCity ? <HotelSearch value={destination} onChange={setDestination} label={t("booking.to")} placeholder={t("booking.searchDestination")} /> : <><label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">{t("booking.to")}</label><div className="flex items-center gap-3 text-base font-medium text-[var(--color-text)]"><span aria-hidden="true">✈</span><span>{t("booking.airport")}</span></div></>}
+          <HotelSearch value={destination} onChange={setDestination} label={t("booking.to")} placeholder={t("booking.searchDestination")} />
         </div>
         <div className="rounded-2xl border border-slate-200 bg-[var(--color-input)] p-4">
           <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
@@ -65,7 +67,7 @@ export function BookingWidget() {
         </div>
       </div>
 
-      <button type="button" onClick={() => setAirportToCity((current) => !current)} className="mt-4 inline-flex items-center gap-2 rounded-full border border-[var(--color-primary)]/20 bg-[var(--color-primary)]/5 px-4 py-2 text-sm font-semibold text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10" aria-label={t("booking.swapRoute")}>
+      <button type="button" onClick={() => { setAirportToCity((current) => !current); setPickup(destination); setDestination(pickup); }} className="mt-4 inline-flex items-center gap-2 rounded-full border border-[var(--color-primary)]/20 bg-[var(--color-primary)]/5 px-4 py-2 text-sm font-semibold text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10" aria-label={t("booking.swapRoute")}>
         <span aria-hidden="true" className="text-lg leading-none">⇄</span>{t("booking.swapRoute")}
       </button>
 

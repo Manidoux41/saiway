@@ -2,6 +2,8 @@
 
 import L from "leaflet";
 import type { VehicleIconCategory } from "@prisma/client";
+import { parseCoordinateAddress } from "@/lib/booking-location";
+import { searchPlaces } from "@/lib/place-search";
 
 export type MapPoint = { latitude: number; longitude: number };
 export type RouteResult = { points: [number, number][]; distance: number; duration: number };
@@ -9,7 +11,6 @@ export type RouteResult = { points: [number, number][]; distance: number; durati
 export const mapTileUrl = process.env.NEXT_PUBLIC_MAP_TILE_URL || "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 export const mapTileAttribution = process.env.NEXT_PUBLIC_MAP_TILE_ATTRIBUTION || '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>';
 const routingUrl = process.env.NEXT_PUBLIC_ROUTING_URL || "https://router.project-osrm.org";
-const geocodingUrl = process.env.NEXT_PUBLIC_GEOCODING_URL || "https://photon.komoot.io/api/";
 
 const iconGlyph: Record<VehicleIconCategory, string> = {
   TUK_TUK: "🛺",
@@ -36,19 +37,15 @@ export function vehicleMarkerIcon(category: VehicleIconCategory, heading: number
 }
 
 export async function locateMapAddress(address: string, signal: AbortSignal): Promise<MapPoint> {
+  const point = parseCoordinateAddress(address);
+  if (point) return point;
   if (/^(SAI Airport|Siem Reap Angkor International Airport)(, Cambodia| \(SAI\), Cambodia)?$/i.test(address.trim())) {
     return { latitude: 13.3692, longitude: 104.2231 };
   }
-  const params = new URLSearchParams({ q: address, limit: "1", bbox: "103.4,12.9,104.7,13.9" });
-  const response = await fetch(`${geocodingUrl}${geocodingUrl.includes("?") ? "&" : "?"}${params}`, { signal });
-  if (!response.ok) throw new Error("Geocoding unavailable");
-  const data = await response.json() as { features?: { geometry?: { coordinates?: [number, number] } }[] };
-  const coordinates = data.features?.[0]?.geometry?.coordinates;
-  if (!coordinates) throw new Error("Address not found");
-  const [longitude, latitude] = coordinates;
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || longitude < 103.4 || longitude > 104.7 || latitude < 12.9 || latitude > 13.9) {
-    throw new Error("Address not found");
-  }
+  const places = await searchPlaces(address, signal);
+  const first = places[0];
+  if (!first) throw new Error("Address not found");
+  const { latitude, longitude } = first;
   return { latitude, longitude };
 }
 
