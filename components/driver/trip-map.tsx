@@ -1,26 +1,17 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { z } from "zod";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { Course } from "@/components/booking/course-dashboard";
 import { demoLocations, type Coordinates } from "@/lib/driver-dashboard";
+import { locateMapAddress, mapTileAttribution, mapTileUrl, routeMapPoints } from "@/lib/map-client";
 import { useLanguage } from "@/components/i18n/language-provider";
-
-const pointSchema = z.tuple([z.number().min(-180).max(180), z.number().min(-90).max(90)]);
-const geocodeSchema = z.object({ features: z.array(z.object({ geometry: z.object({ coordinates: pointSchema }) })) });
-const routeSchema = z.object({ routes: z.array(z.object({ distance: z.number().nonnegative(), duration: z.number().nonnegative(), geometry: z.object({ coordinates: z.array(pointSchema).min(2) }) })) });
 
 export async function locate(address: string, demo: boolean, signal: AbortSignal): Promise<Coordinates> {
   if (demo && demoLocations[address]) return demoLocations[address];
-  if (/^(SAI Airport|Siem Reap Angkor International Airport)(, Cambodia| \(SAI\), Cambodia)?$/i.test(address.trim())) return [13.3692, 104.2231];
-  const params = new URLSearchParams({ q: address, limit: "1", bbox: "103.4,12.9,104.7,13.9" });
-  const response = await fetch(`https://photon.komoot.io/api/?${params}`, { signal });
-  if (!response.ok) throw new Error("Geocoding unavailable");
-  const point = geocodeSchema.parse(await response.json()).features[0]?.geometry.coordinates;
-  if (!point || point[0] < 103.4 || point[0] > 104.7 || point[1] < 12.9 || point[1] > 13.9) throw new Error("Address not found");
-  return [point[1], point[0]];
+  const point = await locateMapAddress(address, signal);
+  return [point.latitude, point.longitude];
 }
 
 export default function TripMap({ course, demo }: { course: Course; demo: boolean }) {
@@ -32,9 +23,7 @@ export default function TripMap({ course, demo }: { course: Course; demo: boolea
   useEffect(() => {
     if (!container.current) return;
     const map = L.map(container.current, { scrollWheelZoom: false }).setView([13.38, 104.02], 10);
-    const tiles = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>', maxZoom: 19,
-    }).addTo(map);
+    const tiles = L.tileLayer(mapTileUrl, { attribution: mapTileAttribution, maxZoom: 19 }).addTo(map);
     tiles.on("tileerror", () => setTilesFailed(true));
     const controller = new AbortController();
     const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(18_000)]);
@@ -51,14 +40,11 @@ export default function TripMap({ course, demo }: { course: Course; demo: boolea
         }
         map.fitBounds(L.latLngBounds([from, to]), { padding: [35, 35], maxZoom: 14 });
         try {
-          const coordinates = `${from[1]},${from[0]};${to[1]},${to[0]}`;
-          const response = await fetch(`https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=full&geometries=geojson`, { signal });
-          if (!response.ok) throw new Error("Routing unavailable");
-          const route = routeSchema.parse(await response.json()).routes[0];
-          if (!route) throw new Error("No route");
+          const route = await routeMapPoints({ latitude: from[0], longitude: from[1] }, { latitude: to[0], longitude: to[1] }, signal);
           if (controller.signal.aborted) return;
-          const points: Coordinates[] = route.geometry.coordinates.map(([longitude, latitude]) => [latitude, longitude]);
-          const line = L.polyline(points, { color: "#032ea1", weight: 5, opacity: 0.85 }).addTo(map);
+          const routeColor = course.status === "TRIP_STARTED" ? "#F58220"
+            : ["DRIVER_ASSIGNED", "DRIVER_ACCEPTED", "DRIVER_EN_ROUTE", "DRIVER_ARRIVED"].includes(course.status) ? "#D6A000" : "#808080";
+          const line = L.polyline(route.points, { color: routeColor, weight: 5, opacity: 0.85 }).addTo(map);
           line.bringToBack();
           map.fitBounds(line.getBounds(), { padding: [35, 35] });
           setState({ phase: "ready", distance: route.distance, duration: route.duration });
@@ -71,7 +57,7 @@ export default function TripMap({ course, demo }: { course: Course; demo: boolea
     }
     void draw();
     return () => { controller.abort(); observer.disconnect(); map.remove(); };
-  }, [course.fromAddress, course.toAddress, demo]);
+  }, [course.fromAddress, course.toAddress, course.status, demo]);
 
   return <div className="relative">
     <div ref={container} className="relative z-0 h-80 w-full bg-slate-100 sm:h-97.5" role="region" aria-label={t("driver.map")} />

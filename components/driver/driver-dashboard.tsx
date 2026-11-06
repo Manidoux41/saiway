@@ -12,10 +12,12 @@ import { useLanguage } from "@/components/i18n/language-provider";
 import { closedDriverStatuses, contactLinks, createDemoCourses, customerContact, driverNextStatus, driverSummary, driverTimeZone, filterDriverCourses, navigationUrl, type ContactApp, type DriverTab } from "@/lib/driver-dashboard";
 import { DriverLicenseCard } from "./driver-license-card";
 import { DriverContactQrCard } from "./driver-contact-qr-card";
-import { useLocationSharing } from "./use-location-sharing";
+import { distanceMeters, useLocationSharing } from "./use-location-sharing";
 import styles from "./driver-dashboard.module.css";
+import type { FleetDriver } from "@/components/maps/fleet-map";
 
 const TripMap = dynamic(() => import("./trip-map"), { ssr: false, loading: () => <div className="h-[370px] animate-pulse bg-slate-100" /> });
+const DriverFleetMap = dynamic(() => import("@/components/maps/fleet-map").then((module) => module.FleetMap), { ssr: false, loading: () => <div className="h-full animate-pulse bg-slate-100" /> });
 const transitionKeys = {
   DRIVER_ASSIGNED: "driver.acceptTrip", DRIVER_ACCEPTED: "driver.depart", DRIVER_EN_ROUTE: "driver.arrive", DRIVER_ARRIVED: "driver.start", TRIP_STARTED: "driver.finish",
 } as const;
@@ -37,6 +39,7 @@ export function DriverDashboard() {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [trackingOpen, setTrackingOpen] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const [collection, setCollection] = useState<{ bookingId: string; method: "CASH" | "CARD" | "ABA" | "OTHER" } | null>(null);
   // The contact block only renders after trips load in the browser, so reading storage here cannot cause a hydration mismatch.
@@ -62,11 +65,32 @@ export function DriverDashboard() {
   const links = phone && selected ? contactLinks(phone, t("contact.smsBody").replace("{name}", selected.customer.name.split(" ")[0]).replace("{reference}", selected.reference)) : null;
   const scheduled = filterDriverCourses(source, "upcoming", "", now);
   const next = scheduled.find((course) => ["DRIVER_EN_ROUTE", "DRIVER_ARRIVED", "TRIP_STARTED"].includes(course.status)) ?? scheduled[0];
-  const liveTrip = demo ? undefined : courses.find((course) => ["DRIVER_EN_ROUTE", "DRIVER_ARRIVED", "TRIP_STARTED"].includes(course.status));
-  const sharing = useLocationSharing(liveTrip?.id ?? null);
+  const liveTrip = demo ? undefined : courses.filter((course) => ["DRIVER_ASSIGNED", "DRIVER_ACCEPTED", "DRIVER_EN_ROUTE", "DRIVER_ARRIVED", "TRIP_STARTED"].includes(course.status))
+    .sort((a, b) => ["TRIP_STARTED", "DRIVER_EN_ROUTE", "DRIVER_ARRIVED", "DRIVER_ACCEPTED", "DRIVER_ASSIGNED"].indexOf(a.status) - ["TRIP_STARTED", "DRIVER_EN_ROUTE", "DRIVER_ARRIVED", "DRIVER_ACCEPTED", "DRIVER_ASSIGNED"].indexOf(b.status))[0];
+  const sharing = useLocationSharing(liveTrip?.id ?? null, !demo && loaded);
   const formatDate = (value: string | Date, options: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat(language, { ...options, timeZone: driverTimeZone }).format(new Date(value));
   const money = (cents: number, currency: string) => new Intl.NumberFormat(language, { style: "currency", currency }).format(cents / 100);
   const label = (value: string) => t(statusKeys[value as keyof typeof statusKeys] ?? "courses.pending");
+  const locationStatus: FleetDriver["status"] = liveTrip?.status === "TRIP_STARTED" ? "ON_TRIP"
+    : liveTrip && ["DRIVER_EN_ROUTE", "DRIVER_ARRIVED"].includes(liveTrip.status) ? "TO_PICKUP"
+      : liveTrip ? "ASSIGNED"
+        : sharing.returningToHub ? "RETURNING_TO_HUB" : "AVAILABLE";
+  const nearestHub = sharing.point && sharing.hubs.length ? sharing.hubs.reduce((nearest, hub) => {
+    if (!nearest) return hub;
+    return distanceMeters(sharing.point!, hub) < distanceMeters(sharing.point!, nearest) ? hub : nearest;
+  }, sharing.hubs[0]!) : null;
+  const driverMapItems: FleetDriver[] = sharing.point ? [{
+    id: user?.id ?? "driver",
+    name: user?.name ?? t("live.driver"),
+    status: locationStatus,
+    location: { ...sharing.point, recordedAt: sharing.lastSent?.toISOString() ?? new Date().toISOString() },
+    booking: liveTrip ? { id: liveTrip.id, reference: liveTrip.reference, status: liveTrip.status } : null,
+    vehicle: liveTrip?.vehicle ? { ...liveTrip.vehicle, iconCategory: liveTrip.vehicle.iconCategory } : sharing.vehicle,
+    target: liveTrip
+      ? { address: liveTrip.status === "TRIP_STARTED" ? liveTrip.toAddress : liveTrip.fromAddress, hub: null }
+      : sharing.returningToHub && nearestHub ? { address: null, hub: nearestHub } : null,
+    stale: false,
+  }] : [];
 
   function switchMode(value: "real" | "demo") {
     if (pending) return;
@@ -123,21 +147,29 @@ export function DriverDashboard() {
         <button type="button" aria-pressed={!demo} disabled={pending} onClick={() => switchMode("real")}><BriefcaseBusiness size={16} />{t("driver.real")}<span>{courses.length}</span></button>
         <button type="button" aria-pressed={demo} disabled={pending} onClick={() => switchMode("demo")}><FlaskConical size={16} />{t("driver.demo")}</button>
       </div>
+      {!demo && <button type="button" className={styles.gpsButton} onClick={() => setTrackingOpen(true)} aria-label={t("driver.gpsFollow")}><LocateFixed size={18} />{t("driver.gpsFollow")}</button>}
       {demo && <button type="button" className={styles.iconButton} title={t("driver.resetDemo")} aria-label={t("driver.resetDemo")} onClick={() => { if (user) setDemoCourses(createDemoCourses(user)); setSelectedId(null); setMessage(""); }}><RefreshCw size={17} /></button>}
     </div>
     {demo && <p className={styles.demoNotice}><FlaskConical size={18} aria-hidden="true" />{t("driver.demoNotice")}</p>}
     {error && <p role="alert" className={styles.error}>{error}</p>}
     {message && <p role="status" className={styles.success}><Check size={16} />{message}</p>}
 
-    {liveTrip && <section className={styles.liveShare} data-phase={sharing.phase} aria-live="polite">
+    {!demo && loaded && <section className={styles.liveShare} data-phase={sharing.phase} aria-live="polite">
       {sharing.phase === "sharing" || sharing.phase === "starting" ? <LocateFixed size={20} aria-hidden="true" /> : <LocateOff size={20} aria-hidden="true" />}
       <div>
         <strong>{t(`live.${sharing.phase === "error" ? "sendError" : sharing.phase}`)}</strong>
-        <span>{liveTrip.reference} · {liveTrip.customer.name}{sharing.lastSent ? ` · ${t("live.lastSent")} ${formatDate(sharing.lastSent, { hour: "2-digit", minute: "2-digit", second: "2-digit" })}` : ""}</span>
+        <span>{liveTrip ? `${liveTrip.reference} · ${liveTrip.customer.name}` : t("live.adminOnlySharing")}{sharing.lastSent ? ` · ${t("live.lastSent")} ${formatDate(sharing.lastSent, { hour: "2-digit", minute: "2-digit", second: "2-digit" })}` : ""}</span>
         <small>{t("live.keepOpen")}</small>
       </div>
       {["denied", "unavailable", "error"].includes(sharing.phase) && <button type="button" onClick={sharing.retry}>{t("live.retry")}</button>}
     </section>}
+
+    {trackingOpen && <div className={styles.gpsOverlay} role="dialog" aria-modal="true" aria-label={t("driver.gpsFollow")}>
+      <header><h2>{t("driver.gpsFollow")}</h2><button type="button" className={styles.iconButton} onClick={() => setTrackingOpen(false)} aria-label={t("driver.closeGpsMap")}><LocateOff size={18} /></button></header>
+      {driverMapItems.length
+        ? <DriverFleetMap drivers={driverMapItems} hubs={sharing.hubs} selectedId={driverMapItems[0]?.id ?? null} height="100%" />
+        : <p role="status">{t(sharing.phase === "inactive" ? "live.inactive" : "live.noSignal")}</p>}
+    </div>}
 
     <section className={styles.metrics} aria-label={t("driver.today")} aria-busy={loading}>
       {[

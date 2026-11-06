@@ -44,6 +44,42 @@ body {
   display: none;
 }
 
+.saiway-vehicle-marker {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #032ea1;
+  box-shadow: 0 2px 8px #101b3d66;
+  color: #fff;
+  font-size: 23px;
+  transform: rotate(var(--vehicle-heading, 0deg));
+  transition: transform 700ms linear;
+}
+
+.saiway-vehicle-image {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.saiway-hub-marker {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #2e9d50;
+  box-shadow: 0 2px 6px #101b3d55;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+}
+
 @media print {
   @page {
     size: A4;

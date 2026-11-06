@@ -93,7 +93,7 @@ export function createDemoCourses(user: { id: string; name: string }, now = new 
     flightNumber: fixture.flight, pickupNotes: fixture.notes || null, specialNeeds: fixture.needs || null,
     driverId: `demo-driver-${user.id}`, vehicleId: "demo-vehicle",
     driver: { id: `demo-driver-${user.id}`, user: { name: user.name } },
-    vehicle: { id: "demo-vehicle", name: "Toyota Hiace (demo)", plate: "DEMO-001", seats: 8 },
+    vehicle: { id: "demo-vehicle", name: "Toyota Hiace (demo)", plate: "DEMO-001", seats: 8, iconCategory: "VAN" },
     customer: { id: `demo-customer-${index}`, name: fixture.name, email: `passenger-${index}@example.invalid` },
   }));
 }

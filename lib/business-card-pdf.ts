@@ -138,7 +138,7 @@ export async function renderBusinessCards(drivers: BusinessCardPdfDriver[], book
       background();
       logo();
       doc.save().circle(mm(16.5), mm(26), mm(7.5)).clip();
-      if (photo) doc.image(photo, mm(9), mm(18.5), { cover: [mm(15), mm(15)] });
+      if (photo) doc.image(photo, mm(9), mm(18.5), { cover: [mm(15), mm(15)], align: "center", valign: "center" });
       else {
         doc.rect(mm(9), mm(18.5), mm(15), mm(15)).fill("#eef2fb");
         const initials = driver.user.name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("");

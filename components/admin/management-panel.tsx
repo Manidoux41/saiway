@@ -1,12 +1,21 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
+import { MapPinned, X } from "lucide-react";
 import { useLanguage } from "@/components/i18n/language-provider";
 import { useAuth } from "@/components/auth/auth-provider";
 import { adminErrorKey, adminRequest, type ManagementData } from "@/lib/admin-client";
 import { DriverLicenses } from "@/components/admin/driver-licenses";
 import { DriverBusinessCards } from "@/components/admin/driver-business-cards";
+
+const VehicleIconPreview = dynamic(() => import("@/components/maps/vehicle-icon-preview").then((module) => module.VehicleIconPreview), { ssr: false, loading: () => <div className="h-[320px] animate-pulse rounded-xl bg-slate-100" /> });
+const vehicleIconCategories = ["TUK_TUK", "PASSAPP", "SEDAN", "SUV", "MINIVAN", "MINIBUS", "VAN", "OTHER"] as const;
+const vehicleCategoryLabels = {
+  TUK_TUK: "fleet.category.TUK_TUK", PASSAPP: "fleet.category.PASSAPP", SEDAN: "fleet.category.SEDAN", SUV: "fleet.category.SUV",
+  MINIVAN: "fleet.category.MINIVAN", MINIBUS: "fleet.category.MINIBUS", VAN: "fleet.category.VAN", OTHER: "fleet.category.OTHER",
+} as const;
 
 export function ManagementPanel({ data, loading, loadError, onReload }: { data: ManagementData | null; loading: boolean; loadError: ReturnType<typeof adminErrorKey> | null; onReload: () => void }) {
   const { t, language } = useLanguage();
@@ -14,8 +23,9 @@ export function ManagementPanel({ data, loading, loadError, onReload }: { data: 
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<ReturnType<typeof adminErrorKey> | null>(null);
   const [saved, setSaved] = useState(false);
+  const [previewVehicleId, setPreviewVehicleId] = useState<string | null>(null);
 
-  async function mutate(method: "POST" | "DELETE", body: Record<string, unknown>, form?: HTMLFormElement) {
+  async function mutate(method: "POST" | "PATCH" | "DELETE", body: Record<string, unknown>, form?: HTMLFormElement) {
     if (pending) return;
     setPending(true); setError(null); setSaved(false);
     try {
@@ -25,7 +35,7 @@ export function ManagementPanel({ data, loading, loadError, onReload }: { data: 
     finally { setPending(false); }
   }
 
-  function create(event: FormEvent<HTMLFormElement>, entity: string) {
+  function create(event: FormEvent<HTMLFormElement>, entity: string, id?: string) {
     event.preventDefault();
     const form = event.currentTarget;
     const input = new FormData(form);
@@ -35,7 +45,19 @@ export function ManagementPanel({ data, loading, loadError, onReload }: { data: 
       data.expectedRevenueCents = Math.round(Number(data.revenue) * 100);
       data.expectedExpenseCents = Math.round(Number(data.expense) * 100);
     }
-    void mutate("POST", { entity, data }, form);
+    void mutate(id ? "PATCH" : "POST", { entity, ...(id ? { id } : {}), data }, form);
+  }
+
+  async function uploadVehicleIcon(vehicleId: string, file?: File) {
+    if (!file || pending) return;
+    setPending(true); setError(null); setSaved(false);
+    try {
+      const body = new FormData();
+      body.set("file", file);
+      await adminRequest(`/api/admin/vehicles/${encodeURIComponent(vehicleId)}/icon`, { method: "PUT", body });
+      setSaved(true); onReload();
+    } catch (error) { setError(adminErrorKey(error)); }
+    finally { setPending(false); }
   }
 
   if (!data) return <section className="mt-8 rounded-[28px] bg-white p-6 shadow-sm">{t(loadError ? "admin.dataUnavailable" : "admin.loading")}</section>;
@@ -60,11 +82,57 @@ export function ManagementPanel({ data, loading, loadError, onReload }: { data: 
       <DriverLicenses users={data.users} />
       <DriverBusinessCards users={data.users} onChanged={onReload} />
       <section className="grid gap-8 lg:grid-cols-2">
-        <div className="rounded-[28px] bg-white p-6 shadow-sm"><h2 className="text-xl font-bold">Fleet management</h2><form onSubmit={(event) => create(event, "vehicle")} className="mt-4 grid gap-3 sm:grid-cols-3"><input name="name" required placeholder="Vehicle" className={inputClass} /><input name="plate" required placeholder="Plate" className={inputClass} /><input name="seats" required type="number" min="1" max="50" defaultValue="4" placeholder="Seats" className={inputClass} /><button className={`${buttonClass} sm:col-span-3`}>Add vehicle</button></form><div className="mt-5 space-y-2">{data.vehicles.map((item) => <div key={item.id} className="flex justify-between border-t pt-3 text-sm"><span>{item.name} · {item.plate} · {item.seats} seats</span>{item.active && <button type="button" onClick={() => { if (window.confirm(t("courses.confirmArchive"))) void mutate("DELETE", { entity: "vehicle", id: item.id }); }} className="text-[var(--color-error)]">Disable</button>}</div>)}</div></div>
+        <div className="rounded-[28px] bg-white p-6 shadow-sm"><h2 className="text-xl font-bold">Fleet management</h2>
+          <form onSubmit={(event) => create(event, "vehicle")} className="mt-4 grid gap-3 sm:grid-cols-3">
+            <input name="name" required placeholder="Vehicle" className={inputClass} /><input name="plate" required placeholder="Plate" className={inputClass} />
+            <input name="seats" required type="number" min="1" max="50" defaultValue="4" placeholder="Seats" className={inputClass} />
+            <select name="iconCategory" className={`${inputClass} sm:col-span-2`}>{vehicleIconCategories.map((category) => <option key={category} value={category}>{t(vehicleCategoryLabels[category])}</option>)}</select>
+            <button className={`${buttonClass} sm:col-span-3`}>Add vehicle</button>
+          </form>
+          <div className="mt-5 space-y-3">{data.vehicles.map((item) => <div key={item.id} className="grid gap-2 border-t pt-3 text-sm sm:grid-cols-[1fr_auto] sm:items-center">
+            <span>{item.name} · {item.plate} · {item.seats} seats</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <select aria-label={`${t("fleet.iconCategory")} · ${item.name}`} className={inputClass} value={item.iconCategory} disabled={pending} onChange={(event) => void mutate("PATCH", { entity: "vehicle", id: item.id, data: { iconCategory: event.target.value } })}>{vehicleIconCategories.map((category) => <option key={category} value={category}>{t(vehicleCategoryLabels[category])}</option>)}</select>
+              <button type="button" className={`${buttonClass} inline-flex items-center gap-2`} onClick={() => setPreviewVehicleId(item.id)}><MapPinned size={16} aria-hidden="true" />{t("fleet.previewIcon")}</button>
+              <label className={`${buttonClass} cursor-pointer`}>{t(item.iconImage ? "fleet.replaceIcon" : "fleet.uploadIcon")}<input className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" disabled={pending} onChange={(event) => { void uploadVehicleIcon(item.id, event.currentTarget.files?.[0]); event.currentTarget.value = ""; }} /></label>
+              {item.iconImage && <button type="button" className="text-[var(--color-error)]" disabled={pending} onClick={() => void adminRequest(`/api/admin/vehicles/${encodeURIComponent(item.id)}/icon`, { method: "DELETE" }).then(() => { setSaved(true); onReload(); }).catch((failure) => setError(adminErrorKey(failure)))}>{t("fleet.removeIcon")}</button>}
+              {item.active && <button type="button" onClick={() => { if (window.confirm(t("courses.confirmArchive"))) void mutate("DELETE", { entity: "vehicle", id: item.id }); }} className="text-[var(--color-error)]">Disable</button>}
+            </div>
+          </div>)}</div>
+        </div>
         <div className="rounded-[28px] bg-white p-6 shadow-sm"><h2 className="text-xl font-bold">Accounting entries</h2><form onSubmit={(event) => create(event, "accounting")} className="mt-4 grid gap-3 sm:grid-cols-3"><select name="type" className={inputClass}>{["REVENUE", "EXPENSE", "CREDIT", "PURCHASE"].map((value) => <option key={value}>{value}</option>)}</select><input name="label" required placeholder="Description" className={inputClass} /><input name="amount" required type="number" min="0" step="0.01" placeholder="USD" className={inputClass} /><button className={`${buttonClass} sm:col-span-3`}>Add entry</button></form><div className="mt-5 space-y-2">{data.entries.map((item) => <div key={item.id} className="flex justify-between border-t pt-3 text-sm"><span>{item.type} · {item.label}</span><span>${(item.amountCents / 100).toFixed(2)}</span></div>)}</div></div>
+      </section>
+      <section className="rounded-[28px] bg-white p-6 shadow-sm">
+        <h2 className="text-xl font-bold">{t("fleet.hubs")}</h2>
+        <p className="mt-2 text-sm text-slate-500">{t("fleet.hubsHelp")}</p>
+        <form onSubmit={(event) => create(event, "hub")} className="mt-4 grid gap-3 md:grid-cols-5">
+          <input name="name" required maxLength={500} placeholder={t("fleet.hubName")} className={inputClass} />
+          <input name="address" maxLength={500} placeholder={t("fleet.hubAddress")} className={inputClass} />
+          <input name="latitude" required type="number" min="-90" max="90" step="any" placeholder={t("fleet.latitude")} className={inputClass} />
+          <input name="longitude" required type="number" min="-180" max="180" step="any" placeholder={t("fleet.longitude")} className={inputClass} />
+          <button className={buttonClass}>{t("fleet.addHub")}</button>
+        </form>
+        <div className="mt-5 space-y-3">{data.hubs.map((hub) => <form key={hub.id} onSubmit={(event) => create(event, "hub", hub.id)} className="grid gap-2 border-t pt-3 sm:grid-cols-5">
+          <input name="name" required maxLength={500} defaultValue={hub.name} className={inputClass} />
+          <input name="address" maxLength={500} defaultValue={hub.address ?? ""} placeholder={t("fleet.hubAddress")} className={inputClass} />
+          <input name="latitude" required type="number" min="-90" max="90" step="any" defaultValue={hub.latitude} className={inputClass} />
+          <input name="longitude" required type="number" min="-180" max="180" step="any" defaultValue={hub.longitude} className={inputClass} />
+          <div className="flex gap-2"><button type="submit" className={buttonClass}>{t("dispatch.save")}</button>{hub.active && <button type="button" className="text-[var(--color-error)]" onClick={() => void mutate("DELETE", { entity: "hub", id: hub.id })}>{t("fleet.disableHub")}</button>}</div>
+        </form>)}</div>
       </section>
       <section className="rounded-[28px] bg-white p-6 shadow-sm"><h2 className="text-xl font-bold">Forecast accounts</h2><form onSubmit={(event) => create(event, "forecast")} className="mt-4 grid gap-3 md:grid-cols-4"><input name="month" required type="month" className={inputClass} /><input name="revenue" required type="number" min="0" step="0.01" placeholder="Expected revenue" className={inputClass} /><input name="expense" required type="number" min="0" step="0.01" placeholder="Expected expenses" className={inputClass} /><button className={buttonClass}>Add forecast</button></form><div className="mt-5 grid gap-3 md:grid-cols-3">{data.forecasts.map((item) => <div key={item.id} className="rounded-2xl bg-[var(--color-input)] p-4 text-sm"><div>{item.month.slice(0, 7)}</div><div>+${(item.expectedRevenueCents / 100).toFixed(2)}</div><div>-${(item.expectedExpenseCents / 100).toFixed(2)}</div></div>)}</div></section>
       <section className="rounded-[28px] bg-white p-6 shadow-sm"><h2 className="text-xl font-bold">Vehicle rentals and financing</h2><div className="mt-4 grid gap-3 md:grid-cols-3">{data.contracts.map((item) => <div key={item.id} className="rounded-2xl border p-4">{item.vehicle.name} · {item.vehicle.plate}<p>{item.provider} · ${(item.monthlyCents / 100).toFixed(2)} / month · {item.status}</p></div>)}</div></section>
     </fieldset>
+    {previewVehicleId && (() => {
+      const vehicle = data.vehicles.find((item) => item.id === previewVehicleId);
+      return vehicle ? <div className="fixed inset-0 z-[1200] grid place-items-center bg-slate-950/60 p-4" role="dialog" aria-modal="true" aria-label={t("fleet.previewMap")}>
+        <section className="w-full max-w-2xl rounded-2xl bg-white p-5 shadow-2xl">
+          <header className="mb-4 flex items-center justify-between gap-4"><div><h2 className="text-xl font-bold">{t("fleet.previewIcon")}</h2><p className="text-sm text-slate-600">{vehicle.name} · {vehicle.plate} · {t(vehicleCategoryLabels[vehicle.iconCategory])}</p></div>
+            <button type="button" className={buttonClass} onClick={() => setPreviewVehicleId(null)} aria-label={t("fleet.closeFullscreen")}><X size={18} aria-hidden="true" /></button>
+          </header>
+          <VehicleIconPreview vehicleId={vehicle.id} category={vehicle.iconCategory} />
+        </section>
+      </div> : null;
+    })()}
   </div>;
 }

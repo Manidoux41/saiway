@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/driver-location-retention",
+      "schedule": "0 2 * * *"
+    }
+  ]
+}

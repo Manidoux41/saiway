@@ -36,6 +36,25 @@
 .schedule, .inspector { min-width: 0; }
 .sectionHeading { min-height: 40px; margin-bottom: 14px; }
 .sectionHeading h2, .driverSchedule h2, .accounts h2, .security h2 { font-size: 18px; font-weight: 750; }
+.fleetCard { margin: 20px 0 28px; padding: 18px; border: 1px solid #dce3ed; border-radius: 12px; background: #fff; }
+.fleetActions { display: flex; gap: 8px; }
+.fleetBody { display: grid; grid-template-columns: minmax(210px, .75fr) minmax(0, 2fr); gap: 14px; margin-top: 14px; }
+.fleetList { max-height: 480px; overflow: auto; border: 1px solid #e1e7f1; border-radius: 8px; }
+.fleetDriver { display: flex; align-items: flex-start; gap: 10px; width: 100%; padding: 12px; text-align: left; border-bottom: 1px solid #e1e7f1; }
+.fleetDriver:last-child { border-bottom: 0; }
+.fleetDriver[aria-pressed="true"] { background: #eaf0fc; }
+.fleetDriver > span:last-child { display: grid; gap: 4px; min-width: 0; }
+.fleetDriver strong { font-size: 12px; overflow-wrap: anywhere; }
+.fleetDriver small { color: #64748b; font-size: 10px; overflow-wrap: anywhere; }
+.fleetDot { width: 10px; height: 10px; flex: 0 0 10px; margin-top: 4px; border-radius: 50%; background: #8b95a7; }
+.fleetDot[data-status="TO_PICKUP"] { background: #d6a000; }
+.fleetDot[data-status="ON_TRIP"] { background: #f58220; }
+.fleetDot[data-status="RETURNING_TO_HUB"] { background: #2e9d50; }
+.fleetEmpty, .fleetNotice { padding: 12px; color: #64748b; font-size: 12px; }
+.fleetNotice { margin: 12px 0; border-radius: 8px; background: #fff6d8; color: #7f611e; }
+.fleetFullscreen { position: fixed; inset: 0; z-index: 1200; display: flex; flex-direction: column; padding: 16px; background: #fff; }
+.fleetFullscreenBody { display: grid; flex: 1; min-height: 0; grid-template-columns: minmax(220px, .65fr) minmax(0, 2fr); gap: 14px; margin-top: 14px; }
+.fleetFullscreenBody .fleetList { max-height: none; }
 .views { display: flex; flex-wrap: wrap; gap: 5px; margin: 10px 0 14px; }
 .views button { padding: 7px 10px; font-size: 11px; border-radius: 4px; color: #64748b; }
 .views button[aria-pressed="true"] { background: #e2eafa; color: var(--color-primary); font-weight: 700; }
@@ -109,5 +128,5 @@
 .security { max-width: 960px; }
 @media (prefers-reduced-motion: no-preference) { .workspace { animation: reveal .25s ease-out; } @keyframes reveal { from { opacity: .5; } to { opacity: 1; } } }
 @media (max-width: 1100px) { .workspace { grid-template-columns: minmax(0, 1.2fr) minmax(310px, 1fr); gap: 20px; } .table .driverCell, .table th:nth-child(3) { display: none; } }
-@media (max-width: 800px) { .workspace { grid-template-columns: minmax(0, 1fr); } .inspector { border-top: 1px solid #dce3ed; padding-top: 24px; } .driverSchedule > div { grid-template-columns: repeat(2, minmax(0, 1fr)); } .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; } .metrics button:nth-child(2) { border: none; } .tableWrap { max-height: 540px; overflow-y: auto; } .table .driverCell, .table th:nth-child(3) { display: table-cell; } }
+@media (max-width: 800px) { .workspace { grid-template-columns: minmax(0, 1fr); } .inspector { border-top: 1px solid #dce3ed; padding-top: 24px; } .fleetBody, .fleetFullscreenBody { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(150px, 30vh) minmax(300px, 1fr); } .fleetList { max-height: 30vh; } .driverSchedule > div { grid-template-columns: repeat(2, minmax(0, 1fr)); } .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; } .metrics button:nth-child(2) { border: none; } .tableWrap { max-height: 540px; overflow-y: auto; } .table .driverCell, .table th:nth-child(3) { display: table-cell; } }
 @media (max-width: 500px) { .page { padding: 24px 16px 40px; } .heading h1 { font-size: 24px; } .navigation { gap: 16px; } .navigation button { font-size: 11px; gap: 5px; } .navigation svg { width: 15px; } .toolbar { align-items: flex-start; } .toolbarActions { gap: 6px; } .primaryButton, .secondaryButton { padding: 10px 11px; font-size: 11px; } .metrics button > span { font-size: 11px; } .metrics strong { font-size: 27px; } .table .customerCell, .table .driverCell, .table th:nth-child(2), .table th:nth-child(3) { display: none; } .routeButton .mobileMeta { display: block; } .table td:first-child { min-width: 0; width: 72%; } .table td { padding: 13px 7px; } .formGrid { grid-template-columns: minmax(0, 1fr); } .driverSchedule > div { grid-template-columns: minmax(0, 1fr); } .filters input[type="date"] { max-width: 145px; } }

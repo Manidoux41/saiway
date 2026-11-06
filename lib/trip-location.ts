@@ -5,12 +5,14 @@ import { prisma } from "@/lib/prisma";
 import { activeAccount, authorize } from "@/lib/access";
 
 export const trackingStatuses: BookingStatus[] = ["DRIVER_EN_ROUTE", "DRIVER_ARRIVED", "TRIP_STARTED"];
+export const customerLocationStatuses: BookingStatus[] = ["DRIVER_ASSIGNED", "DRIVER_ACCEPTED", ...trackingStatuses];
 const minIntervalMs = 2_000;
 const noStore = { "Cache-Control": "no-store" };
 const position = z.object({
   latitude: z.number().finite().min(-90).max(90),
   longitude: z.number().finite().min(-180).max(180),
   accuracy: z.number().finite().nonnegative().max(100_000).nullable().optional(),
+  heading: z.number().finite().min(0).lt(360).nullable().optional(),
 }).strict();
 
 function json(body: unknown, status = 200) {
@@ -28,12 +30,11 @@ export async function shareTripLocation(request: Request, bookingId: string) {
     if (!parsed.success) return json({ error: "Invalid coordinates" }, 400);
     const latest = await prisma.driverLocation.findFirst({ where: { bookingId }, orderBy: { recordedAt: "desc" }, select: { recordedAt: true } });
     if (latest && Date.now() - latest.recordedAt.getTime() < minIntervalMs) return json({ accepted: false }, 202);
-    const { latitude, longitude, accuracy } = parsed.data;
-    // Only the latest point is kept: the customer needs the current position, not a movement history.
-    const [, saved] = await prisma.$transaction([
-      prisma.driverLocation.deleteMany({ where: { bookingId } }),
-      prisma.driverLocation.create({ data: { bookingId, driverId: booking.driverId, latitude, longitude, accuracy: accuracy ?? null }, select: { recordedAt: true } }),
-    ]);
+    const { latitude, longitude, accuracy, heading } = parsed.data;
+    const saved = await prisma.driverLocation.create({
+      data: { bookingId, driverId: booking.driverId, latitude, longitude, accuracy: accuracy ?? null, heading: heading ?? null },
+      select: { recordedAt: true },
+    });
     return json({ accepted: true, recordedAt: saved.recordedAt });
   } catch (error) {
     if (error instanceof SyntaxError) return json({ error: "Invalid JSON" }, 400);
@@ -49,15 +50,19 @@ export async function readTripLocation(request: Request, bookingId: string) {
     const scope = account.role === "ADMIN" ? {} : account.role === "CUSTOMER" ? { customerId: account.id } : { driver: { userId: account.id } };
     const booking = await prisma.booking.findFirst({
       where: { ...scope, id: bookingId },
-      select: { id: true, reference: true, status: true, fromAddress: true, toAddress: true, pickupAt: true, driver: { select: { user: { select: { name: true } } } }, vehicle: { select: { name: true, plate: true } } },
+      select: { id: true, reference: true, status: true, fromAddress: true, toAddress: true, pickupAt: true, driver: { select: { user: { select: { name: true } } } }, vehicle: { select: { id: true, name: true, plate: true, iconCategory: true } } },
     });
     if (!booking) return json({ error: "Booking not found" }, 404);
-    const tracking = trackingStatuses.includes(booking.status);
-    const point = tracking ? await prisma.driverLocation.findFirst({ where: { bookingId }, orderBy: { recordedAt: "desc" } }) : null;
+    const points = customerLocationStatuses.includes(booking.status)
+      ? await prisma.driverLocation.findMany({ where: { bookingId }, orderBy: { recordedAt: "desc" }, take: 120 })
+      : [];
+    const point = points[0] ?? null;
+    const tracking = customerLocationStatuses.includes(booking.status) && point !== null;
     return json({
       booking: { id: booking.id, reference: booking.reference, status: booking.status, fromAddress: booking.fromAddress, toAddress: booking.toAddress, pickupAt: booking.pickupAt, driverName: booking.driver?.user.name ?? null, vehicle: booking.vehicle },
       tracking,
-      location: point ? { latitude: Number(point.latitude), longitude: Number(point.longitude), accuracy: point.accuracy === null ? null : Number(point.accuracy), recordedAt: point.recordedAt } : null,
+      location: point ? { latitude: Number(point.latitude), longitude: Number(point.longitude), accuracy: point.accuracy === null ? null : Number(point.accuracy), heading: point.heading === null ? null : Number(point.heading), recordedAt: point.recordedAt } : null,
+      history: points.slice().reverse().map((entry) => ({ latitude: Number(entry.latitude), longitude: Number(entry.longitude), recordedAt: entry.recordedAt })),
     });
   } catch (error) {
     console.error("Trip location read failed", error instanceof Error ? error.message : "Unknown error");

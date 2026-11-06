@@ -16,7 +16,7 @@ export const courseSchema = z.object({
   payments: z.array(z.object({ status: z.string(), provider: z.string(), amountCents: z.number(), currency: z.string(), collectionMethod: z.enum(["CASH", "CARD", "ABA", "OTHER"]).nullable().optional() })).optional(),
   customer: z.object({ id: z.string(), name: z.string(), email: z.string(), phone: z.string().nullable().optional() }),
   driver: z.object({ id: z.string(), user: z.object({ name: z.string() }) }).nullable(),
-  vehicle: z.object({ id: z.string(), name: z.string(), plate: z.string(), seats: z.number() }).nullable(),
+  vehicle: z.object({ id: z.string(), name: z.string(), plate: z.string(), seats: z.number(), iconCategory: z.enum(["TUK_TUK", "PASSAPP", "SEDAN", "SUV", "MINIVAN", "MINIBUS", "VAN", "OTHER"]).optional().default("OTHER") }).nullable(),
 });
 export type Course = z.infer<typeof courseSchema>;
 const listSchema = z.object({ bookings: z.array(courseSchema) });

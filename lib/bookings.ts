@@ -3,7 +3,6 @@ import { BookingStatus, Prisma, TripDirection, TripType } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { authorize } from "@/lib/access";
-import { trackingStatuses } from "@/lib/trip-location";
 import type { SessionRole } from "@/lib/auth-session";
 
 const text = z.string().trim().min(1).max(500);
@@ -33,7 +32,7 @@ export const bookingInclude = {
   payments: { select: { status: true, provider: true, amountCents: true, currency: true, collectionMethod: true } },
   customer: { select: { id: true, name: true, email: true, phone: true } },
   driver: { select: { id: true, user: { select: { name: true } } } },
-  vehicle: { select: { id: true, name: true, plate: true, seats: true } },
+  vehicle: { select: { id: true, name: true, plate: true, seats: true, iconCategory: true } },
 } satisfies Prisma.BookingInclude;
 
 async function fare(db: Pick<Prisma.TransactionClient, "pricingRule">, direction: TripDirection, tripType: TripType) {
@@ -142,7 +141,9 @@ export async function bookingRequest(request: Request, role: SessionRole) {
       const confirming = role === "ADMIN" && request.method === "PATCH" && "status" in parsed.data;
       const result = await tx.booking.update({ where: { id: existing.id, updatedAt: existing.updatedAt }, data: { ...update, status, statusHistory: { create: { status, note: confirming ? "ADMIN operational confirmation; payment tracked separately" : `${role} update` } } }, include: bookingInclude });
       await tx.auditLog.create({ data: { actorId: account.id, entity: "Booking", entityId: existing.id, action: confirming ? "CONFIRM" : request.method === "DELETE" ? "CANCEL" : "UPDATE" } });
-      if (!trackingStatuses.includes(status)) await tx.driverLocation.deleteMany({ where: { bookingId: existing.id } });
+      if (status === "TRIP_COMPLETED" && existing.driverId && await tx.hub.count({ where: { active: true } })) {
+        await tx.driverProfile.update({ where: { id: existing.driverId }, data: { returningToHub: true } });
+      }
       return result;
     });
     return Response.json({ booking });

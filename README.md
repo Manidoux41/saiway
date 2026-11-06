@@ -44,6 +44,8 @@ without covering QR modules or their white borders.
 The company header includes its slogan and “Airport transfers & private transport”
 service description. QR images measure 14 × 14 mm; white backgrounds and quiet
 zones are preserved for scanning.
+Driver photos use a centered cover crop inside their circular frame in both the
+browser print view and downloaded PDFs, for portrait and landscape uploads.
 Downloads are restricted to administrators and audited.
 JPEG, PNG and WebP uploads are converted for PDF compatibility; invalid images
 produce an explicit error rather than an incomplete PDF.
@@ -57,6 +59,37 @@ Saiway uses PostgreSQL through Prisma. Configure `DATABASE_URL` for migrations a
 `PRISMA_DATABASE_URL` (or `DATABASE_URL` as a fallback) for the application; both
 must point to the same database. Set `AUTH_SECRET` to a private, strong value.
 Never commit database credentials or account passwords.
+
+### Environment configuration
+
+Keep local values in the ignored `.env.local` file and configure production
+values in the hosting provider's environment settings. Next.js and the Prisma
+CLI use the same environment-file precedence: process environment, environment-
+specific local file, `.env.local`, environment-specific file, then `.env`.
+`NODE_ENV=test` skips `.env.local`; set `NODE_ENV=development` for Prisma CLI
+commands that must also load `.env.development.local`. Shell or hosting-provider
+variables take precedence over files. Restart the server after changing values.
+
+| Variable | Purpose |
+|----------|---------|
+| `DATABASE_URL` | PostgreSQL connection for migrations and application fallback. |
+| `PRISMA_DATABASE_URL` | Optional application connection, e.g. a pooled URL for the same database. |
+| `AUTH_SECRET` | Private session-signing secret; changing it invalidates existing sessions. |
+| `NEXT_PUBLIC_APP_URL` | Public site origin, e.g. `http://localhost:3000` locally; set the actual HTTPS origin in production. |
+| `NEXT_PUBLIC_MAP_TILE_URL`, `NEXT_PUBLIC_MAP_TILE_ATTRIBUTION` | Map tile template and required provider attribution. |
+| `NEXT_PUBLIC_ROUTING_URL`, `NEXT_PUBLIC_GEOCODING_URL` | OSRM-compatible routing root and Photon-compatible geocoding endpoint. |
+| `CRON_SECRET` | Private bearer secret for scheduled GPS retention. Configure the same value in the scheduler. |
+| `PAYWAY_ENVIRONMENT`, `PAYWAY_MERCHANT_ID`, `PAYWAY_API_KEY`, `PAYWAY_PUBLIC_URL` | Optional PayWay configuration; all four are needed for online checkout. |
+| `VALIDATION_URL` | Optional base URL for integration tests; defaults to `http://localhost:3000`. Use an isolated test database. |
+
+`NEXT_PUBLIC_` values are exposed to browsers and embedded at build time:
+set the correct values **before** building each deployment, never put secrets
+in them, and rebuild after changing them. For production use suitable map
+providers and a separate production database and secrets. PayWay requires a
+public HTTPS callback origin, including when testing it locally; leave its
+credentials empty until configured. `DIRECT_URL`, `POSTGRES_URL`,
+`PAYMENT_PROVIDER`, and `EMAIL_API_KEY` may exist in older environment files,
+but the current application and Prisma configuration do not read them.
 
 Sign in at `/auth` with an existing administrator account to access `/admin`.
 Public registration only creates customer accounts; there is no default working
@@ -129,6 +162,66 @@ Trip-list refreshes wait for an in-flight request instead of aborting it on each
 15-second poll or focus event. Requests have a 30-second timeout. Authentication,
 temporary service, timeout and invalid-response failures are shown separately;
 customers can retry loading without resubmitting a saved reservation.
+
+### Open-source fleet mapping and live tracking
+
+The existing Next.js API and Prisma/PostgreSQL models power fleet tracking; this
+feature does not add a separate backend. Leaflet renders the maps, OpenStreetMap
+provides tiles, OSRM calculates routes, and Photon geocodes addresses. Provider
+URLs are centralized in `lib/map-client.ts` so compatible tile, routing, and
+geocoding services can be substituted without changing the map components.
+
+The administrator dispatch dashboard includes a persistent fleet map, a driver
+and status list, hub markers, selectable vehicle markers, and a full-screen view.
+Positions refresh every five seconds. The driver dashboard's GPS button opens a
+full-screen map; the driver sends one GPS stream while on duty, which feeds the
+admin map and the authorized customer's booking view. Customers can follow only
+their own assigned booking; their map refreshes every four seconds and stops
+exposing live location when that booking closes. GPS requires browser permission
+and an open driver dashboard. The configured browser map/routing providers
+receive coordinates and/or addresses; use self-hosted or appropriately
+contracted providers when production privacy or capacity requires it.
+
+Map paths use dark gold (`#D6A000`) to the pickup, orange (`#F58220`) during a
+trip, and green (`#2E9D50`) for a return to a hub. Vehicle icon categories and
+optional JPEG, PNG, or WebP custom icons are managed under **Admin → Fleet &
+management**; administrators can preview the selected icon on a map. The same
+vehicle marker is used on admin, driver, and customer maps. Hubs are managed in
+the same section and are deactivated rather than deleted.
+
+| Endpoint | Access | Purpose |
+|----------|--------|---------|
+| `GET /api/admin/fleet-locations` | Admin | Active drivers, recent positions, assigned vehicles, routes' targets, and hubs |
+| `GET, PUT /api/driver/location` | Driver | Read sharing state/hubs; submit the driver's single GPS stream |
+| `GET /api/bookings/{id}/location` | Owning customer/driver or admin | Read an authorized booking's live location and active-trip history |
+| `/api/admin/management` | Admin | Create/edit/deactivate hubs and set vehicle icon categories |
+| `PUT, DELETE /api/admin/vehicles/{id}/icon` | Admin | Upload or remove a vehicle marker image |
+| `GET /api/vehicles/{id}/icon` | Admin or user associated with the vehicle's booking | Read a custom marker image |
+| `GET /api/cron/driver-location-retention` | Bearer `CRON_SECRET` | Delete GPS points older than 30 days |
+
+The additive Prisma migration
+`prisma/migrations/20261106010000_fleet_mapping` adds vehicle icon metadata,
+hub records, driver return-to-hub state, GPS heading, and an index for retention
+cleanup. It does not delete existing records. Apply it with `npx prisma migrate
+deploy` only after review against the deployment database. Set `CRON_SECRET` to a
+long random secret. `vercel.json` schedules the retention endpoint daily at
+02:00 UTC; Vercel sends that value as a bearer token. Other hosts must configure
+an equivalent daily authenticated schedule, or old GPS records are not purged.
+
+Configure these optional public map settings in the deployment. The defaults
+work for development only; public OSM/OSRM/Photon services do not provide an
+unlimited production SLA. `NEXT_PUBLIC_GEOCODING_URL` is the complete Photon API
+endpoint; `NEXT_PUBLIC_ROUTING_URL` is the OSRM-compatible root URL, to which
+`/route/v1/driving` is appended. `NEXT_PUBLIC_MAP_TILE_URL` uses Leaflet's
+`{z}`, `{x}`, and `{y}` placeholders.
+
+```env
+NEXT_PUBLIC_MAP_TILE_URL="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+NEXT_PUBLIC_MAP_TILE_ATTRIBUTION='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>'
+NEXT_PUBLIC_ROUTING_URL="https://router.project-osrm.org"
+NEXT_PUBLIC_GEOCODING_URL="https://photon.komoot.io/api/"
+CRON_SECRET="use-a-long-random-secret"
+```
 
 ### Customer accounts and ABA PayWay / KHQR
 

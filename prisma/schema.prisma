@@ -58,6 +58,17 @@ enum PaymentStatus {
   REFUNDED
 }
 
+enum VehicleIconCategory {
+  TUK_TUK
+  PASSAPP
+  SEDAN
+  SUV
+  MINIVAN
+  MINIBUS
+  VAN
+  OTHER
+}
+
 model User {
   id            String       @id @default(cuid())
   email         String       @unique
@@ -140,6 +151,7 @@ model DriverProfile {
   adminNotes   String?
   employmentContracts EmploymentContract[]
   isAvailable  Boolean         @default(true)
+  returningToHub Boolean       @default(false)
   bookings     Booking[]       @relation("DriverBookings")
   locations    DriverLocation[]
   createdAt    DateTime        @default(now())
@@ -222,15 +234,38 @@ model EmploymentContract {
 }
 
 model Vehicle {
-  id          String    @id @default(cuid())
-  name        String
-  plate       String    @unique
-  seats       Int
-  active      Boolean   @default(true)
-  bookings    Booking[]
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  contracts   VehicleContract[]
+  id            String              @id @default(cuid())
+  name          String
+  plate         String              @unique
+  seats         Int
+  active        Boolean             @default(true)
+  iconCategory  VehicleIconCategory @default(OTHER)
+  iconImage     VehicleIconImage?
+  bookings      Booking[]
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  contracts     VehicleContract[]
+}
+
+model VehicleIconImage {
+  id         String   @id @default(cuid())
+  vehicleId  String   @unique
+  vehicle    Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  mimeType   String
+  sizeBytes  Int
+  data       Bytes
+  uploadedAt DateTime @default(now())
+}
+
+model Hub {
+  id        String   @id @default(cuid())
+  name      String
+  address   String?
+  latitude  Decimal  @db.Decimal(10, 7)
+  longitude Decimal  @db.Decimal(10, 7)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 enum AccountingEntryType {
@@ -324,10 +359,12 @@ model DriverLocation {
   latitude  Decimal       @db.Decimal(10, 7)
   longitude Decimal       @db.Decimal(10, 7)
   accuracy  Decimal?      @db.Decimal(10, 2)
+  heading   Decimal?      @db.Decimal(6, 2)
   recordedAt DateTime     @default(now())
 
   @@index([driverId, recordedAt])
   @@index([bookingId, recordedAt])
+  @@index([recordedAt])
 }
 
 model DriverMessage {

@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { z } from "zod";
-import { Car, Clock3, Crosshair, LocateFixed, LocateOff, MapPin, Navigation, Route } from "lucide-react";
+import { Car, Clock3, Crosshair, LocateFixed, LocateOff, MapPin, Maximize2, Minimize2, Navigation, Route } from "lucide-react";
 import { useBookings } from "@/components/booking/use-bookings";
 import { useLanguage } from "@/components/i18n/language-provider";
 import { distanceMeters } from "@/components/driver/use-location-sharing";
@@ -13,7 +13,7 @@ import type { LivePoint } from "./live-tracking-map";
 import styles from "./live-tracking.module.css";
 
 const LiveTrackingMap = dynamic(() => import("./live-tracking-map"), { ssr: false, loading: () => <div className="h-[420px] animate-pulse bg-slate-100 sm:h-[520px]" /> });
-const trackingStatuses = ["DRIVER_EN_ROUTE", "DRIVER_ARRIVED", "TRIP_STARTED"];
+const trackingStatuses = ["DRIVER_ASSIGNED", "DRIVER_ACCEPTED", "DRIVER_EN_ROUTE", "DRIVER_ARRIVED", "TRIP_STARTED"];
 const followable = ["DRIVER_ASSIGNED", "DRIVER_ACCEPTED", ...trackingStatuses];
 const closedStatuses = ["TRIP_COMPLETED", "CANCELLED", "NO_SHOW", "REFUNDED"];
 const statusKeys = {
@@ -22,9 +22,10 @@ const statusKeys = {
 const pollMs = 4_000;
 const staleMs = 60_000;
 const liveSchema = z.object({
-  booking: z.object({ id: z.string(), status: z.string(), driverName: z.string().nullable(), vehicle: z.object({ name: z.string(), plate: z.string() }).nullable() }),
+  booking: z.object({ id: z.string(), status: z.string(), driverName: z.string().nullable(), vehicle: z.object({ id: z.string(), name: z.string(), plate: z.string(), iconCategory: z.enum(["TUK_TUK", "PASSAPP", "SEDAN", "SUV", "MINIVAN", "MINIBUS", "VAN", "OTHER"]) }).nullable() }),
   tracking: z.boolean(),
-  location: z.object({ latitude: z.number(), longitude: z.number(), accuracy: z.number().nullable(), recordedAt: z.string() }).nullable(),
+  location: z.object({ latitude: z.number(), longitude: z.number(), accuracy: z.number().nullable(), heading: z.number().nullable(), recordedAt: z.string() }).nullable(),
+  history: z.array(z.object({ latitude: z.number(), longitude: z.number(), recordedAt: z.string() })),
 });
 type Live = z.infer<typeof liveSchema>;
 type MyPosition = { phase: "locating" | "ready" | "denied" | "unavailable"; point: LivePoint | null };
@@ -38,6 +39,7 @@ export function LiveTracking() {
   const [me, setMe] = useState<MyPosition>({ phase: "locating", point: null });
   const [now, setNow] = useState(() => Date.now());
   const [recenter, setRecenter] = useState(0);
+  const [mapExpanded, setMapExpanded] = useState(false);
 
   const candidates = courses.filter((course) => followable.includes(course.status))
     .sort((a, b) => Number(trackingStatuses.includes(b.status)) - Number(trackingStatuses.includes(a.status)) || a.pickupAt.localeCompare(b.pickupAt));
@@ -130,10 +132,15 @@ export function LiveTracking() {
         <p className={styles.privacy}>{t("live.privacy")}</p>
       </section>
 
-      <section className={styles.mapCard}>
-        <LiveTrackingMap key={course.id} fromAddress={course.fromAddress} toAddress={course.toAddress} driver={trackingStatuses.includes(status) ? driverPoint : null} me={me.point} recenter={recenter}
-          labels={{ map: t("live.title"), driver: t("live.driver"), you: t("live.you"), pickup: t("track.pickup"), destination: t("track.destination"), tiles: t("driver.mapTilesError") }} />
-        <button type="button" className={styles.recenter} onClick={() => setRecenter((value) => value + 1)}><Crosshair size={17} aria-hidden="true" />{t("live.recenter")}</button>
+      <section className={`${styles.mapCard} ${mapExpanded ? styles.mapFullscreen : ""}`}>
+        <LiveTrackingMap key={course.id} fromAddress={course.fromAddress} toAddress={course.toAddress} driver={trackingStatuses.includes(status) ? driverPoint : null} me={me.point} status={status} history={current?.data?.history ?? []} vehicle={current?.data?.booking.vehicle ?? null} recenter={recenter} fullScreen={mapExpanded}
+          labels={{ map: t("live.title"), driver: t("live.driver"), you: t("live.you"), pickup: t("track.pickup"), destination: t("track.destination"), tiles: t("driver.mapTilesError"), eta: t("live.eta"), remaining: t("live.remaining"), routeUnavailable: t("live.routeUnavailable"), routeLoading: t("live.routeLoading") }} />
+        <div className={styles.mapControls}>
+          <button type="button" className={styles.mapControl} onClick={() => setRecenter((value) => value + 1)}><Crosshair size={17} aria-hidden="true" />{t("live.recenter")}</button>
+          <button type="button" className={styles.mapControl} onClick={() => setMapExpanded((value) => !value)} aria-label={t(mapExpanded ? "live.closeFullscreen" : "live.fullscreen")}>
+            {mapExpanded ? <Minimize2 size={17} aria-hidden="true" /> : <Maximize2 size={17} aria-hidden="true" />}
+          </button>
+        </div>
       </section>
     </div>}
   </div>;

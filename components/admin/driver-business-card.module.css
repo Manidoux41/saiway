@@ -93,6 +93,7 @@
   border: 0.4mm solid #dfb56b;
   border-radius: 50%;
   object-fit: cover;
+  object-position: center center;
   background: #eef2fb;
 }
 

@@ -9,6 +9,7 @@ test('demo trips belong to the current driver and remain identifiable as fiction
   assert.equal(courses.length, 5);
   assert.ok(courses.every(course => course.id.startsWith('demo-current-driver-') && course.reference.startsWith('DEMO-') && course.driver.user.name === 'Current Driver'));
   assert.equal(new Set(courses.map(course => course.id)).size, 5);
+  assert.ok(courses.every(course => course.vehicle.iconCategory === 'VAN'));
   assert.equal(courses.filter(course => driverNextStatus[course.status]).length, 4);
   assert.ok(courses.filter(course => driverNextStatus[course.status]).every(course => Date.parse(course.pickupAt) > now.getTime()));
 });

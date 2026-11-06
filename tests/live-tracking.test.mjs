@@ -17,7 +17,7 @@ test('driver shares live GPS only while the trip is under way and only authorise
     await ctx.prisma.booking.update({ where: { id }, data: { driverId, status: 'DRIVER_ACCEPTED' } });
     const share = (body, cookie) => request(`/api/driver/bookings/${id}/location`, 'PUT', body, cookie);
     const read = (cookie) => request(`/api/bookings/${id}/location`, 'GET', undefined, cookie);
-    const point = { latitude: 13.3612, longitude: 103.8601, accuracy: 12 };
+    const point = { latitude: 13.3612, longitude: 103.8601, accuracy: 12, heading: 90 };
 
     assert.equal((await share(point, driver.cookie)).status, 409, 'no sharing before the driver departs');
     const before = await read(customer.cookie);
@@ -42,7 +42,7 @@ test('driver shares live GPS only while the trip is under way and only authorise
     assert.equal(live.data.tracking, true);
     assert.equal(live.data.booking.status, 'DRIVER_EN_ROUTE');
     assert.ok(live.data.booking.driverName.includes(ctx.prefix));
-    assert.deepEqual([live.data.location.latitude, live.data.location.longitude, live.data.location.accuracy], [point.latitude, point.longitude, point.accuracy]);
+    assert.deepEqual([live.data.location.latitude, live.data.location.longitude, live.data.location.accuracy, live.data.location.heading], [point.latitude, point.longitude, point.accuracy, point.heading]);
     assert.equal((await read()).status, 401);
     assert.equal((await read(otherCustomer.cookie)).status, 404);
     assert.equal((await read(otherDriver.cookie)).status, 404);
@@ -52,7 +52,7 @@ test('driver shares live GPS only while the trip is under way and only authorise
     await sleep(2100);
     const moved = { latitude: 13.3655, longitude: 103.8577, accuracy: null };
     assert.equal((await share(moved, driver.cookie)).status, 200);
-    assert.equal(await ctx.prisma.driverLocation.count({ where: { bookingId: id } }), 1, 'only the latest point is stored');
+    assert.equal(await ctx.prisma.driverLocation.count({ where: { bookingId: id } }), 2, 'movement points are retained for the route history');
     const updated = await read(customer.cookie);
     assert.deepEqual([updated.data.location.latitude, updated.data.location.longitude, updated.data.location.accuracy], [moved.latitude, moved.longitude, null]);
 
@@ -66,7 +66,7 @@ test('driver shares live GPS only while the trip is under way and only authorise
     const after = await read(customer.cookie);
     assert.equal(after.data.tracking, false);
     assert.equal(after.data.location, null);
-    assert.equal(await ctx.prisma.driverLocation.count({ where: { bookingId: id } }), 0, 'position is erased when the trip closes');
+    assert.equal(await ctx.prisma.driverLocation.count({ where: { bookingId: id } }), 2, 'GPS history is retained after the live customer session ends');
     assert.equal((await share(point, driver.cookie)).status, 409);
   } finally { await ctx.cleanup(); }
 });

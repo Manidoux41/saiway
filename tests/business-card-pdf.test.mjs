@@ -24,6 +24,21 @@ function contentStreams(bytes) {
   }).join('\n');
 }
 
+function assertCenteredPhotos(bytes, width, height) {
+  const scale = 15 * 72 / 25.4 / Math.min(width, height);
+  const drawnWidth = width * scale;
+  const drawnHeight = height * scale;
+  const x = 16.5 * 72 / 25.4 - drawnWidth / 2;
+  const y = 26 * 72 / 25.4 + drawnHeight / 2;
+  const matrices = [...contentStreams(bytes).matchAll(/([\d.]+) 0 0 (-[\d.]+) (-?[\d.]+) (-?[\d.]+) cm\n\/I\d+ Do/g)];
+  const centered = matrices.filter((match) =>
+    Math.abs(Number(match[1]) - drawnWidth) < 0.001 &&
+    Math.abs(Number(match[2]) + drawnHeight) < 0.001 &&
+    Math.abs(Number(match[3]) - x) < 0.001 &&
+    Math.abs(Number(match[4]) - y) < 0.001);
+  assert.equal(centered.length, 8, 'The photo is centered on both axes inside all eight circular frames');
+}
+
 test('administrators download eight copies on A4 with branded QR codes and paginated fleet sheets', async () => {
   const ctx = await setup();
   try {
@@ -62,6 +77,7 @@ test('administrators download eight copies on A4 with branded QR codes and pagin
     assert.ok(Math.abs(Number(box[2]) * 25.4 / 72 - 297) < 0.01);
     assert.equal([...source.matchAll(/\/Type \/Page\b/g)].length, 1);
     assert.ok([...source.matchAll(/\/Subtype \/Image\b/g)].length >= 3, 'Photo and both QR images are embedded');
+    assertCenteredPhotos(card.data, 120, 180);
     const content = contentStreams(card.data);
     const translations = [...content.matchAll(/1 0 0 1 ([\d.]+) ([\d.]+) cm/g)].map((match) => [Number(match[1]), Number(match[2])]);
     for (let row = 0; row < 4; row += 1) {
@@ -90,6 +106,12 @@ test('administrators download eight copies on A4 with branded QR codes and pagin
     assert.equal([...sheetSource.matchAll(/\/Type \/Page\b/g)].length, Math.ceil(count / 8));
     assert.match(sheetSource, /\/MediaBox \[0 0 595.28 841.89\]/);
     assert.equal(await ctx.prisma.auditLog.count({ where: { actorId: ctx.id, entityId: driverId, action: 'DOWNLOAD_BUSINESS_CARD_PDF' } }), 2);
+
+    const landscape = await sharp({ create: { width: 180, height: 120, channels: 3, background: '#032ea1' } }).jpeg().toBuffer();
+    assert.equal(await upload(ctx.cookie, `/api/admin/drivers/${driverId}/photo`, landscape, 'image/jpeg'), 201);
+    const landscapeCard = await pdf(endpoint, ctx.cookie);
+    assert.equal(landscapeCard.status, 200);
+    assertCenteredPhotos(landscapeCard.data, 180, 120);
 
     await ctx.prisma.driverContactQrImage.update({ where: { driverId_channel: { driverId, channel: 'WHATSAPP' } }, data: { data: Buffer.from([0x89, 0x50, 0x4e, 0x47]) } });
     const invalid = await pdf(endpoint, ctx.cookie);

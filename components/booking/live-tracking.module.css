@@ -36,7 +36,10 @@
 .myPosition { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; color: #2563eb; }
 .myPosition[data-phase="denied"], .myPosition[data-phase="unavailable"] { color: #5b6681; font-weight: 500; }
 .privacy { font-size: 12px; color: #5b6681; }
-.recenter { position: absolute; top: 12px; right: 12px; z-index: 500; display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 14px; border-radius: 999px; font-size: 14px; font-weight: 700; color: var(--color-primary); background: #fff; box-shadow: 0 4px 14px rgb(16 27 61 / 0.18); }
+.mapControls { position: absolute; top: 12px; right: 12px; z-index: 500; display: flex; gap: 8px; }
+.mapControl { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; min-width: 40px; padding: 0 14px; border-radius: 999px; font-size: 14px; font-weight: 700; color: var(--color-primary); background: #fff; box-shadow: 0 4px 14px rgb(16 27 61 / 0.18); }
+.mapFullscreen { position: fixed; inset: 0; z-index: 1000; width: 100vw; height: 100dvh; border: 0; border-radius: 0; background: #fff; }
+.mapFullscreen > div { height: 100%; }
 .empty { display: grid; justify-items: center; gap: 14px; padding: 40px 20px; text-align: center; color: #3d4766; }
 .button { display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border-radius: 8px; font-weight: 800; color: #fff; background: var(--color-primary); }
 .skeleton { height: 420px; border-radius: 12px; background: #e9eef7; animation: fade 1.2s ease-in-out infinite alternate; }

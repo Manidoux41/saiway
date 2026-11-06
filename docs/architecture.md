@@ -10,6 +10,7 @@ SAIWAY is designed as a modular transport platform with a server-first booking f
 - Domain modules: booking, pricing, payment, dispatch, tracking, users
 - Data layer: PostgreSQL + Prisma models for users, bookings, vehicles, pricing, and audit events
 - API layer: route handlers for bookings, payment flows, driver actions, and GPS updates
+- Mapping layer: Leaflet with OpenStreetMap-compatible tile providers, plus configurable routing and geocoding endpoints
 - Real-time layer: serverless-friendly event publishing and polling design for Vercel
 - Security layer: Zod validation, RBAC, webhook verification, audit logging, and Vercel secrets
 
@@ -26,7 +27,7 @@ app/
 components/
   ui/
   booking/
-  map/
+  maps/
   driver/
   admin/
   layout/
@@ -34,7 +35,7 @@ components/
 lib/
   auth/
   db/
-  mapbox/
+  map-client.ts
   pricing/
   booking/
   dispatch/

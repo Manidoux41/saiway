@@ -10,21 +10,23 @@ const cents = z.number().int().nonnegative().max(100000000);
 const date = z.coerce.date();
 const fields = {
   user: z.object({ name, email: z.string().trim().toLowerCase().pipe(z.email()), status: z.enum(["ACTIVE", "SUSPENDED", "INVITED"]), phone: z.string().max(50).nullable().optional(), isAvailable: z.boolean().optional(), licenseNo: z.string().trim().max(100).nullable().optional(), licenseExpiresAt: z.union([z.literal("").transform(() => null), z.string().regex(/^\d{4}-\d{2}-\d{2}$/).transform((value) => new Date(`${value}T00:00:00Z`))]).nullable().optional() }),
-  vehicle: z.object({ name, plate: name, seats: z.coerce.number().int().min(1).max(50), active: z.boolean().optional() }),
+  vehicle: z.object({ name, plate: name, seats: z.coerce.number().int().min(1).max(50), active: z.boolean().optional(), iconCategory: z.enum(["TUK_TUK", "PASSAPP", "SEDAN", "SUV", "MINIVAN", "MINIBUS", "VAN", "OTHER"]).optional() }),
+  hub: z.object({ name, address: z.string().trim().max(500).nullable().optional(), latitude: z.coerce.number().finite().min(-90).max(90), longitude: z.coerce.number().finite().min(-180).max(180), active: z.boolean().optional() }),
   accounting: z.object({ type: z.enum(["REVENUE", "EXPENSE", "CREDIT", "PURCHASE"]), label: name, amountCents: cents, currency: z.literal("USD").optional(), notes: z.string().max(2000).optional(), paidAt: date.nullable().optional() }),
   forecast: z.object({ month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/).transform((value) => new Date(`${value}-01T00:00:00Z`)), expectedRevenueCents: cents, expectedExpenseCents: cents, notes: z.string().max(2000).optional() }),
   pricing: z.object({ name, amountCents: cents, currency: z.literal("USD").optional(), direction: z.enum(["AIRPORT_TO_CITY", "CITY_TO_AIRPORT"]).nullable().optional(), tripType: z.enum(["AIRPORT_TRANSFER", "PRIVATE_TRANSFER", "HOTEL_TRANSFER"]).nullable().optional(), active: z.boolean().optional(), effectiveAt: date }),
   contract: z.object({ vehicleId: name, provider: name, monthlyCents: cents, startsAt: date, endsAt: date.nullable().optional(), status: z.enum(["ACTIVE", "INACTIVE"]) }),
   setting: z.object({ key: z.literal("heroBackground"), value: z.url().refine((value) => value.startsWith("https://"), "HTTPS image required") }),
 };
-const input = z.object({ entity: z.enum(["user", "vehicle", "accounting", "forecast", "pricing", "contract", "setting"]), id: z.string().optional(), data: z.record(z.string(), z.unknown()).optional() });
+const input = z.object({ entity: z.enum(["user", "vehicle", "hub", "accounting", "forecast", "pricing", "contract", "setting"]), id: z.string().optional(), data: z.record(z.string(), z.unknown()).optional() });
 
 export async function GET(request: Request) {
   try {
     if (!await authorize(request, "ADMIN")) return Response.json({ error: "Administrator access required" }, { status: 403 });
-    const [users, vehicles, entries, forecasts, contracts, pricing, settings, receipts] = await Promise.all([
+    const [users, vehicles, hubs, entries, forecasts, contracts, pricing, settings, receipts] = await Promise.all([
       prisma.user.findMany({ select: { id: true, name: true, email: true, role: true, status: true, phone: true, driver: { select: { id: true, isAvailable: true, licenseNo: true, licenseExpiresAt: true, licenseImages: { select: { side: true, sizeBytes: true, uploadedAt: true }, orderBy: { side: "asc" } }, photo: { select: { uploadedAt: true } }, contactQrImages: { select: { channel: true, uploadedAt: true }, orderBy: { channel: "asc" } } } } }, orderBy: { createdAt: "desc" } }),
-      prisma.vehicle.findMany({ orderBy: { createdAt: "desc" } }),
+      prisma.vehicle.findMany({ include: { iconImage: { select: { uploadedAt: true, sizeBytes: true } } }, orderBy: { createdAt: "desc" } }),
+      prisma.hub.findMany({ orderBy: [{ active: "desc" }, { name: "asc" }] }),
       prisma.accountingEntry.findMany({ orderBy: { createdAt: "desc" } }),
       prisma.forecastLine.findMany({ orderBy: { month: "asc" } }),
       prisma.vehicleContract.findMany({ include: { vehicle: { select: { name: true, plate: true } } }, orderBy: { startsAt: "desc" } }),
@@ -36,7 +38,7 @@ export async function GET(request: Request) {
         orderBy: { updatedAt: "desc" },
       }),
     ]);
-    return Response.json({ users, vehicles, entries, forecasts, contracts, pricing, settings, receipts }, { headers: { "Cache-Control": "no-store" } });
+    return Response.json({ users, vehicles, hubs: hubs.map((hub) => ({ ...hub, latitude: Number(hub.latitude), longitude: Number(hub.longitude) })), entries, forecasts, contracts, pricing, settings, receipts }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) { return failure(error); }
 }
 
@@ -51,13 +53,14 @@ async function mutate(request: Request) {
     const removing = request.method === "DELETE";
     if ((updating || removing) && !id) return Response.json({ error: "Missing record id" }, { status: 400 });
     if ((updating || removing) && entity === "user" && id === actor.id) return Response.json({ error: "An administrator cannot modify or suspend their own account here" }, { status: 409 });
-    if (removing && !["user", "vehicle", "pricing", "contract"].includes(entity)) return Response.json({ error: "Financial history cannot be deleted. Edit the record instead." }, { status: 409 });
+    if (removing && !["user", "vehicle", "hub", "pricing", "contract"].includes(entity)) return Response.json({ error: "Financial history cannot be deleted. Edit the record instead." }, { status: 409 });
     if (!updating && !removing && entity === "user") return Response.json({ error: "Use account creation" }, { status: 400 });
     const item = await prisma.$transaction(async (tx) => {
       let result;
       if (removing) {
         if (entity === "user") result = await tx.user.update({ where: { id }, data: { status: "SUSPENDED" } });
         if (entity === "vehicle") result = await tx.vehicle.update({ where: { id }, data: { active: false } });
+        if (entity === "hub") result = await tx.hub.update({ where: { id }, data: { active: false } });
         if (entity === "pricing") result = await tx.pricingRule.update({ where: { id }, data: { active: false } });
         if (entity === "contract") result = await tx.vehicleContract.update({ where: { id }, data: { status: "INACTIVE" } });
       } else {
@@ -71,6 +74,10 @@ async function mutate(request: Request) {
         if (entity === "vehicle") {
           const value = updating ? fields.vehicle.partial().parse(data) : fields.vehicle.parse(data);
           result = updating ? await tx.vehicle.update({ where: { id }, data: value }) : await tx.vehicle.create({ data: fields.vehicle.parse(data) });
+        }
+        if (entity === "hub") {
+          const value = updating ? fields.hub.partial().parse(data) : fields.hub.parse(data);
+          result = updating ? await tx.hub.update({ where: { id }, data: value }) : await tx.hub.create({ data: fields.hub.parse(data) });
         }
         if (entity === "accounting") result = updating ? await tx.accountingEntry.update({ where: { id }, data: fields.accounting.partial().parse(data) }) : await tx.accountingEntry.create({ data: fields.accounting.parse(data) });
         if (entity === "forecast") result = updating ? await tx.forecastLine.update({ where: { id }, data: fields.forecast.partial().parse(data) }) : await tx.forecastLine.create({ data: fields.forecast.parse(data) });
