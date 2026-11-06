@@ -32,7 +32,7 @@ export const defaultFarePolicy: FarePolicy = {
   airportCents: 3000, cityCentsPerKm: 65,
   smallCircuitCents: 3500, grandCircuitCents: 4500, remoteCircuitCents: null,
   tourIncludedHours: 8, tourIncludedKm: 35, tourExtraHourCents: 500,
-  cityPickupCents: 0, cityMinimumCents: 0, vehicleSurcharges: {}, timeSurcharges: [], exceptionalSurcharges: [], zones: defaultZones, khrPerUsd: null,
+  cityPickupCents: 0, cityMinimumCents: 375, vehicleSurcharges: {}, timeSurcharges: [], exceptionalSurcharges: [], zones: defaultZones, khrPerUsd: null,
 };
 export const circuitSchema = z.enum(["SMALL", "GRAND", "REMOTE"]);
 export const fareDetailsSchema = z.object({

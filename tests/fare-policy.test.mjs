@@ -3,11 +3,15 @@ import assert from 'node:assert/strict';
 import { defaultFarePolicy, farePolicy, farePolicySchema, priceFare, extraTourHours, measuredDistance } from '../lib/fare-policy.ts';
 
 const base = { policy: defaultFarePolicy, distanceMeters: null, distanceSource: 'PACKAGE', circuit: null, bookedHours: 8, extraHours: 0, startedAt: null, finalized: false };
-test('airport fares are 30 dollars; city fares use exact kilometres and cent rounding without a minimum', () => {
+test('airport fares are 30 dollars; new city fares have a 3.75 dollar minimum and legacy snapshots retain their minimum', () => {
   assert.equal(priceFare({ ...base, mode: 'AIRPORT' }), 3000);
-  assert.equal(priceFare({ ...base, mode: 'CITY', distanceMeters: 5000 }), 325);
-  assert.equal(priceFare({ ...base, mode: 'CITY', distanceMeters: 100 }), 7);
-  assert.equal(priceFare({ ...base, mode: 'CITY', distanceMeters: 0 }), 0);
+  assert.equal(priceFare({ ...base, mode: 'CITY', distanceMeters: 5000 }), 375);
+  assert.equal(priceFare({ ...base, mode: 'CITY', distanceMeters: 100 }), 375);
+  assert.equal(priceFare({ ...base, mode: 'CITY', distanceMeters: 0 }), 375);
+  assert.equal(priceFare({ ...base, mode: 'CITY', distanceMeters: 5769 }), 375);
+  assert.equal(priceFare({ ...base, mode: 'CITY', distanceMeters: 5777 }), 376);
+  assert.equal(priceFare({ ...base, mode: 'CITY', distanceMeters: 10000 }), 650);
+  assert.equal(priceFare({ ...base, mode: 'CITY', distanceMeters: 100, policy: { ...defaultFarePolicy, cityMinimumCents: 0 } }), 7);
   assert.throws(() => priceFare({ ...base, mode: 'CITY' }), /Distance required/);
   assert.equal(farePolicySchema.safeParse({ ...defaultFarePolicy, airportCents: 3001 }).success, false);
   assert.equal(farePolicySchema.safeParse({ ...defaultFarePolicy, grandCircuitCents: 3400 }).success, false);

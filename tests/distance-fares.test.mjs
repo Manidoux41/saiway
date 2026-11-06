@@ -14,10 +14,10 @@ test('server-calculated city and tour quotes persist, policy changes preserve sn
     assert.equal((await request(quotePath)).status, 403);
     const quote = await request(quotePath, 'GET', undefined, customer.cookie);
     assert.equal(quote.status, 200);
-    assert.equal(quote.data.priceCents, 325);
+    assert.equal(quote.data.priceCents, 375);
     const created = await request('/api/bookings', 'POST', trip, customer.cookie);
     assert.equal(created.status, 201);
-    assert.equal(created.data.booking.priceCents, 325);
+    assert.equal(created.data.booking.priceCents, 375);
     assert.equal(created.data.booking.fareDetails.distanceMeters, 5000);
     for (const forged of [{ priceCents: 1 }, { distanceMeters: 1 }, { fareDetails: { policy: { cityCentsPerKm: 1 } } }]) {
       assert.equal((await request('/api/bookings', 'POST', { ...trip, ...forged }, customer.cookie)).status, 400);
@@ -25,7 +25,7 @@ test('server-calculated city and tour quotes persist, policy changes preserve sn
     const policy = { entity: 'setting', data: { key: farePolicyKey, value: { ...defaultFarePolicy, cityCentsPerKm: 100 } } };
     assert.equal((await request('/api/admin/management', 'POST', policy, customer.cookie)).status, 403);
     assert.equal((await request('/api/admin/management', 'POST', policy, ctx.cookie)).status, 201);
-    assert.equal((await ctx.prisma.booking.findUniqueOrThrow({ where: { id: created.data.booking.id } })).priceCents, 325);
+    assert.equal((await ctx.prisma.booking.findUniqueOrThrow({ where: { id: created.data.booking.id } })).priceCents, 375);
     assert.equal((await request(quotePath, 'GET', undefined, customer.cookie)).data.priceCents, 500);
     const tour = await request('/api/bookings', 'POST', { ...trip, tripType: 'TOURIST_TOUR', tourCircuit: 'GRAND', tourHours: 9.5, paymentMethod: 'DRIVER' }, customer.cookie);
     assert.equal(tour.status, 201);
@@ -77,11 +77,11 @@ test('driver walk-up trips use their own GPS, reject overlap and finalize with e
     assert.equal(incomplete.data.error, 'GPS_INCOMPLETE_CONFIRM_ROUTE');
     const finished = await request('/api/driver/bookings', 'PATCH', { id, status: 'TRIP_COMPLETED', confirmEstimatedDistance: true }, driver.cookie);
     assert.equal(finished.status, 200);
-    assert.equal(finished.data.booking.priceCents, 325);
+    assert.equal(finished.data.booking.priceCents, 375);
     assert.equal(finished.data.booking.fareDetails.distanceSource, 'CONFIRMED_ROUTE');
     const receipt = await request('/api/driver/payments', 'POST', { bookingId: id, received: true, collectionMethod: 'CASH' }, driver.cookie);
     assert.equal(receipt.status, 200);
-    assert.equal(receipt.data.booking.payments[0].amountCents, 325);
+    assert.equal(receipt.data.booking.payments[0].amountCents, 375);
     const second = await request('/api/driver/bookings', 'POST', body, driver.cookie);
     assert.equal(second.status, 201);
     const measuredId = second.data.booking.id;
@@ -96,7 +96,7 @@ test('driver walk-up trips use their own GPS, reject overlap and finalize with e
     assert.equal(measured.status, 200);
     assert.equal(measured.data.booking.fareDetails.distanceSource, 'GPS');
     assert.ok(measured.data.booking.fareDetails.distanceMeters > 200 && measured.data.booking.fareDetails.distanceMeters < 230);
-    assert.equal(measured.data.booking.priceCents, Math.round(measured.data.booking.fareDetails.distanceMeters * 65 / 1000));
+    assert.equal(measured.data.booking.priceCents, Math.max(375, Math.round(measured.data.booking.fareDetails.distanceMeters * 65 / 1000)));
   } finally { await ctx.cleanup(); }
 });
 
@@ -125,9 +125,9 @@ test('zero GPS movement retains the estimate and adjustments without confirming 
       })) });
       const done = await request('/api/driver/bookings', 'PATCH', { id, status: 'TRIP_COMPLETED' }, driver.cookie);
       assert.equal(done.status, 200);
-      const expected = correctedPrice ?? 325;
+      const expected = correctedPrice ?? 375;
       assert.equal(done.data.booking.priceCents, expected);
-      assert.equal(done.data.booking.estimatedPriceCents, 325);
+      assert.equal(done.data.booking.estimatedPriceCents, 375);
       assert.equal(done.data.booking.payments.length, 0);
       if (expected > 0) {
         assert.equal(done.data.booking.fareDetails.zeroGpsEstimateRetained, true);
@@ -160,10 +160,10 @@ test('zero GPS movement retains the estimate and adjustments without confirming 
     })) });
     const longer = await request('/api/driver/bookings', 'PATCH', { id, status: 'TRIP_COMPLETED' }, driver.cookie);
     assert.equal(longer.status, 200);
-    assert.equal(longer.data.booking.estimatedPriceCents, 325);
+    assert.equal(longer.data.booking.estimatedPriceCents, 375);
     assert.equal(longer.data.booking.fareDetails.distanceSource, 'GPS');
     assert.ok(longer.data.booking.fareDetails.distanceMeters > 5000);
-    assert.ok(longer.data.booking.priceCents > 325);
+    assert.ok(longer.data.booking.priceCents > 375);
     assert.equal(longer.data.booking.priceCents, Math.round(longer.data.booking.fareDetails.distanceMeters * 65 / 1000));
     assert.equal(longer.data.booking.fareDetails.zeroGpsEstimateRetained, undefined);
     assert.equal(longer.data.booking.payments.length, 0);

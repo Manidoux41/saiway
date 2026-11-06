@@ -18,7 +18,7 @@ test('anonymous autonomous trip preserves selected GPS and signed route, is idem
     const preview = await request('/api/driver/bookings', 'POST', previewBody, driver.cookie);
     assert.equal(preview.status, 200);
     assert.equal(preview.data.fareDetails.mode, 'CITY');
-    assert.equal(preview.data.priceCents, 325);
+    assert.equal(preview.data.priceCents, 375);
     assert.equal(preview.data.route.durationSeconds, 600);
     assert.deepEqual(preview.data.route.from, selection.fromPoint);
     const body = { quoteToken: preview.data.token, passengers: 1 };
@@ -40,7 +40,7 @@ test('anonymous autonomous trip preserves selected GPS and signed route, is idem
     assert.equal(created.customer, null);
     assert.equal(created.originType, 'DRIVER');
     assert.equal(created.status, 'TRIP_STARTED');
-    assert.equal(created.estimatedPriceCents, 325);
+    assert.equal(created.estimatedPriceCents, 375);
     assert.equal(created.payments.length, 0);
     assert.ok(created.startedAt);
     const retry = await request('/api/driver/bookings', 'POST', body, driver.cookie);
@@ -51,7 +51,7 @@ test('anonymous autonomous trip preserves selected GPS and signed route, is idem
     const stored = await ctx.prisma.booking.findUniqueOrThrow({ where: { id: created.id } });
     assert.deepEqual(stored.routeDetails.from, selection.fromPoint);
     assert.deepEqual(stored.routeDetails.to, selection.toPoint);
-    assert.equal(stored.estimatedPriceCents, 325);
+    assert.equal(stored.estimatedPriceCents, 375);
     const profile = await ctx.prisma.driverProfile.findUniqueOrThrow({ where: { userId: driver.id } });
     await ctx.prisma.driverLocation.create({ data: { driverId: profile.id, bookingId: created.id, latitude: selection.fromPoint.latitude, longitude: selection.fromPoint.longitude, accuracy: 5 } });
     const fleet = await request('/api/admin/fleet-locations', 'GET', undefined, ctx.cookie);
@@ -68,8 +68,8 @@ test('anonymous autonomous trip preserves selected GPS and signed route, is idem
     assert.equal(incomplete.status, 409);
     const done = await request('/api/driver/bookings', 'PATCH', { id: created.id, status: 'TRIP_COMPLETED', confirmEstimatedDistance: true, observations: 'Passenger safely dropped off', finalPoint: selection.toPoint }, driver.cookie);
     assert.equal(done.status, 200);
-    assert.equal(done.data.booking.estimatedPriceCents, 325);
-    assert.equal(done.data.booking.priceCents, 325);
+    assert.equal(done.data.booking.estimatedPriceCents, 375);
+    assert.equal(done.data.booking.priceCents, 375);
     assert.equal(done.data.booking.driverObservations, 'Passenger safely dropped off');
     assert.ok(done.data.booking.completedAt);
     assert.ok(done.data.booking.actualDurationSeconds >= 0);

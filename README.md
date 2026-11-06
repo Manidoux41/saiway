@@ -174,7 +174,7 @@ value is then preserved as a baseline version. The latest effective active
 version is selected; scheduled versions do not change today's tariff. Dates
 and time supplements use Cambodia time. Old versions cannot be edited or archived.
 Defaults: airport USD 30 per vehicle in either direction (hard maximum USD 30);
-city USD 0.65/km with no starting fee or minimum; Small Circuit USD 35 per vehicle
+city USD 0.65/km with no starting fee and a USD 3.75 minimum; Small Circuit USD 35 per vehicle
 including 8 continuous hours, the 35 km Small Circuit, waiting, driver meal and
 water. Passenger meals are excluded. Grand Circuit is USD 45. Remote circuit
 pricing starts unset and requires an administrator to enter an agreed amount.
@@ -220,7 +220,7 @@ vertex and both endpoints must remain inside an active configured zone; otherwis
 the intracity rate is not applied. Airport endpoints take precedence, including
 trips outside the circle. Administrators can edit/add/deactivate city circles,
 pickup/minimum charges, vehicle, Cambodia-hour (including overnight) and
-exceptional supplements. Defaults remain zero supplements/pickup/minimum.
+exceptional supplements. Defaults remain zero supplements/pickup; the city minimum is USD 3.75.
 USD is the settlement currency; **KHR is indicative only**, using the
 administrator's snapshotted exchange rate. It remains unset until configured.
 Each city uses the common published tariff; there is no separate per-city rate.
