@@ -6,6 +6,8 @@ import { authorize } from "@/lib/access";
 import { customerLocationStatuses, trackingStatuses } from "@/lib/trip-location";
 import { routeDetailsSchema } from "@/lib/route-details";
 import { coordinateAddress } from "@/lib/booking-location";
+import { enqueueMovementPush } from "@/lib/push-events";
+import { schedulePushDelivery } from "@/lib/push-delivery";
 
 const noStore = { "Cache-Control": "no-store" };
 const minIntervalMs = 2_000;
@@ -84,17 +86,22 @@ export async function shareDriverLocation(request: Request) {
     const latest = await prisma.driverLocation.findFirst({ where: { driverId: driver.id }, orderBy: { recordedAt: "desc" }, select: { recordedAt: true } });
     if (latest && Date.now() - latest.recordedAt.getTime() < minIntervalMs) return json({ accepted: false, recordedAt: latest.recordedAt }, 202);
 
-    const saved = await prisma.driverLocation.create({
-      data: {
-        driverId: driver.id,
-        bookingId: booking?.id ?? null,
-        latitude: parsed.data.latitude,
-        longitude: parsed.data.longitude,
-        accuracy: parsed.data.accuracy ?? null,
-        heading: parsed.data.heading ?? null,
-      },
-      select: { recordedAt: true },
+    const saved = await prisma.$transaction(async (tx) => {
+      const location = await tx.driverLocation.create({
+        data: {
+          driverId: driver.id,
+          bookingId: booking?.id ?? null,
+          latitude: parsed.data.latitude,
+          longitude: parsed.data.longitude,
+          accuracy: parsed.data.accuracy ?? null,
+          heading: parsed.data.heading ?? null,
+        },
+        select: { recordedAt: true },
+      });
+      await enqueueMovementPush(tx, driver.id, location.recordedAt, parsed.data);
+      return location;
     });
+    schedulePushDelivery();
 
     let returningToHub = driver.returningToHub;
     if (returningToHub && !booking) {

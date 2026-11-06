@@ -3,6 +3,8 @@ import type { BookingStatus } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { activeAccount, authorize } from "@/lib/access";
+import { enqueueMovementPush } from "@/lib/push-events";
+import { schedulePushDelivery } from "@/lib/push-delivery";
 
 export const trackingStatuses: BookingStatus[] = ["DRIVER_EN_ROUTE", "DRIVER_ARRIVED", "TRIP_STARTED"];
 export const customerLocationStatuses: BookingStatus[] = ["DRIVER_ASSIGNED", "DRIVER_ACCEPTED", ...trackingStatuses];
@@ -25,16 +27,22 @@ export async function shareTripLocation(request: Request, bookingId: string) {
     if (!account) return json({ error: "Driver access required" }, 403);
     const booking = await prisma.booking.findFirst({ where: { id: bookingId, driver: { userId: account.id } }, select: { id: true, status: true, driverId: true } });
     if (!booking?.driverId) return json({ error: "Booking not found" }, 404);
+    const driverId = booking.driverId;
     if (!trackingStatuses.includes(booking.status)) return json({ error: "Location sharing starts when the driver departs" }, 409);
     const parsed = position.safeParse(await request.json());
     if (!parsed.success) return json({ error: "Invalid coordinates" }, 400);
     const latest = await prisma.driverLocation.findFirst({ where: { bookingId }, orderBy: { recordedAt: "desc" }, select: { recordedAt: true } });
     if (latest && Date.now() - latest.recordedAt.getTime() < minIntervalMs) return json({ accepted: false }, 202);
     const { latitude, longitude, accuracy, heading } = parsed.data;
-    const saved = await prisma.driverLocation.create({
-      data: { bookingId, driverId: booking.driverId, latitude, longitude, accuracy: accuracy ?? null, heading: heading ?? null },
-      select: { recordedAt: true },
+    const saved = await prisma.$transaction(async (tx) => {
+      const location = await tx.driverLocation.create({
+        data: { bookingId, driverId, latitude, longitude, accuracy: accuracy ?? null, heading: heading ?? null },
+        select: { recordedAt: true },
+      });
+      await enqueueMovementPush(tx, driverId, location.recordedAt, parsed.data);
+      return location;
     });
+    schedulePushDelivery();
     return json({ accepted: true, recordedAt: saved.recordedAt });
   } catch (error) {
     if (error instanceof SyntaxError) return json({ error: "Invalid JSON" }, 400);

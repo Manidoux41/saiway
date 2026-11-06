@@ -1,9 +1,47 @@
-const CACHE_NAME = "saiway-shell-v5";
+const CACHE_NAME = "saiway-shell-v6";
 const APP_SHELL = ["/icons/icon-192.svg", "/icons/icon-512.svg", "/manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));
   self.skipWaiting();
+});
+
+self.addEventListener("push", (event) => {
+  event.waitUntil((async () => {
+    try {
+      const message = event.data?.json();
+      if (!message || typeof message.body !== "string" || typeof message.data?.subscriptionId !== "string") throw new Error("Invalid push payload");
+      const response = await fetch(`/api/notifications/device?id=${encodeURIComponent(message.data.subscriptionId)}`, { credentials: "include", cache: "no-store" });
+      if (!response.ok) {
+        console.warn("Push skipped: device recipient is no longer signed in or authorization unavailable");
+        return;
+      }
+      const url = ["/admin", "/driver", "/account"].includes(message.data.url) ? message.data.url : "/account";
+      await self.registration.showNotification("SAIWAY", {
+        body: message.body, icon: "/icons/icon-192.svg", badge: "/icons/icon-192.svg",
+        tag: message.tag, lang: message.lang, data: { url },
+      });
+    } catch (error) {
+      console.error("SAIWAY push display failed", error instanceof Error ? error.message : "UNKNOWN");
+    }
+  })());
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil((async () => {
+    const target = ["/admin", "/driver", "/account"].includes(event.notification.data?.url) ? event.notification.data.url : "/account";
+    const url = new URL(target, self.location.origin).href;
+    const tabs = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    for (const tab of tabs) {
+      if (new URL(tab.url).origin === self.location.origin) {
+        await tab.navigate(url);
+        await tab.focus();
+        return;
+      }
+    }
+    await self.clients.openWindow(url);
+  })());
 });
 
 self.addEventListener("activate", (event) => {

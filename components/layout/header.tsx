@@ -7,6 +7,7 @@ import { useAuth } from "@/components/auth/auth-provider";
 import { roleHome } from "@/lib/roles";
 import { useState } from "react";
 import { CalendarPlus, LayoutDashboard, LogOut } from "lucide-react";
+import { PushNotifications } from "@/components/pwa/push-notifications";
 
 const languageOptions: { code: Language; flag: string; label: string }[] = [
   { code: "en", flag: "🇬🇧", label: "English" },
@@ -38,6 +39,7 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-3">
+          <PushNotifications />
           <div className="flex items-center gap-1 rounded-full border border-slate-200 bg-white p-1" aria-label={t("ui.language")}>
             {languageOptions.map((option) => (
               <button

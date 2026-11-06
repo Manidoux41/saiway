@@ -52,9 +52,9 @@ test('worker activation removes the old cache containing API responses', async (
   let activation;
   runInNewContext(source, {
     self: { addEventListener: (name, handler) => handlers.set(name, handler), clients: { claim: () => {} } },
-    caches: { keys: async () => ['saiway-shell-v4', 'saiway-shell-v5'], delete: async (key) => { deleted.push(key); } },
+    caches: { keys: async () => ['saiway-shell-v4', 'saiway-shell-v5', 'saiway-shell-v6'], delete: async (key) => { deleted.push(key); } },
   });
   handlers.get('activate')({ waitUntil: (promise) => { activation = promise; } });
   await activation;
-  assert.deepEqual(deleted, ['saiway-shell-v4']);
+  assert.deepEqual(deleted, ['saiway-shell-v4', 'saiway-shell-v5']);
 });

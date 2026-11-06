@@ -18,6 +18,95 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 ## Database and administration
 
+### Push notifications
+
+Signed-in customers, drivers and administrators can use the bell in the header
+to enable push **on each device**, disable it or send a test (maximum one test
+per minute). Consent is required; there is no unsolicited permission prompt.
+On iPhone, install SAIWAY on the Home Screen first (iOS 16.4+). Other supported
+browsers require HTTPS, except localhost for development.
+
+| Event | Recipient |
+|---|---|
+| Administrator assigns or reassigns a booking to a driver | Newly assigned driver |
+| Driver confirms `DRIVER_ARRIVED` | Customer owning that reservation |
+| Driver changes to `DRIVER_EN_ROUTE`, `TRIP_STARTED`, `TRIP_COMPLETED` | Active administrators |
+| Autonomous driver trip starts | Active administrators |
+| Reliable GPS shows movement of at least 50 m over approximately one minute | Active administrators, at most once per minute per driver |
+
+Arrival is confirmed by the driver, not inferred from GPS proximity. Completion
+does **not** confirm payment. GPS alerts reuse both existing position endpoints;
+no additional GPS transmission or polling connection is introduced. Poor accuracy
+or a GPS interruption suppresses movement alerts rather than inventing movement.
+Each push is translated into the language last selected on its subscribed device.
+Push payloads contain no coordinates, phone numbers, addresses or passenger names.
+
+Setup:
+
+1. Apply additive migration `20261107020000_push_notifications` after testing
+   against a restored database backup: `npx prisma migrate deploy`.
+2. Generate stable VAPID keys locally with
+   `node scripts/setup-push.mjs mailto:contact@example.com`.
+   It writes the ignored local environment file without printing private keys or
+   duplicating entries. Existing complete keys are preserved.
+3. Set `VAPID_PUBLIC_KEY`, **server-only** `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT`
+   in production's environment settings, using the same stable pair. Only the
+   public key is returned by the authenticated subscription API. Restart the app.
+4. Schedule `/api/cron/push-notifications` every minute, passing
+   `Authorization: Bearer <CRON_SECRET>`. The Vercel schedule is included; minute
+   schedules require a suitable hosting plan (not Vercel Hobby's daily cron).
+   On a persistent local server, use an OS scheduler with the same authenticated
+   HTTP request. Do not put the secret in a URL.
+
+Subscriptions and per-device deliveries reuse the existing database and User/
+DriverProfile relationships. Events are queued within the booking/GPS transaction.
+`after()` attempts delivery after the API response, so a provider outage does not
+roll back a trip or falsely report a failed booking. The cron retries with backoff,
+claims jobs atomically and removes expired history after seven days. Provider
+404/410 removes the invalid subscription; transient failures retry at most five
+times. Status notifications expire after 15 minutes; movement/test notifications
+after one minute. Reassigned, cancelled or already-started arrival/assignment
+notifications are discarded before sending. Delivery is best-effort: browsers,
+offline devices, expired login sessions and operating-system settings can prevent
+or delay receipt. Queue failures are logged with identifiers/status codes, never
+endpoint tokens or encryption keys.
+
+The service worker validates the logged-in recipient before displaying a push
+and only opens the appropriate authenticated dashboard. Logging out removes that
+device's server subscription and queued deliveries, then unsubscribes the browser.
+Other devices remain subscribed. Permission revoked in system settings may
+require re-enabling from the bell. A private key rotation requires resubscribing
+devices; do not regenerate keys on every deployment.
+
+New existing-API extensions:
+
+- `GET /api/notifications/subscriptions?endpoint=...`: own device state and public
+  VAPID key; returns no private keys or another account's subscription.
+- `POST /api/notifications/subscriptions`: `{ endpoint, keys: { p256dh, auth },
+  language: "en" | "fr" | "km" }`. Authenticated owner only, up to 20 devices,
+  HTTPS browser-provider allowlist and encryption-key validation.
+- `DELETE /api/notifications/subscriptions`: `{ endpoint }`, only the signed-in
+  owner's device is removed.
+- `POST /api/notifications/test`: `{ endpoint }`, authenticated own device only.
+  HTTP 202 means queued, not proof of OS display; 429 means wait one minute.
+- `GET /api/notifications/device?id=...`: service-worker ownership check.
+- `GET /api/cron/push-notifications`: `CRON_SECRET` only; retries and retention.
+- `POST /api/auth/logout` also accepts optional `{ pushEndpoint }` for device cleanup.
+
+Rollback SQL is provided under `prisma/rollbacks/`; it deliberately discards push
+data only and must not be run without a backup and migration-state reconciliation.
+
+Push policy/worker tests run without a database:
+`node --test tests/push-policy.test.mjs tests/push-worker.test.mjs`.
+For push API tests and the canonical suite, start a server on an **isolated local
+validation database** with disposable VAPID keys and
+`NODE_OPTIONS="--import=./tests/push-transport-fixture.mjs"` plus
+`PUSH_VALIDATION_LOG=/absolute/private/path/push.jsonl`. Pass the same database,
+`VALIDATION_URL`, `CRON_SECRET` and log path to `npm test`. This fixture never
+contacts a real push service and rejects non-local/non-validation databases;
+never load it in normal development or production. It exercises successful,
+temporary-failure and expired-subscription delivery through the real API.
+
 ### Driver business cards and contact QR images
 
 In **Admin → Fleet & management**, business cards reuse the homepage SAIWAY logo
@@ -81,7 +170,8 @@ variables take precedence over files. Restart the server after changing values.
 | `NEXT_PUBLIC_MAP_TILE_URL`, `NEXT_PUBLIC_MAP_TILE_ATTRIBUTION` | Map tile template and required provider attribution. |
 | `NEXT_PUBLIC_ROUTING_URL`, `NEXT_PUBLIC_GEOCODING_URL` | OSRM-compatible routing root and Photon-compatible geocoding endpoint. |
 | `NEXT_PUBLIC_REVERSE_GEOCODING_URL` | Optional Photon-compatible reverse endpoint. Defaults to the geocoding URL with its trailing `/api` replaced by `/reverse`. |
-| `CRON_SECRET` | Private bearer secret for scheduled GPS retention. Configure the same value in the scheduler. |
+| `CRON_SECRET` | Private bearer secret for GPS retention and push-delivery retries. Configure the same value in the scheduler. |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Stable Web Push key pair and public contact (`mailto:` or HTTPS URL). Keep the private key server-only; generate using `scripts/setup-push.mjs`. |
 | `PAYWAY_ENVIRONMENT`, `PAYWAY_MERCHANT_ID`, `PAYWAY_API_KEY`, `PAYWAY_PUBLIC_URL` | Optional PayWay configuration; all four are needed for online checkout. |
 | `VALIDATION_URL` | Optional base URL for integration tests; defaults to `http://localhost:3000`. Use an isolated test database. |
 

@@ -175,6 +175,7 @@ test("operations composes each operational Khmer dictionary and keeps locale key
     ["fare-copy.ts", "fareCopy"],
     ["autonomous-copy.ts", "autonomousCopy"],
     ["interface-copy.ts", "interfaceCopy"],
+    ["push-copy.ts", "pushCopy"],
   ]) {
     const copy = evaluateExport(path.join(root, "components/i18n", moduleName), exportName);
     for (const locale of ["en", "fr", "km"]) {

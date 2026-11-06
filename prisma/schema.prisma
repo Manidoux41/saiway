@@ -88,6 +88,47 @@ model User {
   messages      DriverMessage[]
   auditLogs     AuditLog[]
   customerSessions CustomerSession[]
+  pushSubscriptions PushSubscription[]
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  language  String   @default("en")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deliveries PushDelivery[]
+
+  @@index([userId])
+}
+
+model PushDelivery {
+  id             String   @id @default(cuid())
+  subscriptionId String
+  subscription   PushSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  eventKey       String
+  kind           String
+  bookingId      String?
+  driverId       String?
+  reference      String?
+  recipientRole  UserRole
+  createdAt      DateTime @default(now())
+  expiresAt      DateTime
+  availableAt    DateTime @default(now())
+  attempts       Int      @default(0)
+  lockToken      String?
+  lockedUntil    DateTime?
+  sentAt         DateTime?
+  failedAt       DateTime?
+  lastError      String?
+
+  @@unique([subscriptionId, eventKey])
+  @@index([sentAt, failedAt, availableAt])
+  @@index([createdAt])
 }
 
 model CustomerSession {
@@ -154,6 +195,7 @@ model DriverProfile {
   employmentContracts EmploymentContract[]
   isAvailable  Boolean         @default(true)
   returningToHub Boolean       @default(false)
+  lastMovementPushAt DateTime?
   bookings     Booking[]       @relation("DriverBookings")
   locations    DriverLocation[]
   createdAt    DateTime        @default(now())

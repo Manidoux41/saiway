@@ -11,6 +11,8 @@ import { activeFarePolicy } from "@/lib/fare-store";
 import { autonomousSelection, airportEndpoint, previewTrip, readTripQuote, TripInputError } from "@/lib/autonomous-trips";
 import { locationPointSchema, routeDetailsSchema } from "@/lib/route-details";
 import { fareSupplements } from "@/lib/fare-policy";
+import { enqueueBookingPush } from "@/lib/push-events";
+import { schedulePushDelivery } from "@/lib/push-delivery";
 
 const text = z.string().trim().min(1).max(500);
 const address = text.refine((value) => !/^GPS:/i.test(value) || parseCoordinateAddress(value) !== null, "Invalid GPS coordinates");
@@ -155,6 +157,7 @@ export async function bookingRequest(request: Request, role: SessionRole) {
           });
           if (latest && Date.now() - latest.recordedAt.getTime() <= 60000 && latest.accuracy !== null && Number(latest.accuracy) <= 50) await tx.driverLocation.create({ data: { driverId: driver.id, bookingId: booking.id, latitude: latest.latitude, longitude: latest.longitude, accuracy: latest.accuracy, recordedAt: startedAt } });
           await tx.auditLog.create({ data: { actorId: account.id, entity: "Booking", entityId: booking.id, action: "START_AUTONOMOUS_TRIP", metadata: { priceCents, pricingStatus: booking.pricingStatus, reason: start.success ? start.data.priceReason ?? null : null, tariffId: snapshot.tariffId ?? null } } });
+          await enqueueBookingPush(tx, booking);
           return booking;
         }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }).catch(async (error: unknown) => {
           if (error instanceof Prisma.PrismaClientKnownRequestError && ["P2034", "P2002"].includes(error.code)) {
@@ -163,6 +166,7 @@ export async function bookingRequest(request: Request, role: SessionRole) {
           }
           throw error;
         });
+        schedulePushDelivery();
         return Response.json({ booking: created }, { status: 201 });
       }
       const parsed = role === "ADMIN" ? adminCreate.strict().safeParse(body) : customerCreate.strict().safeParse(body);
@@ -183,8 +187,10 @@ export async function bookingRequest(request: Request, role: SessionRole) {
           include: bookingInclude,
         });
         await tx.auditLog.create({ data: { actorId: account.id, entity: "Booking", entityId: created.id, action: "CREATE" } });
+        await enqueueBookingPush(tx, created);
         return created;
       });
+      schedulePushDelivery();
       return Response.json({ booking }, { status: 201 });
     }
     let confirmedRoute: number | null = null;
@@ -294,8 +300,10 @@ export async function bookingRequest(request: Request, role: SessionRole) {
       if (status === "TRIP_COMPLETED" && existing.driverId && await tx.hub.count({ where: { active: true } })) {
         await tx.driverProfile.update({ where: { id: existing.driverId }, data: { returningToHub: true } });
       }
+      await enqueueBookingPush(tx, result, existing);
       return result;
     });
+    schedulePushDelivery();
     return Response.json({ booking });
   } catch (error) {
     if (error instanceof BookingError) return Response.json({ error: error.message }, { status: error.status });

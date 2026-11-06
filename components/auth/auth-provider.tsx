@@ -44,8 +44,16 @@ export function AuthProvider({ children, initialUser }: { children: ReactNode; i
     return () => { controller.abort(); document.removeEventListener("visibilitychange", renew); window.clearInterval(timer); };
   }, [initialUser?.id, initialUser?.role]);
   async function signOut() {
-    const response = await fetch("/api/auth/logout", { method: "POST" });
+    const worker = "serviceWorker" in navigator ? await navigator.serviceWorker.getRegistration("/") : undefined;
+    const subscription = worker && "pushManager" in worker ? await worker.pushManager.getSubscription() : null;
+    const response = await fetch("/api/auth/logout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pushEndpoint: subscription?.endpoint }) });
     if (!response.ok) throw new Error("Sign out failed");
+    if (subscription) {
+      try {
+        if (!await subscription.unsubscribe()) console.error("Browser push subscription could not be removed after logout");
+        for (const notification of await worker!.getNotifications()) notification.close();
+      } catch { console.error("Browser push cleanup failed after logout; server subscription was removed"); }
+    }
     window.location.replace("/auth");
   }
 

@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   // pdfkit reads its font metrics from its own package folder at runtime.
-  serverExternalPackages: ["pdfkit"],
+  serverExternalPackages: ["pdfkit", "web-push"],
   outputFileTracingIncludes: {
     "/api/admin/contracts/\\[contractId\\]/pdf": ["./assets/fonts/**/*"],
     "/api/admin/drivers/\\[driverId\\]/business-card": ["./assets/fonts/**/*"],
