@@ -53,6 +53,7 @@ export async function customerPayment(request: Request, action: "checkout" | "ve
     if (!parsed.success) throw new PaymentError("Invalid payment request");
     const booking = await prisma.booking.findFirst({ where: { id: parsed.data.bookingId, customerId: account.id }, include: { payments: { orderBy: { createdAt: "desc" } } } });
     if (!booking) throw new PaymentError("Booking not found", 404);
+    if (action === "checkout" && (booking.metered || booking.tripType === "TOURIST_TOUR")) throw new PaymentError("Variable final fares must be settled with the driver", 409);
     if (booking.payments.some((payment) => payment.status === "PAID")) return Response.json({ paid: true }, { headers: noStore });
     if (action === "checkout" && booking.paymentMethod === "DRIVER") throw new PaymentError("Pay-at-driver selected; change payment method before checkout", 409);
     if (action === "checkout" && (terminal.includes(booking.status) || booking.pickupAt.getTime() <= Date.now())) throw new PaymentError("This booking can no longer be paid", 409);
@@ -120,6 +121,7 @@ export async function customerPaymentMethod(request: Request) {
       if (!existing) throw new PaymentError("Booking not found", 404);
       if (["CANCELLED", "NO_SHOW", "REFUNDED"].includes(existing.status) || existing.payments.some((item) => ["PAID", "PROCESSING"].includes(item.status))) throw new PaymentError("The payment method can no longer be changed", 409);
       if (parsed.data.paymentMethod === "ONLINE" && (existing.status === "TRIP_COMPLETED" || existing.status === "TRIP_STARTED" || existing.pickupAt.getTime() <= Date.now())) throw new PaymentError("Online payment is unavailable after pickup", 409);
+      if (parsed.data.paymentMethod === "ONLINE" && (existing.metered || existing.tripType === "TOURIST_TOUR")) throw new PaymentError("Variable final fares must be settled with the driver", 409);
       if (existing.paymentMethod === parsed.data.paymentMethod) return tx.booking.findUniqueOrThrow({ where: { id: existing.id }, include: bookingInclude });
       const updated = await tx.booking.update({ where: { id: existing.id, updatedAt: existing.updatedAt }, data: { paymentMethod: parsed.data.paymentMethod }, include: bookingInclude });
       await tx.auditLog.create({ data: { actorId: account.id, entity: "Booking", entityId: existing.id, action: "PAYMENT_METHOD_CHANGED", metadata: { paymentMethod: parsed.data.paymentMethod } } });

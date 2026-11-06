@@ -15,7 +15,7 @@ export function BookingWidget() {
   const [destination, setDestination] = useState("");
   const [date, setDate] = useState(() => new Date(Date.now() + 86400000).toISOString().slice(0, 10));
   const [time, setTime] = useState("14:30");
-  const [tripType, setTripType] = useState("private-transfer");
+  const [tripType, setTripType] = useState("airport-transfer");
 
   function checkPrice() {
     const params = new URLSearchParams({
@@ -87,7 +87,7 @@ export function BookingWidget() {
           <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
             {t("booking.tripType")}
           </div>
-          <select value={tripType} onChange={(event) => setTripType(event.target.value)} className="mt-2 w-full bg-transparent text-base font-semibold text-[var(--color-text)] outline-none"><option value="private-transfer">{t("booking.privateTransfer")}</option><option value="airport-transfer">{t("booking.airportTransfer")}</option><option value="hotel-transfer">{t("booking.hotelTransfer")}</option></select>
+          <select value={tripType} onChange={(event) => setTripType(event.target.value)} className="mt-2 w-full bg-transparent text-base font-semibold text-[var(--color-text)] outline-none"><option value="airport-transfer">{t("fare.airport")}</option><option value="city-transfer">{t("fare.city")}</option><option value="tourist-tour">{t("fare.tour")}</option><option value="private-transfer">{t("booking.privateTransfer")}</option><option value="hotel-transfer">{t("booking.hotelTransfer")}</option></select>
         </div>
 
         <Button type="button" onClick={checkPrice} className="h-[74px] min-w-[220px] text-base">{t("booking.checkPrice")}</Button>

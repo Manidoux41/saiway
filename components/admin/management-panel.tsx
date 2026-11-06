@@ -10,6 +10,7 @@ import { adminErrorKey, adminRequest, type ManagementData } from "@/lib/admin-cl
 import { DriverLicenses } from "@/components/admin/driver-licenses";
 import { DriverBusinessCards } from "@/components/admin/driver-business-cards";
 import { gpsRetentionSettingKey } from "@/lib/cron-settings";
+import { farePolicyKey } from "@/lib/fare-policy";
 
 const VehicleIconPreview = dynamic(() => import("@/components/maps/vehicle-icon-preview").then((module) => module.VehicleIconPreview), { ssr: false, loading: () => <div className="h-[320px] animate-pulse rounded-xl bg-slate-100" /> });
 const vehicleIconCategories = ["TUK_TUK", "PASSAPP", "SEDAN", "SUV", "MINIVAN", "MINIBUS", "VAN", "OTHER"] as const;
@@ -73,10 +74,38 @@ export function ManagementPanel({ data, loading, loadError, onReload }: { data: 
     <nav aria-label={t("dispatch.management")} className="flex flex-wrap gap-3">
       <a href="#fleet-management" className={buttonClass}>{t("fleet.addVehicle")}</a>
       <a href="#cron-heading" className={buttonClass}>{t("cron.title")}</a>
+      <a href="#fare-policy-heading" className={buttonClass}>{t("fare.settings")}</a>
     </nav>
     {error && <p role="alert" className="rounded-2xl bg-red-50 p-4 text-sm text-[var(--color-error)]">{t(error)}{error === "admin.sessionExpired" && <> <Link href="/auth" className="underline">{t("admin.openSignIn")}</Link></>}</p>}
     {saved && <p role="status" className="text-sm font-semibold text-emerald-700">{t("admin.recordSaved")}</p>}
     <fieldset disabled={pending || loading || Boolean(loadError)} className="contents">
+      <section className="rounded-[28px] bg-white p-6 shadow-sm">
+        <h2 id="fare-policy-heading" className="text-xl font-bold">{t("fare.settings")}</h2>
+        <p className="mt-2 text-sm text-slate-500">{t("fare.policyNotice")}</p>
+        <form key={JSON.stringify(data.farePolicy)} className="mt-4 grid gap-4 sm:grid-cols-2" onSubmit={(event) => {
+          event.preventDefault();
+          const form = new FormData(event.currentTarget);
+          const amount = (key: string) => Math.round(Number(form.get(key)) * 100);
+          void mutate("POST", { entity: "setting", data: { key: farePolicyKey, value: {
+            airportCents: amount("airport"), cityCentsPerKm: amount("city"),
+            smallCircuitCents: amount("small"), grandCircuitCents: amount("grand"),
+            remoteCircuitCents: String(form.get("remote")).trim() === "" ? null : amount("remote"),
+            tourIncludedHours: Number(form.get("hours")), tourIncludedKm: Number(form.get("km")), tourExtraHourCents: amount("extra"),
+          } } });
+        }}>
+          {[
+            { name: "airport", label: "fare.airport", value: data.farePolicy.airportCents / 100, max: 30 },
+            { name: "city", label: "fare.cityRate", value: data.farePolicy.cityCentsPerKm / 100 },
+            { name: "small", label: "fare.small", value: data.farePolicy.smallCircuitCents / 100 },
+            { name: "grand", label: "fare.grand", value: data.farePolicy.grandCircuitCents / 100 },
+            { name: "remote", label: "fare.remote", value: data.farePolicy.remoteCircuitCents === null ? "" : data.farePolicy.remoteCircuitCents / 100 },
+            { name: "extra", label: "fare.extraHourRate", value: data.farePolicy.tourExtraHourCents / 100 },
+          ].map((field) => <label key={field.name} className="grid gap-2 text-sm">{t(field.label as "fare.airport" | "fare.cityRate" | "fare.small" | "fare.grand" | "fare.remote" | "fare.extraHourRate")} (USD)<input name={field.name} type="number" required={field.name !== "remote"} min={field.name === "airport" || field.name === "extra" ? 0 : 0.01} max={field.max ?? 100000} step="0.01" defaultValue={field.value} className={inputClass} /></label>)}
+          <label className="grid gap-2 text-sm">{t("fare.includedHours")}<input name="hours" type="number" required min="1" max="24" defaultValue={data.farePolicy.tourIncludedHours} className={inputClass} /></label>
+          <label className="grid gap-2 text-sm">{t("fare.includedKm")}<input name="km" type="number" required min="0.01" max="1000" step="0.01" defaultValue={data.farePolicy.tourIncludedKm} className={inputClass} /></label>
+          <button type="submit" className={`${buttonClass} sm:col-span-2`}>{t("fare.save")}</button>
+        </form>
+      </section>
       <section className="grid gap-4 md:grid-cols-4">{[["Actual revenue", revenue], ["Actual expenses", expenses], ["Forecast revenue", forecastRevenue], ["Forecast balance", forecastRevenue - forecastExpenses]].map(([label, value]) => <div key={String(label)} className="rounded-3xl bg-white p-5 shadow-sm"><div className="text-sm text-slate-500">{label}</div><div className="mt-3 text-2xl font-black">${(Number(value) / 100).toFixed(2)}</div></div>)}</section>
       <section className="rounded-[28px] bg-white p-6 shadow-sm">
         <h2 className="text-xl font-bold">{t("payment.ledger")}</h2><p className="mt-2 text-sm text-slate-500">{t("payment.ledgerNotice")}</p>

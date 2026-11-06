@@ -7,6 +7,7 @@ import { z } from "zod";
 import { ArrowRight, CalendarDays, CheckCheck, Clock3, Copy, CreditCard, Download, ExternalLink, Headphones, MapPin, Navigation, Plus, QrCode, RefreshCw, Save, Search, UserRound, Users } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
 import { useLanguage } from "@/components/i18n/language-provider";
+import { FareSummary } from "@/components/booking/fare-summary";
 import { useBookings } from "@/components/booking/use-bookings";
 import { courseSchema, type Course } from "@/components/booking/course-dashboard";
 import { closedDriverStatuses, driverTimeZone } from "@/lib/driver-dashboard";
@@ -172,13 +173,14 @@ export function CustomerDashboard() {
           <div className={styles.sectionHeading}><h2>{t("customer.details")}</h2><span className={styles.badge} data-paid={paid(selected)}>{statusLabel(selected.status)}</span></div>
           <p className={styles.eyebrow}>{selected.reference}</p><div className={styles.detailRoute}><MapPin size={19} /><div><small>{t("booking.from")}</small><strong>{selected.fromAddress}</strong><ArrowRight size={17} /><small>{t("booking.to")}</small><strong>{selected.toAddress}</strong></div></div>
           <dl className={styles.facts}><div><dt>{t("courses.pickup")}</dt><dd>{date(selected.pickupAt)}</dd></div><div><dt>{t("dispatch.price")}</dt><dd>{money(selected)}</dd></div><div><dt>{t("booking.passengers")}</dt><dd>{selected.passengers} · {selected.luggageCount} {t("booking.luggage")}</dd></div><div><dt>{t("booking.flightNumber")}</dt><dd>{selected.flightNumber ?? "—"}</dd></div><div><dt>{t("customer.paymentLabel")}</dt><dd>{t(paid(selected) ? "customer.confirmed" : selected.payments?.some((item) => item.status === "PROCESSING") ? "customer.paymentInProgress" : "customer.noPayment")}</dd></div><div><dt>{t("admin.driver")}</dt><dd>{selected.driver?.user.name ?? t("courses.unassigned")}</dd></div></dl>
+          <FareSummary details={selected.fareDetails} />
           {selected.vehicle ? <p className={styles.vehicle}>{selected.vehicle.name} · {selected.vehicle.plate} · {selected.vehicle.seats} {t("records.seats")}</p> : <p className={styles.muted}>{t("customer.vehiclePending")}</p>}
           {["DRIVER_ASSIGNED", "DRIVER_ACCEPTED", "DRIVER_EN_ROUTE", "DRIVER_ARRIVED", "TRIP_STARTED"].includes(selected.status) && <Link href={`/booking/track?booking=${encodeURIComponent(selected.id)}`} className={styles.trackButton} data-live={["DRIVER_EN_ROUTE", "DRIVER_ARRIVED", "TRIP_STARTED"].includes(selected.status)}><Navigation size={17} aria-hidden="true" />{t("nav.track")}<ArrowRight size={16} aria-hidden="true" /></Link>}
           {selected.pickupNotes && <div className={styles.notes}><h3>{t("booking.notes")}</h3><p>{selected.pickupNotes}</p></div>}{selected.specialNeeds && <div className={styles.notes}><h3>{t("booking.specialNeeds")}</h3><p>{selected.specialNeeds}</p></div>}
           {receipt?.collectionMethod && <p className={styles.success}>{t("payment.receivedVia")} : {t(`payment.${receipt.collectionMethod}`)}</p>}
           {payable(selected) && <fieldset disabled={pending || loading || processing} className={styles.paymentMethods}><legend>{t("payment.method")}</legend>
             <label><input type="radio" name="paymentMethod" value="DRIVER" checked={selected.paymentMethod === "DRIVER"} onChange={() => void choosePayment(selected, "DRIVER")} /><span>{t("payment.atDriver")}</span></label>
-            <label><input type="radio" name="paymentMethod" value="ONLINE" checked={selected.paymentMethod === "ONLINE" || processing} disabled={closed(selected) || new Date(selected.pickupAt) <= now || pending || loading || processing} onChange={() => void choosePayment(selected, "ONLINE")} /><span>{t("payment.online")}</span></label>
+            <label><input type="radio" name="paymentMethod" value="ONLINE" checked={selected.paymentMethod === "ONLINE" || processing} disabled={selected.metered || selected.tripType === "TOURIST_TOUR" || closed(selected) || new Date(selected.pickupAt) <= now || pending || loading || processing} onChange={() => void choosePayment(selected, "ONLINE")} /><span>{t("payment.online")}</span></label>
           </fieldset>}
           {payable(selected) && selected.paymentMethod === "DRIVER" && <p className={styles.driverPaymentNotice}>{t("payment.driverNotice")} <strong>{money(selected)}</strong></p>}
           {payable(selected) && processing && <p className={styles.muted}>{t("payment.processingNotice")}</p>}

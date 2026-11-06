@@ -1,8 +1,10 @@
 import { z } from "zod";
 import { contactQrImageSchema } from "@/lib/driver-contact-qr-client";
+import { farePolicySchema } from "@/lib/fare-policy";
 
 export const managementSchema = z.object({
   cron: z.object({ gpsRetentionEnabled: z.boolean(), configured: z.boolean() }),
+  farePolicy: farePolicySchema,
   users: z.array(z.object({ id: z.string(), name: z.string(), email: z.string(), phone: z.string().nullable(), role: z.enum(["ADMIN", "DRIVER", "CUSTOMER"]), status: z.enum(["ACTIVE", "SUSPENDED", "INVITED"]), driver: z.object({ id: z.string(), isAvailable: z.boolean(), licenseNo: z.string().nullable(), licenseExpiresAt: z.string().nullable().optional(), licenseImages: z.array(z.object({ side: z.enum(["FRONT", "BACK"]), sizeBytes: z.number(), uploadedAt: z.string() })).optional(), photo: z.object({ uploadedAt: z.string() }).nullable().optional(), contactQrImages: z.array(contactQrImageSchema).optional() }).nullable() })),
   vehicles: z.array(z.object({ id: z.string(), name: z.string(), plate: z.string(), seats: z.number(), active: z.boolean(), iconCategory: z.enum(["TUK_TUK", "PASSAPP", "SEDAN", "SUV", "MINIVAN", "MINIBUS", "VAN", "OTHER"]), iconImage: z.object({ sizeBytes: z.number(), uploadedAt: z.string() }).nullable() })),
   hubs: z.array(z.object({ id: z.string(), name: z.string(), address: z.string().nullable(), latitude: z.number(), longitude: z.number(), active: z.boolean() })),

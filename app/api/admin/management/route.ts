@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { authorize } from "@/lib/access";
 import { gpsRetentionEnabled, gpsRetentionSettingKey } from "@/lib/cron-settings";
+import { farePolicy, farePolicyKey, farePolicySchema } from "@/lib/fare-policy";
 
 export const runtime = "nodejs";
 
@@ -20,6 +21,7 @@ const fields = {
   setting: z.discriminatedUnion("key", [
     z.object({ key: z.literal("heroBackground"), value: z.url().refine((value) => value.startsWith("https://"), "HTTPS image required") }).strict(),
     z.object({ key: z.literal(gpsRetentionSettingKey), value: z.boolean().transform(String) }).strict(),
+    z.object({ key: z.literal(farePolicyKey), value: farePolicySchema.transform((value) => JSON.stringify(value)) }).strict(),
   ]),
 };
 const input = z.object({ entity: z.enum(["user", "vehicle", "hub", "accounting", "forecast", "pricing", "contract", "setting"]), id: z.string().optional(), data: z.record(z.string(), z.unknown()).optional() });
@@ -35,7 +37,7 @@ export async function GET(request: Request) {
       prisma.forecastLine.findMany({ orderBy: { month: "asc" } }),
       prisma.vehicleContract.findMany({ include: { vehicle: { select: { name: true, plate: true } } }, orderBy: { startsAt: "desc" } }),
       prisma.pricingRule.findMany({ orderBy: { effectiveAt: "desc" } }),
-      prisma.systemSetting.findMany({ where: { key: { in: ["heroBackground", gpsRetentionSettingKey] } } }),
+      prisma.systemSetting.findMany({ where: { key: { in: ["heroBackground", gpsRetentionSettingKey, farePolicyKey] } } }),
       prisma.payment.findMany({
         where: { status: "PAID", provider: { not: "ABA_PAYWAY_SANDBOX" } },
         select: { id: true, amountCents: true, currency: true, provider: true, collectionMethod: true, updatedAt: true, booking: { select: { reference: true, status: true, driver: { select: { user: { select: { name: true } } } } } } },
@@ -43,7 +45,7 @@ export async function GET(request: Request) {
       }),
     ]);
     const retentionEnabled = gpsRetentionEnabled(settings.find((setting) => setting.key === gpsRetentionSettingKey)?.value);
-    return Response.json({ users, vehicles, hubs: hubs.map((hub) => ({ ...hub, latitude: Number(hub.latitude), longitude: Number(hub.longitude) })), entries, forecasts, contracts, pricing, settings, receipts, cron: { gpsRetentionEnabled: retentionEnabled, configured: Boolean(process.env.CRON_SECRET) } }, { headers: { "Cache-Control": "no-store" } });
+    return Response.json({ users, vehicles, hubs: hubs.map((hub) => ({ ...hub, latitude: Number(hub.latitude), longitude: Number(hub.longitude) })), entries, forecasts, contracts, pricing, settings, receipts, farePolicy: farePolicy(settings.find((setting) => setting.key === farePolicyKey)?.value), cron: { gpsRetentionEnabled: retentionEnabled, configured: Boolean(process.env.CRON_SECRET) } }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) { return failure(error); }
 }
 

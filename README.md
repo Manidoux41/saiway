@@ -124,9 +124,9 @@ longer works for subsequent sign-ins. Deploy these files to enable this feature 
 Vercel; writes then use the database configured for that deployment.
 
 Customer reservations are written to PostgreSQL and receive a unique reference.
-The server supplies the displayed quote and calculates the booking price from the
-latest effective, active matching fare; without a matching fare, it uses USD 35.
-The price is recalculated on submission if a published fare has changed.
+The server supplies the displayed quote and recalculates it on submission using
+the automatic transport tariff described below. Existing bookings keep their
+stored amounts; published legacy `PricingRule` rows no longer set new customer fares.
 Administrators can set an unpaid trip price, assign an active/available driver and an active
 vehicle with sufficient seats. Editing the same assignment preserves trip progress;
 an ongoing trip cannot be reassigned. Assignment is possible before payment or
@@ -162,6 +162,79 @@ Trip-list refreshes wait for an in-flight request instead of aborting it on each
 15-second poll or focus event. Requests have a 30-second timeout. Authentication,
 temporary service, timeout and invalid-response failures are shown separately;
 customers can retry loading without resubmitting a saved reservation.
+
+### Automatic transport tariffs
+
+**Admin → Fleet & management → Automatic transport fares** edits the existing
+`SystemSetting` key `transportFarePolicy`. Only administrators may change it.
+Defaults: airport USD 30 per vehicle in either direction (hard maximum USD 30);
+city USD 0.65/km with no starting fee or minimum; Small Circuit USD 35 per vehicle
+including 8 continuous hours, the 35 km Small Circuit, waiting, driver meal and
+water. Passenger meals are excluded. Grand Circuit is USD 45. Remote circuit
+pricing starts unset and requires an administrator to enter an agreed amount.
+Extra tourist service is USD 5 per additional started hour beyond 8 hours;
+the greater of booked duration and actual service duration is billed.
+Circuit extensions use an agreed higher package, not a distance surcharge.
+Drivers confirm a package upgrade at completion; remote upgrades require a
+price in the booking's tariff snapshot. There is no automatic geographic
+inference of temple circuits from GPS alone.
+
+`GET /api/bookings/quote` now requires `fromAddress`, `toAddress`, `direction`
+and `tripType`; optional `tourCircuit=SMALL|GRAND|REMOTE` and `tourHours` select a
+tour package. `POST /api/bookings` accepts the same optional tour fields.
+New `TripType` values are `CITY_TRANSFER` and `TOURIST_TOUR`. Other non-airport
+private/hotel transfers use the city rate; an airport-labelled endpoint or
+coordinates within 2 km of SAI airport use the airport tariff. Road kilometres
+come from the configured OSRM-compatible provider, calculated server-side.
+No straight-line or default-price fallback is used if routing fails. Amounts
+are rounded to the nearest cent. Reservation creation recalculates the quote.
+`Booking.fareDetails` records the policy, distance source, circuit, start time
+and finalization state. Changes to the tariff never rewrite existing snapshots.
+Manual administrator fare/route changes discard the automatic snapshot, except
+metered trips cannot be manually edited while open. Airport price edits and new
+airport bookings cannot exceed USD 30; old higher-priced records are preserved.
+
+From the driver's real activity view, **Start an unreserved city trip** uses
+`POST /api/driver/bookings` with `customerEmail` (existing active customer),
+`vehicleId`, `fromAddress`, `toAddress`, `direction`, `tripType=CITY_TRANSFER` and
+`passengers`; no `pickupAt`, driver ID or customer-supplied fare is accepted.
+The booking starts at server time with `metered=true`, `TRIP_STARTED` and payment
+at driver. An accurate GPS fix under a minute old is required. Driver/vehicle
+overlaps are rejected in a serializable transaction. The existing single GPS
+stream supplies positions; no second watch is started. Completion calculates
+the distance from this driver's recorded trip positions. Samples with missing/
+poor accuracy (over 50 m), gaps over 60 seconds, stale start/end or speeds over
+160 km/h require an explicit fallback confirmation. Segments below 5 m are
+ignored, and movement must exceed the combined reported accuracy since the
+last accepted point to reduce stationary jitter without discarding cumulative
+slow motion; GPS remains an approximate, non-certified meter.
+If incomplete, completion returns `409 GPS_INCOMPLETE_CONFIRM_ROUTE`; retrying
+with `confirmEstimatedDistance=true` uses server-computed road distance and
+records `CONFIRMED_ROUTE`, explicitly excluding unknown detours.
+Tour completion may supply `tourCircuit` to confirm an agreed upgrade.
+Final fare and status are saved atomically before the existing driver payment
+endpoint collects that amount. Metered trips and tours cannot start online
+payment because their final amounts may change. No extra payment API is created.
+
+The additive migration `20261106070000_distance_fares` adds two enum values,
+`Booking.metered` (default false) and nullable `Booking.fareDetails` JSON.
+It leaves existing bookings unchanged. Apply with `prisma migrate deploy`
+after testing against an isolated database. Enum additions do not have a safe
+automatic down migration; do not remove them while referenced by bookings.
+No new dependencies or environment variables are required.
+
+Fare integration tests use the deterministic provider in
+`tests/fixtures/fare-provider.mjs` (5 km / 10 minutes for each requested route).
+Start it with `node tests/fixtures/fare-provider.mjs`, then build with
+`NEXT_PUBLIC_ROUTING_URL=http://127.0.0.1:4369` and
+`NEXT_PUBLIC_GEOCODING_URL=http://127.0.0.1:4369/api`; public Next.js settings are
+baked into the build, so overriding them only at `next start` is insufficient.
+Start the application on `127.0.0.1:4370` with **both** `DATABASE_URL` and
+`PRISMA_DATABASE_URL` pointing to the same isolated migrated PostgreSQL database.
+Run `VALIDATION_URL=http://127.0.0.1:4370 npm test` with the same database overrides.
+Never use the production database for these tests. Stop the fixtures and rebuild
+without test provider overrides before running the application normally.
+Pure fare tests run separately with `node --test tests/fare-policy.test.mjs`.
 
 ### Customer pickup and place suggestions
 

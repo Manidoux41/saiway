@@ -9,6 +9,7 @@ import { useBookings } from "@/components/booking/use-bookings";
 import { useLanguage } from "@/components/i18n/language-provider";
 import type { ManagementData } from "@/lib/admin-client";
 import { closedDriverStatuses, driverDay, driverTimeZone, navigationUrl } from "@/lib/driver-dashboard";
+import { FareSummary } from "@/components/booking/fare-summary";
 import styles from "./admin-dashboard.module.css";
 
 const TripMap = dynamic(() => import("@/components/driver/trip-map"), { ssr: false, loading: () => <div className="h-80 animate-pulse bg-slate-100" /> });
@@ -53,11 +54,11 @@ function BookingForm({ course, management, courses, pending, onSave, onClose }: 
       <label>{t("courses.from")}<input name="fromAddress" required maxLength={500} defaultValue={course?.fromAddress ?? "SAI Airport"} /></label>
       <label>{t("courses.to")}<input name="toAddress" required maxLength={500} defaultValue={course?.toAddress ?? ""} /></label>
       <label>{t("courses.pickup")}<input name="pickupAt" type="datetime-local" required defaultValue={pickupValue} /><small>{t("dispatch.dateHelp")}</small></label>
-      <label>{t("dispatch.price")} ({course?.currency ?? "USD"})<input name="price" type="number" required readOnly={!unpaid} min="0" max="1000000" step="0.01" defaultValue={(course?.priceCents ?? 3500) / 100} /></label>
+      <label>{t("dispatch.price")} ({course?.currency ?? "USD"})<input name="price" type="number" required readOnly={!unpaid} min="0" max="1000000" step="0.01" defaultValue={(course?.priceCents ?? 3000) / 100} /></label>
       <label>{t("booking.passengers")}<input name="passengers" type="number" required min="1" max="50" value={passengers} onChange={(event) => setPassengers(Number(event.target.value))} /></label>
       <label>{t("booking.luggageCount")}<input name="luggageCount" type="number" required min="0" max="50" defaultValue={course?.luggageCount ?? 0} /></label>
       <label>{t("booking.route")}<select name="direction" defaultValue={course?.direction ?? "AIRPORT_TO_CITY"}><option value="AIRPORT_TO_CITY">{t("courses.airportToCity")}</option><option value="CITY_TO_AIRPORT">{t("courses.cityToAirport")}</option></select></label>
-      <label>{t("booking.tripType")}<select name="tripType" defaultValue={course?.tripType ?? "AIRPORT_TRANSFER"}><option value="AIRPORT_TRANSFER">{t("booking.airportTransfer")}</option><option value="PRIVATE_TRANSFER">{t("booking.privateTransfer")}</option><option value="HOTEL_TRANSFER">{t("booking.hotelTransfer")}</option></select></label>
+      <label>{t("booking.tripType")}<select name="tripType" defaultValue={course?.tripType ?? "AIRPORT_TRANSFER"}><option value="AIRPORT_TRANSFER">{t("booking.airportTransfer")}</option><option value="CITY_TRANSFER">{t("fare.city")}</option><option value="TOURIST_TOUR">{t("fare.tour")}</option><option value="PRIVATE_TRANSFER">{t("booking.privateTransfer")}</option><option value="HOTEL_TRANSFER">{t("booking.hotelTransfer")}</option></select></label>
       <h3 className={styles.wide}>{t("dispatch.assignment")}</h3>
       <label>{t("admin.driver")}<select name="driverId" disabled={locked} defaultValue={course?.driverId ?? ""}><option value="">{t("courses.unassigned")}</option>{drivers.map((user) => <option key={user.id} value={user.driver!.id}>{user.name} · {courses.filter((item) => item.driverId === user.driver!.id && !closedDriverStatuses.includes(item.status)).length} {t("dispatch.assignedTrips")}</option>)}</select></label>
       <label>{t("admin.vehicle")}<select name="vehicleId" disabled={locked} defaultValue={course?.vehicleId ?? ""}><option value="">{t("courses.unassigned")}</option>{vehicles.map((vehicle) => <option key={vehicle.id} value={vehicle.id} disabled={!vehicle.active || vehicle.seats < passengers}>{vehicle.name} · {vehicle.plate} · {vehicle.seats} {t("records.seats")}</option>)}</select></label>
@@ -142,6 +143,7 @@ export function AdminBookings({ management, disabled }: { management: Management
       <section className={styles.inspector} aria-label={t("driver.selected")}>
         {selected ? <>
           <div className={styles.sectionHeading}><h2>{t("driver.selected")}</h2><a href={navigationUrl(selected)} target="_blank" rel="noopener noreferrer" className={styles.iconButton} title={t("driver.navigate")} aria-label={t("driver.navigate")}><Navigation size={18} /></a></div>
+          <FareSummary details={selected.fareDetails} />
           <div className={styles.mapFrame}><TripMap key={`${selected.id}-${selected.fromAddress}-${selected.toAddress}-${language}`} course={selected} demo={false} /></div>
           <div className={styles.detailHeading}><div><small>{selected.reference}</small><h3>{selected.customer.name}</h3></div><span className={styles.badge} data-status={selected.status}>{statusLabel(selected.status)}</span></div>
           <div className={styles.routeDetail}><MapPin size={17} /><div><p>{selected.fromAddress}</p><ArrowRight size={14} /><p>{selected.toAddress}</p></div></div>

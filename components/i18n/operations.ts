@@ -4,6 +4,7 @@ import { customerCopy } from "@/components/i18n/customer-copy";
 import { profileCopy } from "@/components/i18n/profile-copy";
 import { trackingCopy } from "@/components/i18n/tracking-copy";
 import { placeCopy } from "@/components/i18n/place-copy";
+import { fareCopy } from "@/components/i18n/fare-copy";
 
 const en = {
   ...driverCopy.en,
@@ -12,6 +13,7 @@ const en = {
   ...profileCopy.en,
   ...trackingCopy.en,
   ...placeCopy.en,
+  ...fareCopy.en,
   "password.title": "Change my password", "password.help": "Enter your current password and a different new password (8 to 128 characters). Existing sessions remain signed in.",
   "password.current": "Current password", "password.new": "New password", "password.confirm": "Confirm new password", "password.save": "Change password",
   "password.saved": "Your password has been updated in the database. Use the new password the next time you sign in.",
@@ -41,7 +43,7 @@ const en = {
   "courses.manageRecords": "Edit records and settings", "courses.entity": "Category", "courses.record": "Record", "courses.newRecord": "New record",
   "courses.archiveNotice": "Accounts and vehicles are deactivated, not deleted. Financial history is retained. Account roles cannot be changed.",
   "courses.saved": "Your booking has been saved.", "courses.submitError": "Unable to save your booking. Check the details and retry.",
-  "courses.quoteNotice": "The final price is calculated by the server using the published fare, or the default USD 35 fare.",
+  "courses.quoteNotice": "The server calculates the fare from the trip type, road distance or agreed tourist package. Final metered trips and tourist overtime are settled after the trip.",
 };
 const fr: typeof en = {
   ...driverCopy.fr,
@@ -50,6 +52,7 @@ const fr: typeof en = {
   ...profileCopy.fr,
   ...trackingCopy.fr,
   ...placeCopy.fr,
+  ...fareCopy.fr,
   "password.title": "Changer mon mot de passe", "password.help": "Saisissez votre mot de passe actuel et un nouveau mot de passe différent (8 à 128 caractères). Les sessions existantes restent connectées.",
   "password.current": "Mot de passe actuel", "password.new": "Nouveau mot de passe", "password.confirm": "Confirmer le nouveau mot de passe", "password.save": "Modifier le mot de passe",
   "password.saved": "Votre mot de passe a été mis à jour dans la base de données. Utilisez le nouveau lors de votre prochaine connexion.",
@@ -79,7 +82,7 @@ const fr: typeof en = {
   "courses.manageRecords": "Modifier les éléments et paramètres", "courses.entity": "Catégorie", "courses.record": "Élément", "courses.newRecord": "Nouvel élément",
   "courses.archiveNotice": "Les comptes et véhicules sont désactivés, pas supprimés. L'historique financier est conservé. Les rôles des comptes ne peuvent pas être changés.",
   "courses.saved": "Votre réservation a été enregistrée.", "courses.submitError": "Impossible d'enregistrer votre réservation. Vérifiez les informations et réessayez.",
-  "courses.quoteNotice": "Le prix final est calculé par le serveur selon le tarif publié, ou le tarif par défaut de 35 USD.",
+  "courses.quoteNotice": "Le serveur calcule le tarif selon le type de course, la distance routière ou le forfait touristique convenu. Les courses au kilomètre réel et les dépassements touristiques sont réglés après la course.",
 };
 export const operations = { en, fr, km: { ...en,
   "nav.adminDashboard": "ផ្ទាំងគ្រប់គ្រងអ្នកគ្រប់គ្រង", "nav.driverDashboard": "ផ្ទាំងគ្រប់គ្រងអ្នកបើកបរ", "nav.account": "គណនីរបស់ខ្ញុំ", "nav.signOut": "ចាកចេញ",

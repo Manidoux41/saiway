@@ -15,6 +15,9 @@ import { DriverContactQrCard } from "./driver-contact-qr-card";
 import { distanceMeters, useLocationSharing } from "./use-location-sharing";
 import styles from "./driver-dashboard.module.css";
 import type { FleetDriver } from "@/components/maps/fleet-map";
+import { WalkupTrip } from "./walkup-trip";
+import { FareSummary } from "@/components/booking/fare-summary";
+import { circuitSchema } from "@/lib/fare-policy";
 
 const TripMap = dynamic(() => import("./trip-map"), { ssr: false, loading: () => <div className="h-[370px] animate-pulse bg-slate-100" /> });
 const DriverFleetMap = dynamic(() => import("@/components/maps/fleet-map").then((module) => module.FleetMap), { ssr: false, loading: () => <div className="h-full animate-pulse bg-slate-100" /> });
@@ -30,7 +33,7 @@ export function DriverDashboard() {
   const { user } = useAuth();
   const { t, language } = useLanguage();
   const [demoCourses, setDemoCourses] = useState<Course[]>(() => user ? createDemoCourses(user) : []);
-  const [mode, setMode] = useState<"auto" | "real" | "demo">("auto");
+  const [mode, setMode] = useState<"real" | "demo">("real");
   const [message, setMessage] = useState("");
   const [pending, setPending] = useState(false);
   const collectionLock = useRef(false);
@@ -40,6 +43,7 @@ export function DriverDashboard() {
   const [status, setStatus] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [trackingOpen, setTrackingOpen] = useState(false);
+  const [tourCircuits, setTourCircuits] = useState<Record<string, "SMALL" | "GRAND" | "REMOTE" | "">>({});
   const [now, setNow] = useState(() => new Date());
   const [collection, setCollection] = useState<{ bookingId: string; method: "CASH" | "CARD" | "ABA" | "OTHER" } | null>(null);
   // The contact block only renders after trips load in the browser, so reading storage here cannot cause a hydration mismatch.
@@ -55,7 +59,7 @@ export function DriverDashboard() {
     return () => window.clearInterval(timer);
   }, []);
 
-  const demo = mode === "demo" || mode === "auto" && loaded && courses.length === 0;
+  const demo = mode === "demo";
   const source = demo ? demoCourses : courses;
   const summary = driverSummary(source, now);
   const visible = filterDriverCourses(source, tab, query, now).filter((course) => !status || course.status === status);
@@ -111,7 +115,16 @@ export function DriverDashboard() {
     setPending(true);
     setError("");
     try {
-      const response = await fetch("/api/driver/bookings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: course.id, status: nextStatus }) });
+      const selectedCircuit = circuitSchema.safeParse(tourCircuits[course.id]);
+      if (nextStatus === "TRIP_COMPLETED" && selectedCircuit.success && selectedCircuit.data !== course.fareDetails?.circuit && !window.confirm(t("fare.confirmUpgrade"))) return;
+      const body = { id: course.id, status: nextStatus, ...(nextStatus === "TRIP_COMPLETED" && selectedCircuit.success ? { tourCircuit: selectedCircuit.data } : {}) };
+      let response = await fetch("/api/driver/bookings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      if (response.status === 409 && course.metered) {
+        const failure = z.object({ error: z.string() }).safeParse(await response.clone().json());
+        if (failure.success && failure.data.error === "GPS_INCOMPLETE_CONFIRM_ROUTE" && window.confirm(t("fare.confirmFallback"))) {
+          response = await fetch("/api/driver/bookings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...body, confirmEstimatedDistance: true }) });
+        }
+      }
       if (!response.ok) throw new Error("Update failed");
       const result = z.object({ booking: courseSchema }).parse(await response.json());
       setCourses((current) => current.map((item) => item.id === result.booking.id ? result.booking : item));
@@ -153,6 +166,17 @@ export function DriverDashboard() {
     {demo && <p className={styles.demoNotice}><FlaskConical size={18} aria-hidden="true" />{t("driver.demoNotice")}</p>}
     {error && <p role="alert" className={styles.error}>{error}</p>}
     {message && <p role="status" className={styles.success}><Check size={16} />{message}</p>}
+    <WalkupTrip disabled={demo || loading || pending || courses.some((course) => ["DRIVER_EN_ROUTE", "DRIVER_ARRIVED", "TRIP_STARTED"].includes(course.status))} onStarted={() => { setMode("real"); setTab("today"); refresh(); }} />
+    {selected && <FareSummary details={selected.fareDetails} />}
+    {selected?.status === "TRIP_STARTED" && selected.fareDetails?.mode === "TOUR" && <label className="my-3 block text-sm">{t("fare.circuitAtFinish")}
+      <select value={tourCircuits[selected.id] ?? ""} onChange={(event) => {
+        const parsed = circuitSchema.safeParse(event.target.value);
+        setTourCircuits((current) => ({ ...current, [selected.id]: parsed.success ? parsed.data : "" }));
+      }} disabled={pending || demo} className="ml-3 rounded-xl border p-2">
+        <option value="">{t("fare.keepCircuit")}</option><option value="SMALL">{t("fare.small")}</option><option value="GRAND">{t("fare.grand")}</option>
+        {selected.fareDetails.policy.remoteCircuitCents !== null && <option value="REMOTE">{t("fare.remote")}</option>}
+      </select>
+    </label>}
 
     {!demo && loaded && <section className={styles.liveShare} data-phase={sharing.phase} aria-live="polite">
       {sharing.phase === "sharing" || sharing.phase === "starting" ? <LocateFixed size={20} aria-hidden="true" /> : <LocateOff size={20} aria-hidden="true" />}

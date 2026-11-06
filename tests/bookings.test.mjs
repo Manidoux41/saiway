@@ -14,7 +14,7 @@ test('customer reservation, administrator dispatch and driver progression persis
     const vehicle = await request('/api/admin/management', 'POST', { entity: 'vehicle', data: { name: ctx.prefix, plate: ctx.prefix, seats: 4 } }, ctx.cookie);
     assert.equal(vehicle.status, 201); vehicleId = vehicle.data.item.id;
     const body = { fromAddress: 'SAI Airport', toAddress: 'Validation hotel', direction: 'AIRPORT_TO_CITY', tripType: 'PRIVATE_TRANSFER', pickupAt: new Date(Date.now() + 86400000).toISOString(), passengers: 2, luggageCount: 1, flightNumber: 'TEST123', pickupNotes: 'Keep this note' };
-    const quotePath = '/api/bookings/quote?direction=AIRPORT_TO_CITY&tripType=PRIVATE_TRANSFER';
+    const quotePath = '/api/bookings/quote?direction=AIRPORT_TO_CITY&tripType=PRIVATE_TRANSFER&fromAddress=SAI%20Airport&toAddress=Validation%20hotel';
     assert.equal((await request(quotePath)).status, 403);
     assert.equal((await request(quotePath, 'GET', undefined, driver.cookie)).status, 403);
     const quote = await request(quotePath, 'GET', undefined, customer.cookie);
@@ -41,8 +41,9 @@ test('customer reservation, administrator dispatch and driver progression persis
     assert.equal((await request('/api/payments/payway/checkout', 'POST', { bookingId: id }, otherCustomer.cookie)).status, 404);
     assert.equal((await request('/api/payments/payway/checkout', 'POST', { bookingId: id }, driver.cookie)).status, 403);
     assert.equal((await request('/api/payments/payway/checkout', 'POST', { bookingId: id, amountCents: 1 }, customer.cookie)).status, 400);
-    assert.equal((await request('/api/admin/bookings', 'PATCH', { id, priceCents: 4200 }, ctx.cookie)).status, 200);
-    await ctx.prisma.payment.create({ data: { bookingId: id, provider: 'TEST_FIXTURE', status: 'PAID', amountCents: 4200, currency: 'USD' } });
+    assert.equal((await request('/api/admin/bookings', 'PATCH', { id, priceCents: 4200 }, ctx.cookie)).status, 400);
+    assert.equal((await request('/api/admin/bookings', 'PATCH', { id, priceCents: 3000 }, ctx.cookie)).status, 200);
+    await ctx.prisma.payment.create({ data: { bookingId: id, provider: 'TEST_FIXTURE', status: 'PAID', amountCents: 3000, currency: 'USD' } });
     assert.ok((await request('/api/admin/bookings', 'GET', undefined, ctx.cookie)).data.bookings.some((item) => item.id === id));
     const confirmed = await request('/api/admin/bookings', 'PATCH', { id, status: 'CONFIRMED' }, ctx.cookie);
     assert.equal(confirmed.status, 200);
@@ -87,11 +88,11 @@ test('customer reservation, administrator dispatch and driver progression persis
       assert.equal((await request('/api/driver/bookings', 'PATCH', { id, status }, driver.cookie)).status, 200);
     }
     const stored = await ctx.prisma.booking.findUnique({ where: { id }, include: { statusHistory: { orderBy: { createdAt: 'asc' } }, payments: true } });
-    assert.equal(stored.status, 'TRIP_COMPLETED'); assert.equal(stored.priceCents, 4200);
+    assert.equal(stored.status, 'TRIP_COMPLETED'); assert.equal(stored.priceCents, 3000);
     assert.equal(stored.payments.length, 1);
     assert.deepEqual(stored.statusHistory.map((entry) => entry.status).filter((status, index, all) => index === 0 || status !== all[index - 1]), ['PENDING_PAYMENT', 'CONFIRMED', 'DRIVER_ASSIGNED', 'DRIVER_ACCEPTED', 'DRIVER_EN_ROUTE', 'DRIVER_ARRIVED', 'TRIP_STARTED', 'TRIP_COMPLETED']);
     assert.equal((await request('/api/admin/bookings', 'DELETE', { id, status: 'CANCELLED' }, ctx.cookie)).status, 409);
-    const adminCreated = await request('/api/admin/bookings', 'POST', { ...body, customerId: customer.id, driverId, vehicleId, priceCents: 5000 }, ctx.cookie);
+    const adminCreated = await request('/api/admin/bookings', 'POST', { ...body, customerId: customer.id, driverId, vehicleId, priceCents: 3000 }, ctx.cookie);
     assert.equal(adminCreated.status, 201); assert.equal(adminCreated.data.booking.status, 'DRIVER_ASSIGNED');
     assert.ok((await request('/api/driver/bookings', 'GET', undefined, driver.cookie)).data.bookings.some((item) => item.id === adminCreated.data.booking.id));
     assert.equal(await ctx.prisma.payment.count({ where: { bookingId: adminCreated.data.booking.id } }), 0);

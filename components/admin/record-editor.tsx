@@ -31,7 +31,7 @@ export function RecordEditor({ data, disabled, refresh }: { data: ManagementData
   const records: Record<Entity, Array<Record<string, unknown>>> = {
     user: data.users.filter((item) => item.id !== user?.id).map((item) => ({ ...item, ...(item.driver ? { isAvailable: item.driver.isAvailable, licenseNo: item.driver.licenseNo, licenseExpiresAt: item.driver.licenseExpiresAt } : {}) })),
     vehicle: data.vehicles, accounting: data.entries, forecast: data.forecasts,
-    pricing: data.pricing, contract: data.contracts, setting: data.settings,
+    pricing: data.pricing, contract: data.contracts, setting: data.settings.filter((setting) => setting.key === "heroBackground"),
   };
   const record = records[entity].find((item) => (item.id ?? item.key) === selected);
   const visibleFields = fields[entity].filter((field) => entity !== "user" || record?.role === "DRIVER" || !["isAvailable", "licenseNo", "licenseExpiresAt"].includes(field.key));
@@ -79,6 +79,7 @@ export function RecordEditor({ data, disabled, refresh }: { data: ManagementData
       <label>{t("courses.entity")}<select disabled={disabled || pending} value={entity} onChange={(event) => { const value = event.target.value; if (value in fields) setEntity(value as Entity); setSelected(""); setSaved(false); setError(null); }} className="mt-1 w-full rounded-xl border p-3">{(Object.keys(categories) as Entity[]).map((key) => <option key={key} value={key}>{t(categories[key])}</option>)}</select></label>
       <label>{t("courses.record")}<select disabled={disabled || pending} value={selected} onChange={(event) => { setSelected(event.target.value); setSaved(false); setError(null); }} className="mt-1 w-full rounded-xl border p-3"><option value="">{entity === "user" ? t("courses.select") : t("courses.newRecord")}</option>{records[entity].map((item) => <option key={String(item.id ?? item.key)} value={String(item.id ?? item.key)}>{String(item.name ?? item.label ?? item.provider ?? item.month ?? item.key ?? item.id)}</option>)}</select></label>
     </div>
+    {entity === "pricing" && <p className="mb-4 text-sm text-slate-600">{t("fare.legacyNotice")} <a href="#fare-policy-heading" className="underline">{t("fare.settings")}</a></p>}
     {!(entity === "user" && !record) && <form key={`${entity}-${selected}`} onSubmit={submit}>
       <fieldset disabled={disabled || pending} className="grid gap-4 md:grid-cols-3">
         {visibleFields.map((field) => <label key={field.key}>{t(field.label)}{field.options ? <select name={field.key} defaultValue={defaultValue(field)} className="mt-1 w-full rounded-xl border p-3">{field.options.map((value) => <option key={value} value={value}>{value || t("records.all")}</option>)}</select> : field.key === "vehicleId" ? <select name={field.key} required defaultValue={defaultValue(field)} className="mt-1 w-full rounded-xl border p-3"><option value="">{t("courses.select")}</option>{data.vehicles.filter((vehicle) => vehicle.active || vehicle.id === record?.vehicleId).map((vehicle) => <option key={vehicle.id} value={vehicle.id}>{vehicle.name} · {vehicle.plate}</option>)}</select> : <input name={field.key} required={!field.optional} type={field.type ?? "text"} defaultValue={defaultValue(field)} min={field.type === "number" ? 0 : undefined} className="mt-1 w-full rounded-xl border p-3" />}</label>)}

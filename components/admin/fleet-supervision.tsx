@@ -1,11 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { z } from "zod";
 import { Maximize2, Minimize2, RefreshCw } from "lucide-react";
 import { useLanguage } from "@/components/i18n/language-provider";
-import { FleetMap, type FleetDriver, type FleetHub } from "@/components/maps/fleet-map";
+import type { FleetDriver, FleetHub } from "@/components/maps/fleet-map";
 import styles from "./admin-dashboard.module.css";
+
+const FleetMap = dynamic(() => import("@/components/maps/fleet-map").then((module) => module.FleetMap), { ssr: false, loading: () => <div className="h-[480px] animate-pulse bg-slate-100" /> });
 
 const fleetSchema = z.object({
   hubs: z.array(z.object({ id: z.string(), name: z.string(), address: z.string().nullable(), latitude: z.number(), longitude: z.number() })),

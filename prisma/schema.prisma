@@ -42,6 +42,8 @@ enum TripType {
   AIRPORT_TRANSFER
   PRIVATE_TRANSFER
   HOTEL_TRANSFER
+  CITY_TRANSFER
+  TOURIST_TOUR
 }
 
 enum PaymentMethod {
@@ -335,6 +337,8 @@ model Booking {
   currency       String          @default("USD")
   status         BookingStatus   @default(PENDING_PAYMENT)
   paymentMethod  PaymentMethod   @default(UNDECIDED)
+  metered        Boolean         @default(false)
+  fareDetails    Json?
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   statusHistory  BookingStatusHistory[]

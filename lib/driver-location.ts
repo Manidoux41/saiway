@@ -31,7 +31,7 @@ export async function driverLocationAccess(request: Request) {
       where: { userId: account.id },
       select: {
         id: true, isAvailable: true, returningToHub: true,
-        bookings: { where: { status: { in: customerLocationStatuses } }, select: { id: true, status: true, fromAddress: true, toAddress: true, vehicle: { select: { id: true, name: true, plate: true, iconCategory: true } } }, orderBy: { pickupAt: "asc" }, take: 1 },
+        bookings: { where: { status: { in: customerLocationStatuses } }, select: { id: true, status: true, fromAddress: true, toAddress: true, vehicle: { select: { id: true, name: true, plate: true, iconCategory: true } } }, orderBy: [{ status: "desc" }, { pickupAt: "asc" }], take: 1 },
         locations: { orderBy: { recordedAt: "desc" }, take: 1, select: { latitude: true, longitude: true, accuracy: true, heading: true, recordedAt: true } },
       },
     });
@@ -73,7 +73,7 @@ export async function shareDriverLocation(request: Request) {
     if (!parsed.success) return json({ error: "Invalid coordinates" }, 400);
     const driver = await prisma.driverProfile.findUnique({
       where: { userId: account.id },
-      select: { id: true, isAvailable: true, returningToHub: true, bookings: { where: { status: { in: customerLocationStatuses } }, select: { id: true, status: true }, orderBy: { pickupAt: "asc" }, take: 1 } },
+      select: { id: true, isAvailable: true, returningToHub: true, bookings: { where: { status: { in: customerLocationStatuses } }, select: { id: true, status: true }, orderBy: [{ status: "desc" }, { pickupAt: "asc" }], take: 1 } },
     });
     if (!driver) return json({ error: "Driver profile not found" }, 404);
     const booking = driver.bookings[0] ?? null;
@@ -128,7 +128,7 @@ export async function adminFleetLocations(request: Request) {
           locations: { orderBy: { recordedAt: "desc" }, take: 1 },
           bookings: {
             where: { status: { in: customerLocationStatuses } },
-            orderBy: { pickupAt: "asc" },
+            orderBy: [{ status: "desc" }, { pickupAt: "asc" }],
             take: 1,
             select: { id: true, reference: true, status: true, fromAddress: true, toAddress: true, vehicle: { select: { id: true, name: true, plate: true, iconCategory: true } } },
           },

@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/components/i18n/language-provider";
 import { HotelSearch } from "@/components/booking/hotel-search";
 import { PickupLocation } from "@/components/booking/pickup-location";
+import { fareDetailsSchema, type FareDetails } from "@/lib/fare-policy";
+import { FareSummary } from "@/components/booking/fare-summary";
 import { useAuth } from "@/components/auth/auth-provider";
 import { ArrowRight, Check, CreditCard, MapPin, Plane, ShieldCheck, Wallet } from "lucide-react";
 
@@ -27,39 +29,47 @@ function BookingForm() {
   const [direction, setDirection] = useState<"airport-to-city" | "city-to-airport">(params.get("direction") === "city-to-airport" ? "city-to-airport" : "airport-to-city");
   const [pickupDate, setPickupDate] = useState(() => /^\d{4}-\d{2}-\d{2}$/.test(params.get("date") ?? "") ? params.get("date")! : new Date(Date.now() + 86400000).toISOString().slice(0, 10));
   const [pickupTime, setPickupTime] = useState(() => /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(params.get("time") ?? "") ? params.get("time")! : "14:30");
-  const [tripType, setTripType] = useState(() => ["airport-transfer", "hotel-transfer"].includes(params.get("tripType") ?? "") ? params.get("tripType")! : "private-transfer");
+  const [tripType, setTripType] = useState(() => ["airport-transfer", "hotel-transfer", "city-transfer", "tourist-tour"].includes(params.get("tripType") ?? "") ? params.get("tripType")! : "airport-transfer");
+  const [tourCircuit, setTourCircuit] = useState("SMALL");
+  const [tourHours, setTourHours] = useState(8);
   const [paymentMethod, setPaymentMethod] = useState<"ONLINE" | "DRIVER">("DRIVER");
   const [submitted, setSubmitted] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [reference, setReference] = useState("");
   const [bookingId, setBookingId] = useState("");
-  const [finalPrice, setFinalPrice] = useState(3500);
+  const [finalPrice, setFinalPrice] = useState(3000);
   const [finalCurrency, setFinalCurrency] = useState("USD");
-  const [quoteState, setQuoteState] = useState<{ selection: string; priceCents: number; currency: string } | null>(null);
-  const [quoteError, setQuoteError] = useState(false);
+  const [quoteState, setQuoteState] = useState<{ selection: string; priceCents: number; currency: string; fareDetails: FareDetails } | null>(null);
+  const [quoteError, setQuoteError] = useState<"remote" | "general" | null>(null);
   const apiDirection = direction === "airport-to-city" ? "AIRPORT_TO_CITY" : "CITY_TO_AIRPORT";
-  const apiTripType = tripType === "airport-transfer" ? "AIRPORT_TRANSFER" : tripType === "hotel-transfer" ? "HOTEL_TRANSFER" : "PRIVATE_TRANSFER";
-  const selection = `${apiDirection}:${apiTripType}`;
+  const apiTripType = tripType === "airport-transfer" ? "AIRPORT_TRANSFER" : tripType === "hotel-transfer" ? "HOTEL_TRANSFER" : tripType === "city-transfer" ? "CITY_TRANSFER" : tripType === "tourist-tour" ? "TOURIST_TOUR" : "PRIVATE_TRANSFER";
+  const selection = JSON.stringify([apiDirection, apiTripType, fromAddress, toAddress, tourCircuit, tourHours]);
   const quote = quoteState?.selection === selection ? quoteState : null;
-  const priceLabel = quote ? `${(quote.priceCents / 100).toFixed(2)} ${quote.currency}` : t(quoteError ? "courses.quoteError" : "admin.loading");
+  const effectivePaymentMethod = apiTripType === "TOURIST_TOUR" ? "DRIVER" : paymentMethod;
+  const priceLabel = quote ? `${(quote.priceCents / 100).toFixed(2)} ${quote.currency}` : t(!fromAddress.trim() || !toAddress.trim() ? "fare.chooseRoute" : quoteError === "remote" ? "fare.remoteUnavailable" : quoteError ? "courses.quoteError" : "admin.loading");
   const [passenger, setPassenger] = useState({ name: user?.name ?? "", email: user?.email ?? "", phone: "", luggageCount: 2, specialNeeds: "", flightNumber: "", pickupNotes: "" });
 
   useEffect(() => {
     const controller = new AbortController();
     async function loadQuote() {
       try {
-        const response = await fetch(`/api/bookings/quote?direction=${apiDirection}&tripType=${apiTripType}`, { cache: "no-store", signal: controller.signal });
-        if (!response.ok) throw new Error("Quote unavailable");
-        const value = z.object({ priceCents: z.number().int().nonnegative(), currency: z.string() }).parse(await response.json());
-        if (!controller.signal.aborted) { setQuoteState({ selection, ...value }); setQuoteError(false); }
+        if (!fromAddress.trim() || !toAddress.trim()) return;
+        const query = new URLSearchParams({ direction: apiDirection, tripType: apiTripType, fromAddress, toAddress, tourCircuit, tourHours: String(tourHours) });
+        const response = await fetch(`/api/bookings/quote?${query}`, { cache: "no-store", signal: controller.signal });
+        if (!response.ok) {
+          if (!controller.signal.aborted) setQuoteError(response.status === 422 ? "remote" : "general");
+          return;
+        }
+        const value = z.object({ priceCents: z.number().int().nonnegative(), currency: z.string(), fareDetails: fareDetailsSchema }).parse(await response.json());
+        if (!controller.signal.aborted) { setQuoteState({ selection, ...value }); setQuoteError(null); }
       } catch {
-        if (!controller.signal.aborted) setQuoteError(true);
+        if (!controller.signal.aborted) setQuoteError("general");
       }
     }
-    void loadQuote();
-    return () => controller.abort();
-  }, [apiDirection, apiTripType, selection]);
+    const timer = setTimeout(() => void loadQuote(), 500);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [apiDirection, apiTripType, selection, fromAddress, toAddress, tourCircuit, tourHours]);
 
   async function continueBooking(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -72,13 +82,14 @@ function BookingForm() {
     try {
       const response = await fetch("/api/bookings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
         fromAddress, toAddress,
-        direction: apiDirection, tripType: apiTripType, paymentMethod, contactPhone: passenger.phone.trim(),
+        direction: apiDirection, tripType: apiTripType, paymentMethod: effectivePaymentMethod, tourCircuit, tourHours, contactPhone: passenger.phone.trim(),
         pickupAt: new Date(`${pickupDate}T${pickupTime}:00+07:00`).toISOString(), passengers,
         luggageCount: passenger.luggageCount, specialNeeds: passenger.specialNeeds, flightNumber: passenger.flightNumber,
         pickupNotes: `${passenger.pickupNotes}\nPassenger: ${passenger.name}; ${passenger.email}; ${passenger.phone}`,
       }) });
       if (!response.ok) throw new Error("Booking rejected");
-      const result = z.object({ booking: z.object({ id: z.string(), reference: z.string(), priceCents: z.number(), currency: z.string() }) }).parse(await response.json());
+      const result = z.object({ booking: z.object({ id: z.string(), reference: z.string(), priceCents: z.number(), currency: z.string(), fareDetails: fareDetailsSchema }) }).parse(await response.json());
+      setQuoteState({ selection, priceCents: result.booking.priceCents, currency: result.booking.currency, fareDetails: result.booking.fareDetails });
       setBookingId(result.booking.id); setReference(result.booking.reference); setFinalPrice(result.booking.priceCents); setFinalCurrency(result.booking.currency); setSubmitted(true);
     } catch { setError(t("courses.submitError")); }
     finally { setPending(false); }
@@ -110,7 +121,7 @@ function BookingForm() {
               <p className="mt-3 flex items-start gap-2 text-xs leading-5 text-slate-500"><ShieldCheck size={16} className="shrink-0" />{t("booking.secureAccount")}</p>
             </div>
             <div className="rounded-2xl bg-[var(--color-background)] px-4 py-3 text-right">
-              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{t("booking.fixedPrice")}</div>
+              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{t(apiTripType === "TOURIST_TOUR" ? "fare.provisionalPrice" : "fare.calculatedPrice")}</div>
               <div className="mt-1 text-2xl font-black text-[var(--color-primary)]">{priceLabel}</div>
             </div>
           </div>
@@ -131,8 +142,8 @@ function BookingForm() {
               <div className="text-sm font-semibold uppercase tracking-[0.16em] text-emerald-700">{t("booking.requestReceived")}</div>
               <h2 className="mt-3 text-2xl font-black text-[var(--color-text)]">{t("courses.saved")}</h2>
               <p className="mt-3 text-slate-600">{reference} · {(finalPrice / 100).toFixed(2)} {finalCurrency}</p>
-              <p className="mt-3 text-sm text-slate-600">{t(paymentMethod === "DRIVER" ? "booking.driverBooked" : "customer.pendingNotice")}</p>
-              <Link href={`/account?booking=${encodeURIComponent(bookingId)}`} className="mt-6 inline-flex items-center gap-2 rounded-full bg-[var(--color-primary)] px-5 py-3 text-sm font-semibold text-white">{t(paymentMethod === "ONLINE" ? "booking.finishPayment" : "customer.trips")}<ArrowRight size={16} /></Link>
+              <p className="mt-3 text-sm text-slate-600">{t(effectivePaymentMethod === "DRIVER" ? "booking.driverBooked" : "customer.pendingNotice")}</p>
+              <Link href={`/account?booking=${encodeURIComponent(bookingId)}`} className="mt-6 inline-flex items-center gap-2 rounded-full bg-[var(--color-primary)] px-5 py-3 text-sm font-semibold text-white">{t(effectivePaymentMethod === "ONLINE" ? "booking.finishPayment" : "customer.trips")}<ArrowRight size={16} /></Link>
             </div>
           ) : (
             <form onSubmit={continueBooking} className="mt-10 space-y-6">
@@ -209,12 +220,12 @@ function BookingForm() {
                   <div className="flex justify-between gap-4"><span>{t("booking.route")}</span><strong className="text-right text-[var(--color-text)]">{fromAddress} → {toAddress}</strong></div>
                   <div className="mt-4 flex justify-between gap-4"><span>{t("booking.pickup")}</span><strong className="text-[var(--color-text)]">{pickupDate} · {pickupTime}</strong></div>
                   <div className="mt-4 flex justify-between gap-4"><span>{t("booking.passengers")}</span><strong className="text-[var(--color-text)]">{passengers}</strong></div>
-                  <div className="mt-4 flex justify-between gap-4"><span>{t("booking.tripType")}</span><strong className="text-[var(--color-text)]">{tripType === "airport-transfer" ? t("booking.airportTransfer") : tripType === "hotel-transfer" ? t("booking.hotelTransfer") : t("booking.privateTransfer")}</strong></div>
+                  <div className="mt-4 flex justify-between gap-4"><span>{t("booking.tripType")}</span><strong className="text-[var(--color-text)]">{tripType === "airport-transfer" ? t("fare.airport") : tripType === "tourist-tour" ? t("fare.tour") : t("fare.city")}</strong></div>
                   <div className="mt-4 flex justify-between gap-4"><span>{t("booking.contactDetails")}</span><strong className="text-right text-[var(--color-text)]">{t("booking.passengerProvided")}</strong></div>
                   <div className="mt-4 flex justify-between gap-4 border-t border-black/10 pt-4"><span>Total</span><strong className="text-xl text-[var(--color-primary)]">{priceLabel}</strong></div>
                 </div><fieldset className="space-y-3"><legend className="mb-3 text-lg font-bold">{t("payment.method")}</legend>
                   {(["DRIVER", "ONLINE"] as const).map((method) => <label key={method} className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-4 ${paymentMethod === method ? "border-[var(--color-primary)] bg-emerald-50" : "border-slate-200"}`}>
-                    <input type="radio" name="bookingPayment" value={method} checked={paymentMethod === method} onChange={() => setPaymentMethod(method)} className="mt-1 accent-[var(--color-primary)]" />
+                    <input type="radio" name="bookingPayment" value={method} checked={(tripType === "tourist-tour" ? "DRIVER" : paymentMethod) === method} disabled={tripType === "tourist-tour" && method === "ONLINE"} onChange={() => setPaymentMethod(method)} className="mt-1 accent-[var(--color-primary)]" />
                     {method === "ONLINE" ? <CreditCard size={20} className="mt-0.5 shrink-0" /> : <Wallet size={20} className="mt-0.5 shrink-0" />}
                     <span><strong className="block text-sm">{t(method === "ONLINE" ? "payment.online" : "payment.atDriver")}</strong><span className="mt-1 block text-xs leading-5 text-slate-500">{t(method === "ONLINE" ? "booking.paymentHelp" : "booking.driverPaymentHelp")}</span></span>
                   </label>)}
@@ -233,11 +244,16 @@ function BookingForm() {
         <aside className="h-fit rounded-[28px] bg-[var(--color-primary-dark)] p-6 text-white shadow-xl lg:sticky lg:top-24">
           <fieldset disabled={pending || submitted} className="contents">
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-white/70">{t("booking.tripDetails")}</p>
-          <div className="mt-5 rounded-2xl border border-white/15 bg-white/5 p-5"><p className="text-xs text-white/70">{t("booking.fixedPrice")}</p><p className="mt-2 text-4xl font-black tracking-tight">{submitted ? `${(finalPrice / 100).toFixed(2)} ${finalCurrency}` : priceLabel}</p></div>
+          <div className="mt-5 rounded-2xl border border-white/15 bg-white/5 p-5"><p className="text-xs text-white/70">{t(apiTripType === "TOURIST_TOUR" ? "fare.provisionalPrice" : "fare.calculatedPrice")}</p><p className="mt-2 text-4xl font-black tracking-tight">{submitted ? `${(finalPrice / 100).toFixed(2)} ${finalCurrency}` : priceLabel}</p></div>
           <div className="mt-6 space-y-4 text-sm">
             <div className="border-b border-white/10 pb-4"><div className="flex items-center gap-2 text-white/60"><MapPin size={14} />{t("booking.from")}</div><div className="mt-1 font-semibold">{fromAddress || t("booking.cityAddress")}</div></div>
             <div className="border-b border-white/10 pb-4"><div className="text-white/60">{t("booking.to")}</div><div className="mt-1 font-semibold">{toAddress || t("booking.cityAddress")}</div></div>
-            <div className="border-b border-white/10 pb-4"><div className="text-white/60">{t("booking.tripType")}</div><select value={tripType} onChange={(event) => setTripType(event.target.value)} className="mt-1 w-full rounded-xl border border-white/20 bg-white/10 px-3 py-2 font-semibold text-white outline-none"><option value="private-transfer" className="text-[var(--color-text)]">{t("booking.privateTransfer")}</option><option value="airport-transfer" className="text-[var(--color-text)]">{t("booking.airportTransfer")}</option><option value="hotel-transfer" className="text-[var(--color-text)]">{t("booking.hotelTransfer")}</option></select><div className="mt-2 text-sm text-white/70">{t("courses.vehiclePending")}</div></div>
+            <div className="border-b border-white/10 pb-4"><div className="text-white/60">{t("booking.tripType")}</div><select value={tripType} onChange={(event) => setTripType(event.target.value)} className="mt-1 w-full rounded-xl border border-white/20 bg-white/10 px-3 py-2 font-semibold text-white outline-none"><option value="airport-transfer" className="text-[var(--color-text)]">{t("fare.airport")}</option><option value="city-transfer" className="text-[var(--color-text)]">{t("fare.city")}</option><option value="tourist-tour" className="text-[var(--color-text)]">{t("fare.tour")}</option><option value="private-transfer" className="text-[var(--color-text)]">{t("booking.privateTransfer")}</option><option value="hotel-transfer" className="text-[var(--color-text)]">{t("booking.hotelTransfer")}</option></select><div className="mt-2 text-sm text-white/70">{t("courses.vehiclePending")}</div></div>
+            {tripType === "tourist-tour" && <div className="space-y-2">
+              <label className="block">{t("fare.circuit")}<select className="mt-1 w-full rounded-xl p-2 text-slate-900" value={tourCircuit} onChange={(event) => setTourCircuit(event.target.value)}><option value="SMALL">{t("fare.small")}</option><option value="GRAND">{t("fare.grand")}</option><option value="REMOTE">{t("fare.remote")}</option></select></label>
+              <label className="block">{t("fare.bookedHours")}<input className="mt-1 w-full rounded-xl p-2 text-slate-900" type="number" min="1" max="48" step="0.5" value={tourHours} onChange={(event) => setTourHours(Number(event.target.value))} /></label>
+            </div>}
+            <FareSummary details={quote?.fareDetails} />
             <div><div className="text-white/60">{t("booking.passengers")}</div><div className="mt-2 flex items-center justify-between"><span className="font-semibold">{t("booking.adults")}</span><div className="flex items-center gap-3"><button type="button" aria-label="Remove passenger" onClick={() => setPassengers((count) => Math.max(1, count - 1))} className="h-8 w-8 rounded-full border border-white/30">−</button><span>{passengers}</span><button type="button" aria-label="Add passenger" onClick={() => setPassengers((count) => Math.min(8, count + 1))} className="h-8 w-8 rounded-full border border-white/30">+</button></div></div></div>
           </div>
           <div className="mt-8 rounded-2xl bg-white/10 p-4 text-sm text-white/80">{t("booking.waiting")}</div>
