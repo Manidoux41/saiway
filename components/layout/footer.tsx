@@ -25,7 +25,7 @@ export function Footer() {
             <li><Link href="/about">{t("nav.about")}</Link></li>
             {(!user || user.role === "customer") && <><li><Link href="/booking">{t("nav.book")}</Link></li><li><Link href="/booking/track">{t("nav.track")}</Link></li></>}
             <li><Link href="/contact">{t("footer.contact")}</Link></li>
-            <li><Link href="/install">Install app</Link></li>
+            <li><Link href="/install">{t("ui.install")}</Link></li>
           </ul>
         </div>
 
@@ -41,9 +41,9 @@ export function Footer() {
         <div>
           <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-white/70">{t("footer.languages")}</h3>
           <div className="mt-4 flex gap-2 text-sm text-white/80">
-            <span className="rounded-full border border-white/20 px-3 py-1.5">English</span>
-            <span className="rounded-full border border-white/20 px-3 py-1.5">Français</span>
-            <span className="rounded-full border border-white/20 px-3 py-1.5">Khmer</span>
+            <span className="rounded-full border border-white/20 px-3 py-1.5">{t("language.english")}</span>
+            <span className="rounded-full border border-white/20 px-3 py-1.5">{t("language.french")}</span>
+            <span className="rounded-full border border-white/20 px-3 py-1.5">{t("language.khmer")}</span>
           </div>
         </div>
       </div>

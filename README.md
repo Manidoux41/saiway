@@ -47,6 +47,8 @@ zones are preserved for scanning.
 Driver photos use a centered cover crop inside their circular frame in both the
 browser print view and downloaded PDFs, for portrait and landscape uploads.
 Downloads are restricted to administrators and audited.
+PDF labels follow the selected English, French or Khmer language, using embedded
+Khmer fonts and script-aware text sizing.
 JPEG, PNG and WebP uploads are converted for PDF compatibility; invalid images
 produce an explicit error rather than an incomplete PDF.
 
@@ -341,6 +343,18 @@ Run `VALIDATION_URL=http://127.0.0.1:4370 npm test` with the same database overr
 Never use the production database for these tests. Stop the fixtures and rebuild
 without test provider overrides before running the application normally.
 Pure fare tests run separately with `node --test tests/fare-policy.test.mjs`.
+
+Interface translations cover English, French and Khmer, including operational
+dashboards, account settings, business cards, installation and legal pages.
+Names, user-entered addresses, free-text notes and brands are not automatically
+translated. Generated booking-history descriptions are localized at display time;
+their stored audit text and passenger observations remain unchanged.
+Legal translations retain the original draft notice and require
+qualified local review before publication. Shared date/number formatters supply
+Khmer output even on browsers without Khmer Intl locale data. Language preference
+is restored after hydration to avoid server/client text mismatches.
+`node --test tests/translations.test.mjs tests/localized-content.test.mjs` checks
+translation coverage and legal/formatting regressions without a database.
 
 ### Customer pickup and place suggestions
 

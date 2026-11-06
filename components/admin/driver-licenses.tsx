@@ -1,5 +1,6 @@
 "use client";
 
+import { localizedDate } from "@/lib/locale-format";
 import { useState } from "react";
 import { ExternalLink, IdCard } from "lucide-react";
 import { useLanguage } from "@/components/i18n/language-provider";
@@ -11,7 +12,7 @@ export function DriverLicenses({ users }: { users: ManagementData["users"] }) {
   const { t, language } = useLanguage();
   const [now] = useState(() => Date.now());
   const drivers = users.filter((item) => item.role === "DRIVER" && item.driver);
-  const date = (value: string, options: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat(language, options).format(new Date(value));
+  const date = (value: string, options: Intl.DateTimeFormatOptions) => localizedDate(language, options).format(new Date(value));
 
   return <section className="rounded-[28px] bg-white p-6 shadow-sm" aria-labelledby="driver-licenses-title">
     <h2 id="driver-licenses-title" className="flex items-center gap-2 text-xl font-bold"><IdCard size={20} aria-hidden="true" />{t("license.adminTitle")}</h2>

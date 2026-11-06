@@ -126,7 +126,7 @@ function BookingForm() {
             </div>
           </div>
 
-          <div className="mt-8 grid grid-cols-4 gap-2" aria-label="Booking progress">
+          <div className="mt-8 grid grid-cols-4 gap-2" aria-label={t("ui.progress")}>
             {steps.map((label, index) => (
               <div key={label} title={label} aria-label={label} aria-current={index === step ? "step" : undefined} className={`flex min-w-0 flex-col items-start gap-2 rounded-2xl p-3 text-xs font-semibold ${index === step ? "bg-emerald-50" : "bg-slate-50"}`}>
                 <span className={`flex h-8 w-8 items-center justify-center rounded-full ${index <= step ? "bg-[var(--color-primary)] text-white" : "bg-slate-100 text-slate-400"}`}>
@@ -222,7 +222,7 @@ function BookingForm() {
                   <div className="mt-4 flex justify-between gap-4"><span>{t("booking.passengers")}</span><strong className="text-[var(--color-text)]">{passengers}</strong></div>
                   <div className="mt-4 flex justify-between gap-4"><span>{t("booking.tripType")}</span><strong className="text-[var(--color-text)]">{tripType === "airport-transfer" ? t("fare.airport") : tripType === "tourist-tour" ? t("fare.tour") : t("fare.city")}</strong></div>
                   <div className="mt-4 flex justify-between gap-4"><span>{t("booking.contactDetails")}</span><strong className="text-right text-[var(--color-text)]">{t("booking.passengerProvided")}</strong></div>
-                  <div className="mt-4 flex justify-between gap-4 border-t border-black/10 pt-4"><span>Total</span><strong className="text-xl text-[var(--color-primary)]">{priceLabel}</strong></div>
+                  <div className="mt-4 flex justify-between gap-4 border-t border-black/10 pt-4"><span>{t("ui.total")}</span><strong className="text-xl text-[var(--color-primary)]">{priceLabel}</strong></div>
                 </div><fieldset className="space-y-3"><legend className="mb-3 text-lg font-bold">{t("payment.method")}</legend>
                   {(["DRIVER", "ONLINE"] as const).map((method) => <label key={method} className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-4 ${paymentMethod === method ? "border-[var(--color-primary)] bg-emerald-50" : "border-slate-200"}`}>
                     <input type="radio" name="bookingPayment" value={method} checked={(tripType === "tourist-tour" ? "DRIVER" : paymentMethod) === method} disabled={tripType === "tourist-tour" && method === "ONLINE"} onChange={() => setPaymentMethod(method)} className="mt-1 accent-[var(--color-primary)]" />
@@ -254,7 +254,7 @@ function BookingForm() {
               <label className="block">{t("fare.bookedHours")}<input className="mt-1 w-full rounded-xl p-2 text-slate-900" type="number" min="1" max="48" step="0.5" value={tourHours} onChange={(event) => setTourHours(Number(event.target.value))} /></label>
             </div>}
             <FareSummary details={quote?.fareDetails} />
-            <div><div className="text-white/60">{t("booking.passengers")}</div><div className="mt-2 flex items-center justify-between"><span className="font-semibold">{t("booking.adults")}</span><div className="flex items-center gap-3"><button type="button" aria-label="Remove passenger" onClick={() => setPassengers((count) => Math.max(1, count - 1))} className="h-8 w-8 rounded-full border border-white/30">−</button><span>{passengers}</span><button type="button" aria-label="Add passenger" onClick={() => setPassengers((count) => Math.min(8, count + 1))} className="h-8 w-8 rounded-full border border-white/30">+</button></div></div></div>
+            <div><div className="text-white/60">{t("booking.passengers")}</div><div className="mt-2 flex items-center justify-between"><span className="font-semibold">{t("booking.adults")}</span><div className="flex items-center gap-3"><button type="button" aria-label={t("ui.removePassenger")} onClick={() => setPassengers((count) => Math.max(1, count - 1))} className="h-8 w-8 rounded-full border border-white/30">−</button><span>{passengers}</span><button type="button" aria-label={t("ui.addPassenger")} onClick={() => setPassengers((count) => Math.min(8, count + 1))} className="h-8 w-8 rounded-full border border-white/30">+</button></div></div></div>
           </div>
           <div className="mt-8 rounded-2xl bg-white/10 p-4 text-sm text-white/80">{t("booking.waiting")}</div>
           </fieldset>

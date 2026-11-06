@@ -1,5 +1,6 @@
 "use client";
 
+import { localizedDate, localizedNumber } from "@/lib/locale-format";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Download, ExternalLink, FileSignature, Trash2, Upload, X } from "lucide-react";
 import { useLanguage } from "@/components/i18n/language-provider";
@@ -170,7 +171,7 @@ function LicensePhotos({ account, reload }: { account: Account; reload: () => Pr
       const image = driver.licenseImages.find((item) => item.side === side);
       const src = image ? `/api/drivers/${driver.id}/license/${side}?v=${encodeURIComponent(image.uploadedAt)}` : null;
       return <div key={side} className="rounded-2xl border border-slate-200 p-3">
-        <div className="flex items-center justify-between text-sm font-semibold"><span>{t(`profile.${side}`)}</span>{image && <small className="font-normal text-slate-500">{new Intl.DateTimeFormat(language, { dateStyle: "short", timeStyle: "short", timeZone: "Asia/Phnom_Penh" }).format(new Date(image.uploadedAt))} · {Math.ceil(image.sizeBytes / 1024)} KB</small>}</div>
+        <div className="flex items-center justify-between text-sm font-semibold"><span>{t(`profile.${side}`)}</span>{image && <small className="font-normal text-slate-500">{localizedDate(language, { dateStyle: "short", timeStyle: "short", timeZone: "Asia/Phnom_Penh" }).format(new Date(image.uploadedAt))} · {Math.ceil(image.sizeBytes / 1024)} KB</small>}</div>
         {/* eslint-disable-next-line @next/next/no-img-element -- authenticated API image, not optimisable by next/image */}
         {src ? <img src={src} alt={`${t("profile.licensePhotos")} · ${t(`profile.${side}`)}`} className="mt-2 h-36 w-full rounded-xl bg-slate-100 object-contain" /> : <p className="mt-2 grid h-36 place-items-center rounded-xl bg-slate-50 text-sm text-slate-400">{t("profile.missingPhoto")}</p>}
         <div className="mt-3 flex flex-wrap gap-2">
@@ -217,8 +218,8 @@ function Contracts({ account, reload }: { account: Account; reload: () => Promis
   const [terminatedAt, setTerminatedAt] = useState(today);
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [busy, setBusy] = useState(false);
-  const formatDate = (value: string) => new Intl.DateTimeFormat(language, { dateStyle: "medium", timeZone: "UTC" }).format(new Date(value));
-  const money = (contract: Contract) => new Intl.NumberFormat(language, { style: "currency", currency: contract.currency }).format(contract.monthlySalaryCents / 100);
+  const formatDate = (value: string) => localizedDate(language, { dateStyle: "medium", timeZone: "UTC" }).format(new Date(value));
+  const money = (contract: Contract) => localizedNumber(language, { style: "currency", currency: contract.currency }).format(contract.monthlySalaryCents / 100);
   async function run(request: Promise<{ ok: boolean; body: Record<string, unknown> | null }>) {
     setBusy(true);
     setFeedback(null);
@@ -307,7 +308,7 @@ function AccountProfileEditor({ account: initial, currentUserId, onChanged, onCl
   return <section aria-labelledby="account-profile-title" className="mt-6 rounded-[28px] bg-slate-50 p-4 sm:p-6">
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div><h2 id="account-profile-title" className="text-xl font-bold">{t("profile.title")} · {account.name}</h2>
-        <p className="text-sm text-slate-500">{account.email} · {t("profile.createdAt")} {new Intl.DateTimeFormat(language, { dateStyle: "medium" }).format(new Date(account.createdAt))} · {t("profile.bookings")}: {account.driver?._count.bookings ?? account._count.bookings}</p></div>
+        <p className="text-sm text-slate-500">{account.email} · {t("profile.createdAt")} {localizedDate(language, { dateStyle: "medium" }).format(new Date(account.createdAt))} · {t("profile.bookings")}: {account.driver?._count.bookings ?? account._count.bookings}</p></div>
       <button type="button" onClick={onClose} className={secondaryButton}><X size={14} aria-hidden="true" />{t("profile.close")}</button>
     </div>
     {!editable && <p className="mt-3 rounded-2xl bg-amber-50 p-3 text-sm text-amber-900">{t("profile.self")}</p>}

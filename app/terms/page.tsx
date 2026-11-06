@@ -1,4 +1,9 @@
+"use client";
+
+import { localizedDate } from "@/lib/locale-format";
 import type { ReactNode } from "react";
+import { useLanguage } from "@/components/i18n/language-provider";
+import { legalCopy } from "@/components/i18n/legal-copy";
 
 const sections = [
   {
@@ -61,12 +66,15 @@ const sections = [
 ];
 
 export default function TermsPage() {
+  const { language } = useLanguage();
+  const copy = language === "en" ? null : legalCopy[language];
+  const translatedSections = copy?.terms.sections ?? sections;
   return (
-    <LegalLayout eyebrow="Legal" title="Terms of Service" updated="12 September 2026">
+    <LegalLayout eyebrow={copy?.legal ?? "Legal"} title={copy?.terms.title ?? "Terms of Service"}>
       <p className="rounded-2xl border border-[var(--color-accent)]/30 bg-[var(--color-accent)]/10 p-4 text-sm leading-6 text-[var(--color-text)]">
-        This is a customer-facing draft for SAIWAY&apos;s Cambodian transfer service. It should be reviewed and approved by qualified Cambodian counsel before launch, especially after the legal entity, licence, payment provider and transport partners are finalised.
+        {copy?.terms.notice ?? "This is a customer-facing draft for SAIWAY's Cambodian transfer service. It should be reviewed and approved by qualified Cambodian counsel before launch, especially after the legal entity, licence, payment provider and transport partners are finalised."}
       </p>
-      {sections.map((section) => (
+      {translatedSections.map((section) => (
         <section key={section.title}>
           <h2 className="text-xl font-bold text-[var(--color-text)]">{section.title}</h2>
           {section.paragraphs.map((paragraph) => <p key={paragraph} className="mt-3 leading-7 text-slate-600">{paragraph}</p>)}
@@ -76,13 +84,16 @@ export default function TermsPage() {
   );
 }
 
-function LegalLayout({ eyebrow, title, updated, children }: { eyebrow: string; title: string; updated: string; children: ReactNode }) {
+function LegalLayout({ eyebrow, title, children }: { eyebrow: string; title: string; children: ReactNode }) {
+  const { language } = useLanguage();
+  const updatedLabel = language === "en" ? "Last updated" : legalCopy[language].updated;
+  const updated = localizedDate(language, { dateStyle: "long", timeZone: "Asia/Phnom_Penh" }).format(new Date("2026-09-12T00:00:00Z"));
   return (
     <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
       <div className="rounded-[30px] border border-black/5 bg-white p-6 shadow-sm md:p-10">
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--color-primary)]">{eyebrow}</p>
         <h1 className="mt-3 text-4xl font-black tracking-[-0.05em] text-[var(--color-text)]">{title}</h1>
-        <p className="mt-3 text-sm text-slate-500">Last updated: {updated}</p>
+        <p className="mt-3 text-sm text-slate-500">{updatedLabel}: {updated}</p>
         <div className="mt-8 space-y-8 text-base">{children}</div>
       </div>
     </div>

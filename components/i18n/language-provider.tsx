@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useSyncExternalStore, type ReactNode } from "react";
 import { operations } from "@/components/i18n/operations";
 
 export type Language = "en" | "fr" | "km";
@@ -719,7 +719,7 @@ const translations = {
   },
 } as const;
 
-type TranslationKey = keyof typeof translations.en;
+export type TranslationKey = keyof typeof translations.en;
 
 type LanguageContextValue = {
   language: Language;
@@ -729,20 +729,30 @@ type LanguageContextValue = {
 
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 
+function subscribeLanguage(onChange: () => void) {
+  window.addEventListener("storage", onChange);
+  window.addEventListener("saiway-language-change", onChange);
+  return () => {
+    window.removeEventListener("storage", onChange);
+    window.removeEventListener("saiway-language-change", onChange);
+  };
+}
+
+function storedLanguage(): Language {
+  const language = window.localStorage.getItem("saiway-language");
+  return language === "en" || language === "fr" || language === "km" ? language : "en";
+}
+
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguageState] = useState<Language>(() => {
-    if (typeof window === "undefined") return "en";
-    const storedLanguage = window.localStorage.getItem("saiway-language") as Language | null;
-    return storedLanguage && storedLanguage in translations ? storedLanguage : "en";
-  });
+  const language = useSyncExternalStore<Language>(subscribeLanguage, storedLanguage, () => "en");
 
   useEffect(() => {
     document.documentElement.lang = language;
   }, [language]);
 
   function setLanguage(nextLanguage: Language) {
-    setLanguageState(nextLanguage);
     window.localStorage.setItem("saiway-language", nextLanguage);
+    window.dispatchEvent(new Event("saiway-language-change"));
     document.documentElement.lang = nextLanguage;
   }
 

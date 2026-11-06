@@ -1,5 +1,6 @@
 "use client";
 
+import { localizedNumber, localizedDate } from "@/lib/locale-format";
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -95,7 +96,7 @@ export function LiveTracking() {
   }, [courseId]);
 
   const statusLabel = (value: string) => t(statusKeys[value as keyof typeof statusKeys] ?? "courses.pending");
-  const distance = (meters: number) => meters < 1000 ? `${Math.round(meters)} m` : `${new Intl.NumberFormat(language, { maximumFractionDigits: 1 }).format(meters / 1000)} km`;
+  const distance = (meters: number) => meters < 1000 ? `${Math.round(meters)} m` : `${localizedNumber(language, { maximumFractionDigits: 1 }).format(meters / 1000)} km`;
 
   return <div className={styles.page}>
     <header className={styles.heading}>
@@ -110,7 +111,7 @@ export function LiveTracking() {
 
     {course && <div className={styles.layout}>
       <section className={styles.panel} aria-live="polite">
-        {candidates.length > 1 && <label className={styles.picker}><span>{t("live.trip")}</span><select value={course.id} onChange={(event) => setChosen(event.target.value)}>{candidates.map((item) => <option key={item.id} value={item.id}>{item.reference} · {new Intl.DateTimeFormat(language, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Phnom_Penh" }).format(new Date(item.pickupAt))}</option>)}</select></label>}
+        {candidates.length > 1 && <label className={styles.picker}><span>{t("live.trip")}</span><select value={course.id} onChange={(event) => setChosen(event.target.value)}>{candidates.map((item) => <option key={item.id} value={item.id}>{item.reference} · {localizedDate(language, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Phnom_Penh" }).format(new Date(item.pickupAt))}</option>)}</select></label>}
         <div className={styles.statusRow}><span className={styles.badge} data-live={trackingStatuses.includes(status)}>{statusLabel(status)}</span><small>{course.reference}</small></div>
         <div className={styles.driverCard}>
           <span className={styles.driverAvatar} aria-hidden="true"><Car size={22} /></span>

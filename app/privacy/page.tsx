@@ -1,3 +1,9 @@
+"use client";
+
+import { localizedDate } from "@/lib/locale-format";
+import { useLanguage } from "@/components/i18n/language-provider";
+import { legalCopy } from "@/components/i18n/legal-copy";
+
 const sections = [
   {
     title: "1. Who is responsible for your information",
@@ -38,15 +44,19 @@ const sections = [
 ];
 
 export default function PrivacyPage() {
+  const { language } = useLanguage();
+  const copy = language === "en" ? null : legalCopy[language];
+  const translatedSections = copy?.privacy.sections ?? sections;
+  const updated = localizedDate(language, { dateStyle: "long", timeZone: "Asia/Phnom_Penh" }).format(new Date("2026-09-12T00:00:00Z"));
   return (
     <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
       <div className="rounded-[30px] border border-black/5 bg-white p-6 shadow-sm md:p-10">
-        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--color-primary)]">Legal</p>
-        <h1 className="mt-3 text-4xl font-black tracking-[-0.05em] text-[var(--color-text)]">Privacy Notice</h1>
-        <p className="mt-3 text-sm text-slate-500">Last updated: 12 September 2026</p>
-        <p className="mt-8 rounded-2xl border border-[var(--color-accent)]/30 bg-[var(--color-accent)]/10 p-4 text-sm leading-6 text-[var(--color-text)]">This notice is a practical draft for SAIWAY&apos;s Cambodian service and should be reviewed by qualified Cambodian counsel before publication. Replace the operator placeholders with the final legal entity and contact details.</p>
+        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--color-primary)]">{copy?.legal ?? "Legal"}</p>
+        <h1 className="mt-3 text-4xl font-black tracking-[-0.05em] text-[var(--color-text)]">{copy?.privacy.title ?? "Privacy Notice"}</h1>
+        <p className="mt-3 text-sm text-slate-500">{copy?.updated ?? "Last updated"}: {updated}</p>
+        <p className="mt-8 rounded-2xl border border-[var(--color-accent)]/30 bg-[var(--color-accent)]/10 p-4 text-sm leading-6 text-[var(--color-text)]">{copy?.privacy.notice ?? "This notice is a practical draft for SAIWAY's Cambodian service and should be reviewed by qualified Cambodian counsel before publication. Replace the operator placeholders with the final legal entity and contact details."}</p>
         <div className="mt-8 space-y-8">
-          {sections.map((section) => <section key={section.title}><h2 className="text-xl font-bold text-[var(--color-text)]">{section.title}</h2><p className="mt-3 leading-7 text-slate-600">{section.body}</p></section>)}
+          {translatedSections.map((section) => <section key={section.title}><h2 className="text-xl font-bold text-[var(--color-text)]">{section.title}</h2><p className="mt-3 leading-7 text-slate-600">{section.body}</p></section>)}
         </div>
       </div>
     </div>

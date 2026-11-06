@@ -113,6 +113,13 @@ test('administrators download eight copies on A4 with branded QR codes and pagin
     assert.equal(landscapeCard.status, 200);
     assertCenteredPhotos(landscapeCard.data, 180, 120);
 
+    await ctx.prisma.user.update({ where: { id: driver.id }, data: { name: 'Translation Driver' } });
+    const khmerCard = await pdf(`/api/admin/drivers/${driverId}/business-card?language=km`, ctx.cookie);
+    assert.equal(khmerCard.status, 200);
+    assert.match(khmerCard.data.toString('latin1'), /Battambang/, 'Khmer labels embed the Khmer font even with a Latin-only driver name');
+    assert.match(contentStreams(khmerCard.data), /<[\da-f]+> <17[\da-f]+>/i, 'The PDF maps rendered glyphs to Khmer Unicode, rather than falling back to English');
+    assertCenteredPhotos(khmerCard.data, 180, 120);
+
     await ctx.prisma.driverContactQrImage.update({ where: { driverId_channel: { driverId, channel: 'WHATSAPP' } }, data: { data: Buffer.from([0x89, 0x50, 0x4e, 0x47]) } });
     const invalid = await pdf(endpoint, ctx.cookie);
     assert.equal(invalid.status, 422);

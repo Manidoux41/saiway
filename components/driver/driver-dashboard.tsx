@@ -1,5 +1,6 @@
 "use client";
 
+import { localizedDate, localizedNumber } from "@/lib/locale-format";
 import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { z } from "zod";
@@ -76,8 +77,8 @@ export function DriverDashboard() {
     .sort((a, b) => ["TRIP_STARTED", "DRIVER_EN_ROUTE", "DRIVER_ARRIVED", "DRIVER_ACCEPTED", "DRIVER_ASSIGNED"].indexOf(a.status) - ["TRIP_STARTED", "DRIVER_EN_ROUTE", "DRIVER_ARRIVED", "DRIVER_ACCEPTED", "DRIVER_ASSIGNED"].indexOf(b.status))[0];
   const sharing = useLocationSharing(liveTrip?.id ?? null, !demo && loaded);
   const currentPoint = sharing.detectedAt && now.getTime() - sharing.detectedAt.getTime() < 60000 ? sharing.point : null;
-  const formatDate = (value: string | Date, options: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat(language, { ...options, timeZone: driverTimeZone }).format(new Date(value));
-  const money = (cents: number, currency: string) => new Intl.NumberFormat(language, { style: "currency", currency }).format(cents / 100);
+  const formatDate = (value: string | Date, options: Intl.DateTimeFormatOptions) => localizedDate(language, { ...options, timeZone: driverTimeZone }).format(new Date(value));
+  const money = (cents: number, currency: string) => localizedNumber(language, { style: "currency", currency }).format(cents / 100);
   const label = (value: string) => t(statusKeys[value as keyof typeof statusKeys] ?? "courses.pending");
   const locationStatus: FleetDriver["status"] = liveTrip?.status === "TRIP_STARTED" ? "ON_TRIP"
     : liveTrip && ["DRIVER_EN_ROUTE", "DRIVER_ARRIVED"].includes(liveTrip.status) ? "TO_PICKUP"

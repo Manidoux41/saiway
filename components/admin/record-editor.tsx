@@ -5,6 +5,7 @@ import { adminErrorKey, adminRequest, type ManagementData } from "@/lib/admin-cl
 import { useLanguage } from "@/components/i18n/language-provider";
 import type { operations } from "@/components/i18n/operations";
 import { useAuth } from "@/components/auth/auth-provider";
+import { enumLabel } from "@/components/i18n/enum-label";
 
 type Entity = "user" | "vehicle" | "accounting" | "forecast" | "pricing" | "contract" | "setting";
 type Label = keyof typeof operations.en;
@@ -82,7 +83,7 @@ export function RecordEditor({ data, disabled, refresh }: { data: ManagementData
     {entity === "pricing" && <p className="mb-4 text-sm text-slate-600">{t("fare.legacyNotice")} <a href="#fare-policy-heading" className="underline">{t("fare.settings")}</a></p>}
     {!(entity === "user" && !record) && <form key={`${entity}-${selected}`} onSubmit={submit}>
       <fieldset disabled={disabled || pending} className="grid gap-4 md:grid-cols-3">
-        {visibleFields.map((field) => <label key={field.key}>{t(field.label)}{field.options ? <select name={field.key} defaultValue={defaultValue(field)} className="mt-1 w-full rounded-xl border p-3">{field.options.map((value) => <option key={value} value={value}>{value || t("records.all")}</option>)}</select> : field.key === "vehicleId" ? <select name={field.key} required defaultValue={defaultValue(field)} className="mt-1 w-full rounded-xl border p-3"><option value="">{t("courses.select")}</option>{data.vehicles.filter((vehicle) => vehicle.active || vehicle.id === record?.vehicleId).map((vehicle) => <option key={vehicle.id} value={vehicle.id}>{vehicle.name} · {vehicle.plate}</option>)}</select> : <input name={field.key} required={!field.optional} type={field.type ?? "text"} defaultValue={defaultValue(field)} min={field.type === "number" ? 0 : undefined} className="mt-1 w-full rounded-xl border p-3" />}</label>)}
+        {visibleFields.map((field) => <label key={field.key}>{t(field.label)}{field.options ? <select name={field.key} defaultValue={defaultValue(field)} className="mt-1 w-full rounded-xl border p-3">{field.options.map((value) => <option key={value} value={value}>{value ? enumLabel(value, t) : t("records.all")}</option>)}</select> : field.key === "vehicleId" ? <select name={field.key} required defaultValue={defaultValue(field)} className="mt-1 w-full rounded-xl border p-3"><option value="">{t("courses.select")}</option>{data.vehicles.filter((vehicle) => vehicle.active || vehicle.id === record?.vehicleId).map((vehicle) => <option key={vehicle.id} value={vehicle.id}>{vehicle.name} · {vehicle.plate}</option>)}</select> : <input name={field.key} required={!field.optional} type={field.type ?? "text"} defaultValue={defaultValue(field)} min={field.type === "number" ? 0 : undefined} className="mt-1 w-full rounded-xl border p-3" />}</label>)}
         <button className="rounded-full bg-[var(--color-primary)] p-3 text-white">{t("courses.save")}</button>
       </fieldset>
     </form>}

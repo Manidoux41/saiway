@@ -1,5 +1,6 @@
 "use client";
 
+import { localizedDate, localizedNumber } from "@/lib/locale-format";
 import { useRef, useState, type FormEvent } from "react";
 import dynamic from "next/dynamic";
 import { z } from "zod";
@@ -7,6 +8,7 @@ import { ArrowRight, CalendarDays, Check, ClipboardCheck, Clock3, Database, Mail
 import { courseSchema, type Course } from "@/components/booking/course-dashboard";
 import { useBookings } from "@/components/booking/use-bookings";
 import { useLanguage } from "@/components/i18n/language-provider";
+import { bookingHistoryNote } from "@/components/i18n/booking-history-note";
 import type { ManagementData } from "@/lib/admin-client";
 import { closedDriverStatuses, driverDay, driverTimeZone, navigationUrl } from "@/lib/driver-dashboard";
 import { FareSummary } from "@/components/booking/fare-summary";
@@ -104,8 +106,8 @@ export function AdminBookings({ management, disabled }: { management: Management
   const selected = visible.find((course) => course.id === selectedId) ?? visible[0];
   const receipt = selected?.payments?.find((item) => item.status === "PAID");
   const statusLabel = (status: string) => t(statusKeys[status as keyof typeof statusKeys] ?? "courses.pending");
-  const time = (value: string | Date, options: Intl.DateTimeFormatOptions = { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) => new Intl.DateTimeFormat(language, { ...options, timeZone: driverTimeZone }).format(new Date(value));
-  const money = (course: Course) => new Intl.NumberFormat(language, { style: "currency", currency: course.currency }).format(course.priceCents / 100);
+  const time = (value: string | Date, options: Intl.DateTimeFormatOptions = { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) => localizedDate(language, { ...options, timeZone: driverTimeZone }).format(new Date(value));
+  const money = (course: Course) => localizedNumber(language, { style: "currency", currency: course.currency }).format(course.priceCents / 100);
   const zones = new Map(courses.flatMap((course) => course.fareDetails?.zoneId ? [[course.fareDetails.zoneId, course.fareDetails.zoneName ?? course.fareDetails.zoneId] as const] : []));
   for (const zone of management?.farePolicy.zones ?? []) zones.set(zone.id, zone.name);
   function clearFilters() { setQuery(""); setDriverId(""); setDate(""); setVehicleId(""); setStatus(""); setFromDate(""); setToDate(""); setOrigin(""); setZoneId(""); setView("all"); }
@@ -175,7 +177,7 @@ export function AdminBookings({ management, disabled }: { management: Management
           <dl className={styles.facts}><div><dt>{t("auto.estimate")}</dt><dd>{selected.estimatedPriceCents == null ? "—" : money({ ...selected, priceCents: selected.estimatedPriceCents })}</dd></div><div><dt>{t("auto.started")}</dt><dd>{selected.startedAt ? time(selected.startedAt) : "—"}</dd></div><div><dt>{t("auto.completed")}</dt><dd>{selected.completedAt ? time(selected.completedAt) : "—"}</dd></div><div><dt>{t("auto.actual")}</dt><dd>{selected.actualDurationSeconds == null ? "—" : `${Math.ceil(selected.actualDurationSeconds / 60)} min`}</dd></div></dl>
           {selected.driverObservations && <div className={styles.notes}><h4>{t("auto.observations")}</h4><p>{selected.driverObservations}</p></div>}
           {selected.finalLatitude != null && selected.finalLongitude != null && <p className="p-3 text-xs">GPS ({t("auto.completed")}): {selected.finalLatitude}, {selected.finalLongitude}</p>}
-          {selected.statusHistory?.length ? <details className="m-3 rounded-xl border p-3"><summary className="cursor-pointer font-semibold">{t("auto.history")}</summary><ol className="space-y-3 pt-3">{selected.statusHistory.map((event, index) => <li key={index} className="break-words text-sm"><strong>{time(event.createdAt)} · {statusLabel(event.status)}</strong><p>{event.note}</p></li>)}</ol></details> : null}
+          {selected.statusHistory?.length ? <details className="m-3 rounded-xl border p-3"><summary className="cursor-pointer font-semibold">{t("auto.history")}</summary><ol className="space-y-3 pt-3">{selected.statusHistory.map((event, index) => <li key={index} className="break-words text-sm"><strong>{time(event.createdAt)} · {statusLabel(event.status)}</strong><p>{bookingHistoryNote(event.note, t, (cents) => localizedNumber(language, { style: "currency", currency: "USD" }).format(cents / 100))}</p></li>)}</ol></details> : null}
           {!selected.payments?.some((payment) => ["PAID", "PROCESSING"].includes(payment.status)) && <form key={`${selected.id}-${selected.priceCents}`} className="m-3 space-y-3 rounded-xl border p-3" onSubmit={(event) => { event.preventDefault(); const form = new FormData(event.currentTarget); void mutate("PATCH", { id: selected.id, finalPriceCents: Math.round(Number(form.get("finalPrice")) * 100), priceReason: String(form.get("priceReason")) }); }}>
             <label className="block text-sm">{t("auto.final")} (USD)<input required name="finalPrice" type="number" min="0" max={selected.fareDetails?.mode === "AIRPORT" || selected.tripType === "AIRPORT_TRANSFER" ? 30 : 100000} step="0.01" defaultValue={selected.priceCents / 100} className="mt-1 w-full rounded-xl border p-3" disabled={blocked} /></label>
             <label className="block text-sm">{t("auto.reason")}<textarea required name="priceReason" minLength={3} maxLength={2000} className="mt-1 w-full rounded-xl border p-3" disabled={blocked} /></label>

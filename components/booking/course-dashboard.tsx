@@ -1,5 +1,6 @@
 "use client";
 
+import { localizedDate, localizedNumber } from "@/lib/locale-format";
 import { useEffect, useState, type FormEvent } from "react";
 import { z } from "zod";
 import type { UserRole } from "@/lib/roles";
@@ -7,6 +8,7 @@ import type { ManagementData } from "@/lib/admin-client";
 import { useLanguage } from "@/components/i18n/language-provider";
 import { fareDetailsSchema } from "@/lib/fare-policy";
 import { routeDetailsSchema } from "@/lib/route-details";
+import { bookingErrorKey } from "@/components/i18n/booking-error";
 
 export const courseSchema = z.object({
   id: z.string(), reference: z.string(), fromAddress: z.string(), toAddress: z.string(),
@@ -34,7 +36,7 @@ const nextStatus: Record<string, string> = { DRIVER_ASSIGNED: "DRIVER_ACCEPTED",
 const closed = ["CANCELLED", "TRIP_COMPLETED", "NO_SHOW", "REFUNDED"];
 
 export function CourseDashboard({ role, management }: { role: UserRole; management?: ManagementData | null }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -70,12 +72,13 @@ export function CourseDashboard({ role, management }: { role: UserRole; manageme
       if (!response.ok) {
         const payload: unknown = await response.json();
         const parsed = z.object({ error: z.string() }).safeParse(payload);
-        throw new Error(parsed.success ? parsed.data.error : t("courses.saveError"));
+        setError(t(bookingErrorKey(parsed.success ? parsed.data.error : undefined, "courses.saveError")));
+        return;
       }
       setEditing(null);
       setCreating(false);
       refresh();
-    } catch (error) { setError(`${t("courses.saveError")} ${error instanceof Error ? error.message : ""}`); }
+    } catch { setError(t("courses.saveError")); }
     finally { setPending(false); }
   }
 
@@ -121,7 +124,7 @@ export function CourseDashboard({ role, management }: { role: UserRole; manageme
     </form>}
     {!loading && !error && courses.length === 0 && <p>{t("courses.empty")}</p>}
     <div className="grid gap-4">{courses.map((course) => <article key={course.id} className="rounded-2xl border p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-bold">{course.fromAddress} → {course.toAddress}</h3><p>{new Date(course.pickupAt).toLocaleString()} · {course.passengers} {t("booking.passengers")}</p><p className="text-sm text-slate-500">{course.reference}</p></div><p className="font-semibold">{labels(course.status)} · {(course.priceCents / 100).toFixed(2)} {course.currency}</p></div>
+      <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-bold">{course.fromAddress} → {course.toAddress}</h3><p>{localizedDate(language, { dateStyle: "short", timeStyle: "short", timeZone: "Asia/Phnom_Penh" }).format(new Date(course.pickupAt))} · {course.passengers} {t("booking.passengers")}</p><p className="text-sm text-slate-500">{course.reference}</p></div><p className="font-semibold">{labels(course.status)} · {localizedNumber(language, { style: "currency", currency: course.currency }).format(course.priceCents / 100)}</p></div>
       <p className="mt-2">{t("courses.customer")}: {course.customer.name} · {t("admin.driver")}: {course.driver?.user.name ?? t("courses.unassigned")} · {course.vehicle?.plate ?? t("courses.unassigned")}</p>
       <p className="mt-2 text-sm">{t("booking.luggageCount")}: {course.luggageCount}{course.flightNumber && <> · {t("booking.flightNumber")}: {course.flightNumber}</>}</p>
       {course.pickupNotes && <p className="mt-2 whitespace-pre-wrap text-sm">{t("booking.notes")}: {course.pickupNotes}</p>}

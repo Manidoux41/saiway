@@ -25,7 +25,7 @@ export default function HelpPage() {
         <p className="mt-4 max-w-2xl text-lg leading-8 text-white/80">{t("help.description")}</p>
       </section>
 
-      <section className="mt-8 space-y-3" aria-label="Frequently asked questions">
+      <section className="mt-8 space-y-3" aria-label={t("ui.faq")}>
         {faqKeys.map(([question, answer]) => (
           <details key={question} className="group rounded-2xl border border-black/5 bg-white p-5 shadow-sm">
             <summary className="cursor-pointer list-none pr-8 text-lg font-bold text-[var(--color-text)] marker:hidden">{t(question)}<span className="float-right text-[var(--color-primary)] transition group-open:rotate-45">+</span></summary>

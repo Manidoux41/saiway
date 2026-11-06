@@ -27,7 +27,7 @@ export function Header() {
   return (
     <header className="sticky top-0 z-20 border-b-2 border-[var(--color-accent)] bg-white/95 backdrop-blur-sm">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-2 gap-y-3 px-4 py-4 sm:px-6 lg:px-8">
-        <Link href={user ? roleHome(user.role) : "/"} aria-label="SAIWAY home" className="flex items-center">
+        <Link href={user ? roleHome(user.role) : "/"} aria-label={t("ui.home")} className="flex items-center">
           <Logo compact />
         </Link>
 
@@ -38,7 +38,7 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1 rounded-full border border-slate-200 bg-white p-1" aria-label="Select language">
+          <div className="flex items-center gap-1 rounded-full border border-slate-200 bg-white p-1" aria-label={t("ui.language")}>
             {languageOptions.map((option) => (
               <button
                 key={option.code}
@@ -59,7 +59,7 @@ export function Header() {
           <Link href={user ? roleHome(user.role) : "/auth"} aria-label={t(user?.role === "admin" ? "nav.adminDashboard" : user?.role === "driver" ? "nav.driverDashboard" : "nav.account")} title={t(user?.role === "admin" ? "nav.adminDashboard" : user?.role === "driver" ? "nav.driverDashboard" : "nav.account")} className="text-sm font-semibold text-slate-600 transition hover:text-[var(--color-primary)]"><LayoutDashboard size={20} className="sm:hidden" aria-hidden="true" /><span className="hidden sm:inline">{t(user?.role === "admin" ? "nav.adminDashboard" : user?.role === "driver" ? "nav.driverDashboard" : "nav.account")}</span></Link>
           {user && <button type="button" onClick={logout} aria-label={t("nav.signOut")} title={t("nav.signOut")} className="text-sm font-semibold text-slate-600"><LogOut size={20} className="sm:hidden" aria-hidden="true" /><span className="hidden sm:inline">{t("nav.signOut")}</span></button>}
           {error && <p role="alert" className="text-sm text-[var(--color-error)]">{t("nav.signOutError")}</p>}
-          <Link href="/install" aria-label="Install SAIWAY" title="Install SAIWAY" className="hidden text-sm font-semibold text-[var(--color-accent)] transition hover:text-[var(--color-primary)] lg:inline">Install app</Link>
+          <Link href="/install" aria-label={t("ui.install")} title={t("ui.install")} className="hidden text-sm font-semibold text-[var(--color-accent)] transition hover:text-[var(--color-primary)] lg:inline">{t("ui.install")}</Link>
         </div>
       </div>
     </header>

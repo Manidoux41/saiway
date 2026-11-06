@@ -1,5 +1,6 @@
 "use client";
 
+import { localizedDate, localizedNumber } from "@/lib/locale-format";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -80,8 +81,8 @@ export function CustomerDashboard() {
   const receipt = selected?.payments?.find((item) => item.status === "PAID");
   const processing = Boolean(selected?.payments?.some((item) => item.status === "PROCESSING"));
   const next = upcoming[0];
-  const date = (value: string) => new Intl.DateTimeFormat(language, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: driverTimeZone }).format(new Date(value));
-  const money = (course: Course) => new Intl.NumberFormat(language, { style: "currency", currency: course.currency }).format(course.priceCents / 100);
+  const date = (value: string) => localizedDate(language, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: driverTimeZone }).format(new Date(value));
+  const money = (course: Course) => localizedNumber(language, { style: "currency", currency: course.currency }).format(course.priceCents / 100);
   const statusLabel = (status: string) => t(statusKeys[status as keyof typeof statusKeys] ?? "courses.pending");
 
   useEffect(() => { const timer = window.setInterval(() => setNow(new Date()), 30_000); return () => window.clearInterval(timer); }, []);
@@ -190,7 +191,7 @@ export function CustomerDashboard() {
             <button type="button" className={styles.primaryButton} disabled={pending || loading || new Date(selected.pickupAt) <= now} onClick={() => void payment(selected, "checkout")}><CreditCard size={17} />{t(pending ? "customer.preparing" : "customer.pay")} · {money(selected)}</button>
             {new Date(selected.pickupAt) > now && selected.currency === "USD" && <>
               <h3 className={styles.qrHeading}><QrCode size={20} />{t("customer.abaQrTitle")}</h3>
-              <dl className={styles.qrDetails}><div><dt>{t("customer.abaAmount")}</dt><dd>{new Intl.NumberFormat(language, { style: "currency", currency: "USD", currencyDisplay: "code" }).format(selected.priceCents / 100)}</dd></div><div><dt>{t("customer.abaReference")}</dt><dd className={styles.qrReference}><span>{selected.reference}</span><button type="button" className={styles.iconButton} title={t("customer.copyReference")} aria-label={t("customer.copyReference")} onClick={() => void copyReference(selected.reference)}><Copy size={16} /></button></dd></div></dl>
+              <dl className={styles.qrDetails}><div><dt>{t("customer.abaAmount")}</dt><dd>{localizedNumber(language, { style: "currency", currency: "USD", currencyDisplay: "code" }).format(selected.priceCents / 100)}</dd></div><div><dt>{t("customer.abaReference")}</dt><dd className={styles.qrReference}><span>{selected.reference}</span><button type="button" className={styles.iconButton} title={t("customer.copyReference")} aria-label={t("customer.copyReference")} onClick={() => void copyReference(selected.reference)}><Copy size={16} /></button></dd></div></dl>
               {copiedReference === selected.reference && <p role="status">{t("customer.referenceCopied")}</p>}
               <Image src="/aba_mobile_1792486034405.png" alt={t("customer.abaQrAlt")} width={1010} height={1426} unoptimized className={styles.abaQrImage} />
               <div className={styles.qrActions}><a href="/aba_mobile_1792486034405.png" download="saiway-aba-qr.png" className={styles.secondaryButton}><Download size={17} />{t("customer.downloadQr")}</a><a href="/aba_mobile_1792486034405.png" target="_blank" rel="noopener noreferrer" className={styles.iconButton} title={t("customer.openQr")} aria-label={t("customer.openQr")}><ExternalLink size={17} /></a></div>

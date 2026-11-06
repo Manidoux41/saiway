@@ -1,5 +1,6 @@
 "use client";
 
+import { localizedDate } from "@/lib/locale-format";
 import { useEffect, useState, type ChangeEvent } from "react";
 import { z } from "zod";
 import { Check, IdCard, ImageOff, Upload } from "lucide-react";
@@ -18,7 +19,7 @@ export function DriverLicenseCard() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [uploading, setUploading] = useState<(typeof sides)[number] | null>(null);
-  const formatDate = (value: string, time = false) => new Intl.DateTimeFormat(language, { dateStyle: "medium", ...(time ? { timeStyle: "short" } : { timeZone: "UTC" }) }).format(new Date(value));
+  const formatDate = (value: string, time = false) => localizedDate(language, { dateStyle: "medium", ...(time ? { timeStyle: "short" } : { timeZone: "UTC" }) }).format(new Date(value));
 
   useEffect(() => {
     const controller = new AbortController();

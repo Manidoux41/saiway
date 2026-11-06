@@ -30,4 +30,20 @@ const fr: typeof en = {
   "places.shareError": "Impossible de partager ou copier. Vous pouvez copier les coordonnées du champ de départ.",
   "places.searchNotice": "Les suggestions incluent villes, lieux et vos propres réservations précédentes. Les recherches textuelles sont envoyées au fournisseur de géocodage configuré. La zone de service et le tarif restent à confirmer.",
 };
-export const placeCopy = { en, fr };
+const km: typeof en = {
+  "places.place": "ទីតាំង", "places.previous": "ទីតាំងមុនៗរបស់ខ្ញុំ",
+  "places.historyError": "មិនអាចផ្ទុកទីតាំងមុនៗរបស់អ្នកបានទេ។ អ្នកនៅតែអាចបញ្ចូលអាសយដ្ឋានបាន។",
+  "places.searchError": "មិនមានការណែនាំតាមអ៊ីនធឺណិតទេ។ សូមបញ្ចូលអាសយដ្ឋានដោយដៃ ឬសាកល្បងម្ដងទៀត។",
+  "places.pickupPlaceholder": "អាសយដ្ឋានទទួល ឬរយៈទទឹង, រយៈបណ្ដោយ",
+  "places.gpsConsent": "ប្រើទីតាំងបច្ចុប្បន្នរបស់អ្នកតែដោយមានការអនុញ្ញាត។ ពិនិត្យចំណុចទទួលមុនបញ្ជាក់ការកក់។",
+  "places.useGps": "ប្រើទីតាំងបច្ចុប្បន្នរបស់ខ្ញុំ", "places.locating": "កំពុងស្វែងរកទីតាំងរបស់ខ្ញុំ…",
+  "places.gpsDenied": "ការអនុញ្ញាតទីតាំងត្រូវបានបដិសេធ។ បញ្ចូលអាសយដ្ឋាន កូអរដោនេ ឬជ្រើសចំណុចលើផែនទី។",
+  "places.gpsUnavailable": "ទីតាំងបច្ចុប្បន្នមិនអាចប្រើបានទេ។ ពិនិត្យការអនុញ្ញាតទីតាំង ឬជ្រើសកន្លែងទទួលដោយដៃ។",
+  "places.pickMap": "ជ្រើសលើផែនទី", "places.mapHelp": "ចុច ឬប៉ះចំណុចទទួលឱ្យត្រឹមត្រូវ។ អ្នកក៏អាចបញ្ចូលកូអរដោនេក្នុងប្រអប់ខាងលើ។",
+  "places.coordinates": "បញ្ចូលកូអរដោនេ GPS", "places.applyCoordinates": "ប្រើកូអរដោនេទាំងនេះ",
+  "places.invalidGps": "បញ្ចូលរយៈទទឹងពី -90 ដល់ 90 និងរយៈបណ្ដោយពី -180 ដល់ 180។",
+  "places.share": "ចែករំលែក / ចម្លងកូអរដោនេ", "places.copied": "បានចម្លងកូអរដោនេ និងតំណផែនទី។",
+  "places.shareError": "មិនអាចចែករំលែក ឬចម្លងបានទេ។ អ្នកអាចចម្លងកូអរដោនេពីប្រអប់ទីតាំងទទួល។",
+  "places.searchNotice": "ការណែនាំរួមមានទីក្រុង ទីតាំង និងការកក់មុនៗរបស់អ្នក។ ការស្វែងរកជាអក្សរត្រូវបានផ្ញើទៅអ្នកផ្ដល់សេវាកំណត់ទីតាំងដែលបានកំណត់រចនាសម្ព័ន្ធ។ តំបន់សេវាកម្ម និងតម្លៃនៅតែត្រូវបញ្ជាក់។",
+};
+export const placeCopy = { en, fr, km };

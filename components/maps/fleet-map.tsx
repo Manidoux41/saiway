@@ -1,10 +1,11 @@
 "use client";
 
+import { localizedNumber, localizedDate } from "@/lib/locale-format";
 import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { mapTileAttribution, mapTileUrl, locateMapAddress, routeMapPoints, vehicleMarkerIcon, type MapPoint } from "@/lib/map-client";
-import { useLanguage } from "@/components/i18n/language-provider";
+import { useLanguage, type Language } from "@/components/i18n/language-provider";
 
 export type FleetHub = { id: string; name: string; address: string | null; latitude: number; longitude: number };
 export type FleetDriverStatus = "AVAILABLE" | "ASSIGNED" | "TO_PICKUP" | "ON_TRIP" | "RETURNING_TO_HUB";
@@ -190,14 +191,14 @@ export function FleetMap({ drivers, hubs, selectedId, onSelect, height = "480px"
   return <div className="relative w-full" style={{ height }}>
     <div ref={container} className="h-full w-full bg-slate-100" role="region" aria-label={t("fleet.map")} />
     {selectedRoute && <p className="absolute left-3 top-3 z-[500] rounded bg-white/95 p-2 text-sm shadow" aria-live="polite">
-      {t("fleet.remaining")}: {new Intl.NumberFormat(language, { maximumFractionDigits: 1 }).format(selectedRoute.distance / 1000)} km · {t("fleet.eta")}: {selectedRoute.eta}
+      {t("fleet.remaining")}: {localizedNumber(language, { maximumFractionDigits: 1 }).format(selectedRoute.distance / 1000)} km · {t("fleet.eta")}: {selectedRoute.eta}
     </p>}
     {tileError && <p role="alert" className="absolute bottom-10 left-3 right-3 z-[500] rounded bg-white/95 p-2 text-sm text-red-700 shadow">{t("fleet.tilesError")}</p>}
     {routeError && <p role="status" className="absolute bottom-3 left-3 right-3 z-[500] rounded bg-white/95 p-2 text-sm text-amber-800 shadow">{t("fleet.routeError")}</p>}
   </div>;
 }
 
-function formatEta(durationSeconds: number, language: string) {
+function formatEta(durationSeconds: number, language: Language) {
   const arrival = Date.now() + Math.ceil(durationSeconds / 60) * 60_000;
-  return new Intl.DateTimeFormat(language, { hour: "2-digit", minute: "2-digit" }).format(arrival);
+  return localizedDate(language, { hour: "2-digit", minute: "2-digit" }).format(arrival);
 }

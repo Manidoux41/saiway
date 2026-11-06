@@ -9,7 +9,7 @@ export async function downloadBusinessCards(request: Request, driverId?: string)
     if (!admin) return Response.json({ error: "Administrator access required" }, { status: 403 });
     const url = new URL(request.url);
     const locale = url.searchParams.get("language") ?? "en";
-    if (!["en", "fr", "km"].includes(locale)) return Response.json({ error: "Invalid language" }, { status: 400 });
+    if (locale !== "en" && locale !== "fr" && locale !== "km") return Response.json({ error: "Invalid language" }, { status: 400 });
     const drivers = await prisma.driverProfile.findMany({
       where: driverId ? { id: driverId } : { user: { phone: { not: null } } },
       select: {
@@ -23,7 +23,7 @@ export async function downloadBusinessCards(request: Request, driverId?: string)
     const ready = drivers.filter((driver) => driver.user.phone?.trim());
     if (!ready.length) return Response.json({ error: "A booking phone number is required" }, { status: 422 });
     const cards = driverId ? Array.from({ length: 8 }, () => ready[0]) : ready;
-    const pdf = await renderBusinessCards(cards, new URL("/booking", url).href, locale === "fr" ? "fr" : "en");
+    const pdf = await renderBusinessCards(cards, new URL("/booking", url).href, locale);
     await prisma.$transaction(ready.map((driver) => prisma.auditLog.create({ data: {
       actorId: admin.id, entity: "DriverProfile", entityId: driver.id, action: "DOWNLOAD_BUSINESS_CARD_PDF",
     } })));

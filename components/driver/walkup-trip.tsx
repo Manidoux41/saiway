@@ -1,5 +1,7 @@
 "use client";
 
+import { bookingErrorKey } from "@/components/i18n/booking-error";
+
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import dynamic from "next/dynamic";
 import { z } from "zod";
@@ -94,7 +96,7 @@ export function WalkupTrip({ onStarted, disabled, location, gpsPhase, retryGps }
       });
       if (!response.ok) {
         const failure = z.object({ error: z.string() }).safeParse(await response.json());
-        throw new Error(`${t("auto.error")}${failure.success ? ` ${failure.data.error}` : ""}`);
+        throw new Error(t(bookingErrorKey(failure.success ? failure.data.error : undefined, "auto.error")));
       }
       setOpen(false); setFrom(""); setTo(""); setFromPoint(undefined); setToPoint(undefined); setGpsMessage(""); setPreview(null); setDepartureEdited(false); initialized.current = false; manualDeparture.current = false; onStarted();
     } catch (failure) { setError(failure instanceof Error ? failure.message : t("auto.error")); } finally { setPending(false); }

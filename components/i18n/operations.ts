@@ -6,6 +6,7 @@ import { trackingCopy } from "@/components/i18n/tracking-copy";
 import { placeCopy } from "@/components/i18n/place-copy";
 import { fareCopy } from "@/components/i18n/fare-copy";
 import { autonomousCopy } from "@/components/i18n/autonomous-copy";
+import { interfaceCopy } from "@/components/i18n/interface-copy";
 
 const en = {
   ...driverCopy.en,
@@ -16,6 +17,7 @@ const en = {
   ...placeCopy.en,
   ...fareCopy.en,
   ...autonomousCopy.en,
+  ...interfaceCopy.en,
   "live.timeout": "GPS request timed out. Retry or enter the departure manually.",
   "password.title": "Change my password", "password.help": "Enter your current password and a different new password (8 to 128 characters). Existing sessions remain signed in.",
   "password.current": "Current password", "password.new": "New password", "password.confirm": "Confirm new password", "password.save": "Change password",
@@ -57,6 +59,7 @@ const fr: typeof en = {
   ...placeCopy.fr,
   ...fareCopy.fr,
   ...autonomousCopy.fr,
+  ...interfaceCopy.fr,
   "live.timeout": "Délai GPS dépassé. Réessayez ou saisissez le départ manuellement.",
   "password.title": "Changer mon mot de passe", "password.help": "Saisissez votre mot de passe actuel et un nouveau mot de passe différent (8 à 128 caractères). Les sessions existantes restent connectées.",
   "password.current": "Mot de passe actuel", "password.new": "Nouveau mot de passe", "password.confirm": "Confirmer le nouveau mot de passe", "password.save": "Modifier le mot de passe",
@@ -89,8 +92,46 @@ const fr: typeof en = {
   "courses.saved": "Votre réservation a été enregistrée.", "courses.submitError": "Impossible d'enregistrer votre réservation. Vérifiez les informations et réessayez.",
   "courses.quoteNotice": "Le serveur calcule le tarif selon le type de course, la distance routière ou le forfait touristique convenu. Les courses au kilomètre réel et les dépassements touristiques sont réglés après la course.",
 };
-export const operations = { en, fr, km: { ...en, ...autonomousCopy.km, "live.timeout": "អស់ពេលរង់ចាំ GPS។ សូមសាកល្បងម្ដងទៀត ឬបញ្ចូលទីតាំងដោយដៃ។",
-  "nav.adminDashboard": "ផ្ទាំងគ្រប់គ្រងអ្នកគ្រប់គ្រង", "nav.driverDashboard": "ផ្ទាំងគ្រប់គ្រងអ្នកបើកបរ", "nav.account": "គណនីរបស់ខ្ញុំ", "nav.signOut": "ចាកចេញ",
-  "courses.adminTitle": "ការកក់ និងការចាត់តាំង", "courses.driverTitle": "ការធ្វើដំណើររបស់ខ្ញុំ", "courses.customerTitle": "ការកក់របស់ខ្ញុំ",
-  "courses.create": "បង្កើតការធ្វើដំណើរ", "courses.save": "រក្សាទុក", "courses.cancel": "លុបចោលការធ្វើដំណើរ",
-} };
+const km: typeof en = {
+  ...driverCopy.km,
+  ...adminCopy.km,
+  ...customerCopy.km,
+  ...profileCopy.km,
+  ...trackingCopy.km,
+  ...placeCopy.km,
+  ...fareCopy.km,
+  ...autonomousCopy.km,
+  ...interfaceCopy.km,
+  "live.timeout": "អស់ពេលរង់ចាំ GPS។ សូមសាកល្បងម្ដងទៀត ឬបញ្ចូលទីតាំងចេញដំណើរដោយដៃ។",
+  "password.title": "ប្ដូរពាក្យសម្ងាត់របស់ខ្ញុំ", "password.help": "បញ្ចូលពាក្យសម្ងាត់បច្ចុប្បន្ន និងពាក្យសម្ងាត់ថ្មីដែលខុសគ្នា (8 ដល់ 128 តួអក្សរ)។ សម័យដែលបានចូលរួចនៅតែដំណើរការ។",
+  "password.current": "ពាក្យសម្ងាត់បច្ចុប្បន្ន", "password.new": "ពាក្យសម្ងាត់ថ្មី", "password.confirm": "បញ្ជាក់ពាក្យសម្ងាត់ថ្មី", "password.save": "ប្ដូរពាក្យសម្ងាត់",
+  "password.saved": "បានធ្វើបច្ចុប្បន្នភាពពាក្យសម្ងាត់ក្នុងមូលដ្ឋានទិន្នន័យ។ ប្រើពាក្យសម្ងាត់ថ្មីនៅពេលចូលគណនីលើកក្រោយ។",
+  "password.invalid": "ប្រើពាក្យសម្ងាត់ថ្មីដែលខុសគ្នា និងមានប្រវែង 8 ដល់ 128 តួអក្សរ ហើយបញ្ចូលតម្លៃដូចគ្នាក្នុងប្រអប់បញ្ជាក់។",
+  "password.incorrect": "ពាក្យសម្ងាត់បច្ចុប្បន្នមិនត្រឹមត្រូវទេ។", "password.forbidden": "ត្រូវការសម័យអ្នកគ្រប់គ្រង ឬអ្នកបើកបរសកម្ម។",
+  "password.conflict": "គណនីរបស់អ្នកបានផ្លាស់ប្ដូរអំឡុងប្រតិបត្តិការ។ ចូលគណនីម្ដងទៀត ហើយសាកល្បងម្ដងទៀត។", "password.unavailable": "មិនអាចប្ដូរពាក្យសម្ងាត់បានទេ។ សូមសាកល្បងម្ដងទៀត។",
+  "courses.vehiclePending": "យានយន្តនឹងត្រូវបញ្ជាក់ក្រោយការចាត់តាំង។",
+  "records.users": "គណនី", "records.vehicles": "យានយន្ត", "records.accounting": "គណនេយ្យ", "records.forecasts": "ការព្យាករ", "records.pricing": "តម្លៃ", "records.contracts": "កិច្ចសន្យា", "records.settings": "ការកំណត់",
+  "records.name": "ឈ្មោះ", "records.email": "អ៊ីមែល", "records.phone": "ទូរស័ព្ទ", "records.status": "ស្ថានភាព", "records.available": "អ្នកបើកបរទំនេរ", "records.license": "លេខបណ្ណបើកបរ", "records.plate": "ស្លាកលេខ", "records.seats": "កៅអី", "records.active": "សកម្ម",
+  "records.type": "ប្រភេទ", "records.description": "ការពិពណ៌នា", "records.amount": "ចំនួន (សេន USD)", "records.month": "ខែ", "records.revenue": "ចំណូល (សេន USD)", "records.expenses": "ចំណាយ (សេន USD)", "records.fare": "តម្លៃ (សេន USD)", "records.effective": "ចាប់ផ្ដើមនៅ", "records.direction": "ទិសដៅ", "records.tripType": "ប្រភេទដំណើរ", "records.all": "ទាំងអស់",
+  "records.provider": "អ្នកផ្ដល់សេវា", "records.monthly": "ចំណាយប្រចាំខែ (សេន USD)", "records.start": "ថ្ងៃចាប់ផ្ដើម", "records.end": "ថ្ងៃបញ្ចប់ (ជាជម្រើស)", "records.image": "រូបភាពទំព័រដើម (តំណ HTTPS)",
+  "courses.quoteError": "មិនមានតម្លៃទេ។ ផ្ទុកទំព័រឡើងវិញដើម្បីសាកល្បងម្ដងទៀត។",
+  "auth.serviceUnavailable": "មិនអាចចូលគណនីបានទេ។ សូមសាកល្បងម្ដងទៀត។",
+  "courses.customerEmail": "អ៊ីមែលអតិថិជន", "courses.customerCreated": "បានបង្កើតគណនីអតិថិជន។",
+  "courses.archive": "បិទដំណើរការ", "courses.confirmArchive": "បិទកំណត់ត្រានេះឬ? ប្រវត្តិរបស់វានឹងត្រូវរក្សាទុក។",
+  "nav.adminDashboard": "ផ្ទាំងគ្រប់គ្រងអ្នកគ្រប់គ្រង", "nav.driverDashboard": "ផ្ទាំងគ្រប់គ្រងអ្នកបើកបរ", "nav.account": "គណនីរបស់ខ្ញុំ", "nav.signOut": "ចេញពីគណនី", "nav.signOutError": "មិនអាចចេញពីគណនីបានទេ។ សូមសាកល្បងម្ដងទៀត។",
+  "courses.adminTitle": "ការកក់ និងការចាត់តាំង", "courses.driverTitle": "ដំណើរដែលបានចាត់តាំងរបស់ខ្ញុំ", "courses.customerTitle": "ការកក់របស់ខ្ញុំ",
+  "courses.adminScope": "គ្រប់គ្រងគណនី យានយន្ត តម្លៃ និងកំណត់ត្រាហិរញ្ញវត្ថុ។ បង្កើត កែសម្រួល ចាត់តាំង ឬបោះបង់ការកក់។",
+  "courses.driverScope": "បង្ហាញតែដំណើរដែលបានចាត់តាំងឱ្យអ្នកប៉ុណ្ណោះ។ មិនអាចចូលប្រើការកក់អតិថិជន និងការគ្រប់គ្រងបានទេ។",
+  "courses.create": "បង្កើតដំណើរ", "courses.createCustomer": "បង្កើតគណនីអតិថិជន", "courses.customer": "អតិថិជន", "courses.select": "ជ្រើសកំណត់ត្រា",
+  "courses.from": "ពី", "courses.to": "ទៅ", "courses.pickup": "កាលបរិច្ឆេទ និងម៉ោងទទួល", "courses.price": "តម្លៃ (USD)", "courses.unassigned": "មិនទាន់ចាត់តាំង",
+  "courses.airportToCity": "ពីព្រលានយន្តហោះទៅក្រុង", "courses.cityToAirport": "ពីក្រុងទៅព្រលានយន្តហោះ",
+  "courses.save": "រក្សាទុក", "courses.editAssign": "កែសម្រួល / ចាត់តាំង", "courses.cancel": "បោះបង់ដំណើរ", "courses.confirmCancel": "បោះបង់ដំណើរនេះឬ? ប្រវត្តិនឹងត្រូវរក្សាទុក។",
+  "courses.assigned": "បានចាត់តាំង", "courses.accepted": "បានទទួលយក", "courses.enRoute": "កំពុងធ្វើដំណើរ", "courses.arrived": "បានមកដល់", "courses.started": "បានចាប់ផ្ដើមដំណើរ", "courses.completed": "បានបញ្ចប់", "courses.cancelled": "បានបោះបង់", "courses.pending": "កំពុងរង់ចាំ",
+  "courses.loadError": "មិនអាចផ្ទុកដំណើរបានទេ។ ពិនិត្យសម័យរបស់អ្នក ហើយសាកល្បងម្ដងទៀត។", "courses.saveError": "មិនអាចបញ្ចប់ប្រតិបត្តិការបានទេ។",
+  "courses.empty": "មិនមានដំណើរដែលត្រូវបង្ហាញទេ។", "courses.paymentNotice": "ការចាត់តាំង និងការទូទាត់ដាច់ដោយឡែកពីគ្នា។ អ្នកបើកបរដែលបានចាត់តាំងអាចបញ្ជាក់ការទទួលប្រាក់ដោយផ្ទាល់ក្រោយបញ្ចប់ដំណើរ។",
+  "courses.manageRecords": "កែសម្រួលកំណត់ត្រា និងការកំណត់", "courses.entity": "ប្រភេទ", "courses.record": "កំណត់ត្រា", "courses.newRecord": "កំណត់ត្រាថ្មី",
+  "courses.archiveNotice": "គណនី និងយានយន្តត្រូវបានបិទដំណើរការ មិនមែនលុបទេ។ រក្សាទុកប្រវត្តិហិរញ្ញវត្ថុ។ មិនអាចប្ដូរតួនាទីគណនីបានទេ។",
+  "courses.saved": "បានរក្សាទុកការកក់របស់អ្នក។", "courses.submitError": "មិនអាចរក្សាទុកការកក់បានទេ។ ពិនិត្យព័ត៌មាន ហើយសាកល្បងម្ដងទៀត។",
+  "courses.quoteNotice": "ម៉ាស៊ីនមេគណនាតម្លៃតាមប្រភេទដំណើរ ចម្ងាយផ្លូវ ឬកញ្ចប់ទេសចរណ៍ដែលបានព្រមព្រៀង។ ដំណើរគិតតាមចម្ងាយពិត និងម៉ោងបន្ថែមដំណើរកម្សាន្តទូទាត់ក្រោយបញ្ចប់ដំណើរ។",
+};
+export const operations = { en, fr, km };

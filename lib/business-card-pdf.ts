@@ -34,7 +34,7 @@ async function png(image: Image) {
   }
 }
 
-export async function renderBusinessCards(drivers: BusinessCardPdfDriver[], bookingUrl: string, language: "en" | "fr"): Promise<Buffer> {
+export async function renderBusinessCards(drivers: BusinessCardPdfDriver[], bookingUrl: string, language: "en" | "fr" | "km"): Promise<Buffer> {
   const copy = driverCopy[language];
   const doc = new PDFDocument({
     autoFirstPage: false, margin: 0, font: path.join(process.cwd(), "assets", "fonts", "NotoSans-Regular.ttf"),
@@ -51,13 +51,13 @@ export async function renderBusinessCards(drivers: BusinessCardPdfDriver[], book
     khmer: "Battambang-Regular.ttf", khmerBold: "Battambang-Bold.ttf",
   })) doc.registerFont(name, path.join(process.cwd(), "assets", "fonts", file));
 
-  function text(value: string, x: number, y: number, width: number, size: number, color: string, bold = false) {
+  function text(value: string, x: number, y: number, width: number, size: number, color: string, bold = false, centered = false) {
     const runs = scriptRuns(value).map((run) => ({ text: run.text, font: run.khmer ? bold ? "khmerBold" : "khmer" : bold ? "latinBold" : "latin" }));
     doc.fontSize(size);
     const measured = () => runs.reduce((total, run) => total + doc.font(run.font).widthOfString(run.text), 0);
     while (measured() > width && size > 4) { size -= 0.25; doc.fontSize(size); }
     doc.fillColor(color);
-    let cursor = x;
+    let cursor = x + (centered ? (width - measured()) / 2 : 0);
     for (const run of runs) {
       doc.font(run.font).text(run.text, cursor, y, { lineBreak: false });
       cursor += doc.widthOfString(run.text);
@@ -75,9 +75,7 @@ export async function renderBusinessCards(drivers: BusinessCardPdfDriver[], book
     doc.rect(0, 0, cardWidth, mm(12)).fill("#ffffff");
     doc.rect(0, mm(11.5), cardWidth, mm(0.5)).fill("#dfb56b");
     doc.rect(0, mm(12), cardWidth, mm(5)).fill("#032ea1");
-    doc.font("latin").fontSize(6.5);
-    const missionWidth = doc.widthOfString(copy["cards.business"]);
-    text(copy["cards.business"], (cardWidth - missionWidth) / 2, mm(13), cardWidth - mm(6), 6.5, "#ffffff");
+    text(copy["cards.business"], mm(3), mm(13), cardWidth - mm(6), 6.5, "#ffffff", false, true);
   }
 
   function logo() {

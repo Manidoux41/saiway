@@ -1,5 +1,6 @@
 "use client";
 
+import { localizedNumber } from "@/lib/locale-format";
 import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -62,7 +63,7 @@ export default function TripMap({ course, demo }: { course: Course; demo: boolea
   return <div className="relative">
     <div ref={container} className="relative z-0 h-80 w-full bg-slate-100 sm:h-97.5" role="region" aria-label={t("driver.map")} />
     <div className="border-t border-slate-200 bg-white px-4 py-3 text-sm" aria-live="polite">
-      {state.phase === "ready" ? <><strong>{new Intl.NumberFormat(language, { maximumFractionDigits: 1 }).format((state.distance ?? 0) / 1000)} {t("driver.kilometer")} · {Math.ceil((state.duration ?? 0) / 60)} {t("driver.minute")}</strong><span className="ml-2 text-slate-500">{t("driver.routeEstimate")}</span></> : t(state.phase === "loading" ? "driver.routeLoading" : state.phase === "error" ? "driver.routeError" : "driver.routeUnavailable")}
+      {state.phase === "ready" ? <><strong>{localizedNumber(language, { maximumFractionDigits: 1 }).format((state.distance ?? 0) / 1000)} {t("driver.kilometer")} · {Math.ceil((state.duration ?? 0) / 60)} {t("driver.minute")}</strong><span className="ml-2 text-slate-500">{t("driver.routeEstimate")}</span></> : t(state.phase === "loading" ? "driver.routeLoading" : state.phase === "error" ? "driver.routeError" : "driver.routeUnavailable")}
       {tilesFailed && <p className="mt-1 text-red-700" role="alert">{t("driver.mapTilesError")}</p>}
     </div>
   </div>;

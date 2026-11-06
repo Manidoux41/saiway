@@ -74,4 +74,42 @@ const fr: typeof en = {
   "profile.employerRepresentative": "Représentant légal", "profile.employerRepresentativeTitle": "Fonction du représentant",
 };
 
-export const profileCopy = { en, fr };
+const km: typeof en = {
+  "profile.actions": "សកម្មភាព", "profile.edit": "កែសម្រួលប្រវត្តិរូប", "profile.close": "បិទ", "profile.title": "ប្រវត្តិរូបគណនី",
+  "profile.loading": "កំពុងផ្ទុកប្រវត្តិរូប…", "profile.loadError": "មិនអាចផ្ទុកប្រវត្តិរូបនេះបានទេ។ ពិនិត្យសម័យអ្នកគ្រប់គ្រង ហើយសាកល្បងម្ដងទៀត។", "profile.retry": "សាកល្បងម្ដងទៀត",
+  "profile.self": "នេះជាគណនីរបស់អ្នក។ កែព័ត៌មានរបស់អ្នកពីការកំណត់គណនីផ្ទាល់ខ្លួន។",
+  "profile.identity": "អត្តសញ្ញាណ និងសិទ្ធិចូលប្រើ", "profile.name": "ឈ្មោះពេញ", "profile.email": "អ៊ីមែល", "profile.phone": "ទូរស័ព្ទ (ទម្រង់អន្តរជាតិ)",
+  "profile.status": "ស្ថានភាពគណនី", "profile.active": "សកម្ម", "profile.suspended": "បានផ្អាក (រក្សាទុកក្នុងប័ណ្ណសារ)",
+  "profile.statusHelp": "គណនីមិនត្រូវបានលុបចោលទេ៖ ការផ្អាកនឹងរក្សាទុកគណនីក្នុងប័ណ្ណសារ បិទការចូលប្រើ និងរក្សាការកក់ ការទូទាត់ និងកិច្ចសន្យាសម្រាប់គណនេយ្យ។",
+  "profile.emailHelp": "ការប្ដូរអ៊ីមែលរបស់អ្នកបើកបរ ឬអ្នកគ្រប់គ្រងនឹងចេញពួកគេពីគណនី។ បន្ទាប់មកពួកគេចូលដោយប្រើអ៊ីមែលថ្មី។",
+  "profile.save": "រក្សាទុក", "profile.saving": "កំពុងរក្សាទុក…", "profile.saved": "បានរក្សាទុកក្នុងមូលដ្ឋានទិន្នន័យ។", "profile.clear": "សម្អាតប្រអប់",
+  "profile.saveError": "មិនអាចរក្សាទុកបានទេ។ ពិនិត្យតម្លៃ (ឧទាហរណ៍ អ៊ីមែលស្ទួន ឬកាលបរិច្ឆេទមិនត្រឹមត្រូវ) ហើយសាកល្បងម្ដងទៀត។",
+  "profile.bookings": "ការកក់", "profile.createdAt": "បានបង្កើតនៅ",
+  "profile.customerDetails": "ព័ត៌មានអតិថិជន", "profile.customerHelp": "ព័ត៌មានដែលមិនបានសួរពេលចុះឈ្មោះ។ ទុកប្រអប់ឱ្យទទេដើម្បីលុបព័ត៌មាន។",
+  "profile.address": "អាសយដ្ឋាន", "profile.nationality": "សញ្ជាតិ", "profile.preferredLanguage": "ភាសាដែលចូលចិត្ត", "profile.company": "ក្រុមហ៊ុន / សណ្ឋាគារ / ភ្នាក់ងារ",
+  "profile.adminNotes": "កំណត់ចំណាំផ្ទៃក្នុង (សម្រាប់អ្នកគ្រប់គ្រងប៉ុណ្ណោះ)",
+  "profile.driverDetails": "ព័ត៌មានអ្នកបើកបរ", "profile.driverHelp": "ព័ត៌មាននេះប្រើសម្រាប់កិច្ចសន្យាការងារ។ ទុកប្រអប់ឱ្យទទេដើម្បីលុបព័ត៌មាន។",
+  "profile.dateOfBirth": "ថ្ងៃខែឆ្នាំកំណើត", "profile.idDocumentNo": "លេខអត្តសញ្ញាណប័ណ្ណ ឬលិខិតឆ្លងដែន", "profile.emergencyName": "ឈ្មោះអ្នកទាក់ទងពេលបន្ទាន់", "profile.emergencyPhone": "ទូរស័ព្ទអ្នកទាក់ទងពេលបន្ទាន់",
+  "profile.licenseNo": "លេខបណ្ណបើកបរ", "profile.licenseCategory": "ប្រភេទបណ្ណបើកបរ", "profile.licenseExpiresAt": "ថ្ងៃផុតកំណត់បណ្ណបើកបរ", "profile.available": "ទំនេរសម្រាប់ការចាត់តាំង",
+  "profile.licensePhotos": "រូបថតបណ្ណបើកបរ", "profile.licensePhotosHelp": "JPEG, PNG ឬ WebP ទំហំអតិបរមា 5 MB ក្នុងមួយផ្នែក។ អ្នកបើកបរអាចមើលរូបថតដូចគ្នានៅក្នុងផ្ទាំងរបស់ខ្លួន។",
+  "profile.FRONT": "មុខ", "profile.BACK": "ខ្នង", "profile.view": "មើល", "profile.upload": "បញ្ចូល", "profile.replace": "ជំនួស", "profile.delete": "លុប", "profile.missingPhoto": "មិនបានផ្ដល់",
+  "profile.deletePhotoConfirm": "លុបរូបថតបណ្ណបើកបរនេះឬ? មិនអាចត្រឡប់ក្រោយបានទេ។", "profile.uploadError": "ការបញ្ចូលបរាជ័យ។ ប្រើរូបភាព JPEG, PNG ឬ WebP ដែលមានទំហំ 5 MB ឬតិចជាងនេះ។",
+  "profile.contracts": "កិច្ចសន្យាការងារ (អចិន្ត្រៃយ៍)", "profile.contractsHelp": "គំរូជាភាសាអង់គ្លេស និងខ្មែរ។ សូមឱ្យមេធាវីច្បាប់ការងារកម្ពុជា និងអ្នកនិយាយខ្មែរដើមពិនិត្យមុនចុះហត្ថលេខា។",
+  "profile.noContracts": "មិនទាន់មានកិច្ចសន្យាទេ។", "profile.newContract": "កិច្ចសន្យាថ្មី", "profile.editContract": "កែសម្រួលសេចក្ដីព្រាង",
+  "profile.position": "មុខតំណែង", "profile.workplace": "ទីកន្លែងធ្វើការ", "profile.startsAt": "ថ្ងៃចាប់ផ្ដើម", "profile.probationMonths": "រយៈពេលសាកល្បង (ខែ, 0–3)",
+  "profile.hoursPerWeek": "ម៉ោងក្នុងមួយសប្ដាហ៍ (អតិបរមា 48)", "profile.salary": "ប្រាក់ខែសរុបប្រចាំខែ (USD)", "profile.annualLeaveDays": "ថ្ងៃឈប់សម្រាកប្រចាំឆ្នាំ (អប្បបរមា 18)", "profile.additionalTerms": "លក្ខខណ្ឌបន្ថែម (ជាជម្រើស)",
+  "profile.createContract": "បង្កើតសេចក្ដីព្រាង", "profile.contractDRAFT": "សេចក្ដីព្រាង", "profile.contractACTIVE": "សកម្ម", "profile.contractTERMINATED": "បានបញ្ចប់",
+  "profile.downloadPdf": "ទាញយក PDF", "profile.activate": "ធ្វើឱ្យសកម្ម (បានចុះហត្ថលេខា)", "profile.terminate": "បញ្ចប់", "profile.terminatedAt": "ថ្ងៃបញ្ចប់", "profile.cancel": "បោះបង់",
+  "profile.deleteDraftConfirm": "លុបសេចក្ដីព្រាងកិច្ចសន្យានេះឬ?", "profile.contractError": "មិនអាចធ្វើបច្ចុប្បន្នភាពកិច្ចសន្យាបានទេ។ ពិនិត្យតម្លៃ ហើយសាកល្បងម្ដងទៀត។",
+  "profile.missingTitle": "បំពេញព័ត៌មានទាំងនេះមុនធ្វើឱ្យកិច្ចសន្យាសកម្ម៖",
+  "profile.missing.employerName": "ឈ្មោះនិយោជក", "profile.missing.employerAddress": "អាសយដ្ឋាននិយោជក", "profile.missing.employerRepresentative": "តំណាងនិយោជក",
+  "profile.missing.dateOfBirth": "ថ្ងៃខែឆ្នាំកំណើតអ្នកបើកបរ", "profile.missing.nationality": "សញ្ជាតិអ្នកបើកបរ", "profile.missing.idDocumentNo": "លេខអត្តសញ្ញាណប័ណ្ណ ឬលិខិតឆ្លងដែន",
+  "profile.missing.address": "អាសយដ្ឋានអ្នកបើកបរ", "profile.missing.phone": "ទូរស័ព្ទអ្នកបើកបរ", "profile.missing.licenseNo": "លេខបណ្ណបើកបរ",
+  "profile.missing.licenseExpiresAt": "ថ្ងៃផុតកំណត់បណ្ណបើកបរ", "profile.missing.licenseExpired": "បណ្ណបើកបរបានផុតកំណត់ហើយ", "profile.missing.activeContract": "អ្នកបើកបរនេះមានកិច្ចសន្យាសកម្មរួចហើយ។ សូមបញ្ចប់វាជាមុន។",
+  "profile.readyForContract": "បានបំពេញព័ត៌មានទាំងអស់ដែលត្រូវការសម្រាប់កិច្ចសន្យា។",
+  "profile.employer": "ព័ត៌មាននិយោជកសម្រាប់កិច្ចសន្យា", "profile.employerHelp": "បោះពុម្ពលើកិច្ចសន្យាការងារនីមួយៗ។ ទុកប្រអប់ឱ្យទទេដើម្បីលុបព័ត៌មាន។",
+  "profile.employerName": "ឈ្មោះក្រុមហ៊ុន", "profile.employerRegistration": "លេខចុះបញ្ជី", "profile.employerAddress": "អាសយដ្ឋានចុះបញ្ជី",
+  "profile.employerRepresentative": "តំណាងស្របច្បាប់", "profile.employerRepresentativeTitle": "មុខតំណែងតំណាង",
+};
+
+export const profileCopy = { en, fr, km };
