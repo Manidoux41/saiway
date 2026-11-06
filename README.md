@@ -284,6 +284,14 @@ If incomplete, completion returns `409 GPS_INCOMPLETE_CONFIRM_ROUTE`; retrying
 with `confirmEstimatedDistance=true` uses the saved server-computed route distance
 (or computes it for older bookings) and
 records `CONFIRMED_ROUTE`, explicitly excluding unknown detours.
+If GPS coverage is complete but records zero movement on a positively priced
+metered trip, completion retains the original road estimate and any justified
+price adjustment instead of replacing the fare with zero. The fare snapshot,
+trip history and audit record identify this case explicitly. Completion does
+not confirm payment: the driver must still record received or unpaid separately.
+Positive, complete GPS distance still determines the final city fare, including
+an increase when the driver travels farther than the estimated route. The
+original estimate remains visible and the receipt uses the final amount.
 Tour completion may supply `tourCircuit` to confirm an agreed upgrade.
 Final fare and status are saved atomically before the existing driver payment
 endpoint collects that amount. Metered trips and tours cannot start online

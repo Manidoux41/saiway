@@ -99,3 +99,76 @@ test('driver walk-up trips use their own GPS, reject overlap and finalize with e
     assert.equal(measured.data.booking.priceCents, Math.round(measured.data.booking.fareDetails.distanceMeters * 65 / 1000));
   } finally { await ctx.cleanup(); }
 });
+
+test('zero GPS movement retains the estimate and adjustments without confirming payment', async () => {
+  const ctx = await setup();
+  try {
+    const driver = await createAccount(ctx, 'DRIVER');
+    const profile = await ctx.prisma.driverProfile.findUniqueOrThrow({ where: { userId: driver.id } });
+    const vehicle = await ctx.prisma.vehicle.create({ data: { name: ctx.prefix, plate: ctx.prefix, seats: 4 } });
+    for (const correctedPrice of [null, 300, 0]) {
+      const preview = await request('/api/driver/bookings', 'POST', { action: 'preview', selection: { vehicleId: vehicle.id, fromAddress: trip.fromAddress, toAddress: trip.toAddress } }, driver.cookie);
+      assert.equal(preview.status, 200);
+      const started = await request('/api/driver/bookings', 'POST', { quoteToken: preview.data.token, passengers: 1 }, driver.cookie);
+      assert.equal(started.status, 201);
+      const id = started.data.booking.id;
+      if (correctedPrice !== null) {
+        assert.equal((await request('/api/admin/bookings', 'PATCH', { id, finalPriceCents: correctedPrice, priceReason: 'Agreed administrator correction' }, ctx.cookie)).status, 200);
+      }
+      const stored = await ctx.prisma.booking.findUniqueOrThrow({ where: { id } });
+      const start = new Date(Date.now() - 30000);
+      await ctx.prisma.booking.update({ where: { id }, data: { startedAt: start, fareDetails: { ...stored.fareDetails, startedAt: start.toISOString() } } });
+      await ctx.prisma.driverLocation.deleteMany({ where: { bookingId: id } });
+      await ctx.prisma.driverLocation.createMany({ data: [0, 15, 29].map(seconds => ({
+        driverId: profile.id, bookingId: id, latitude: 13.36, longitude: 103.85,
+        accuracy: 5, recordedAt: new Date(start.getTime() + seconds * 1000),
+      })) });
+      const done = await request('/api/driver/bookings', 'PATCH', { id, status: 'TRIP_COMPLETED' }, driver.cookie);
+      assert.equal(done.status, 200);
+      const expected = correctedPrice ?? 325;
+      assert.equal(done.data.booking.priceCents, expected);
+      assert.equal(done.data.booking.estimatedPriceCents, 325);
+      assert.equal(done.data.booking.payments.length, 0);
+      if (expected > 0) {
+        assert.equal(done.data.booking.fareDetails.zeroGpsEstimateRetained, true);
+        assert.equal(done.data.booking.fareDetails.distanceMeters, 5000);
+        assert.equal(done.data.booking.fareDetails.distanceSource, 'ROUTE');
+        assert.ok(done.data.booking.statusHistory.some(event => event.note.includes('zero GPS distance; original road estimate retained')));
+        const audit = await ctx.prisma.auditLog.findFirst({ where: { actorId: driver.id, entityId: id, action: 'UPDATE' }, orderBy: { createdAt: 'desc' } });
+        assert.equal(audit.metadata.zeroGpsEstimateRetained, true);
+      }
+      const unpaid = await request('/api/driver/payments', 'POST', { bookingId: id, received: false }, driver.cookie);
+      assert.equal(unpaid.status, 200);
+      assert.equal(unpaid.data.booking.priceCents, expected);
+      assert.equal(unpaid.data.booking.payments.length, 0);
+      const paid = await request('/api/driver/payments', 'POST', { bookingId: id, received: true, collectionMethod: 'CASH' }, driver.cookie);
+      assert.equal(paid.status, 200);
+      assert.equal(paid.data.booking.payments[0].amountCents, expected);
+      assert.equal((await ctx.prisma.booking.findUniqueOrThrow({ where: { id } })).priceCents, expected);
+    }
+    const preview = await request('/api/driver/bookings', 'POST', { action: 'preview', selection: { vehicleId: vehicle.id, fromAddress: trip.fromAddress, toAddress: trip.toAddress } }, driver.cookie);
+    assert.equal(preview.status, 200);
+    const started = await request('/api/driver/bookings', 'POST', { quoteToken: preview.data.token, passengers: 1 }, driver.cookie);
+    assert.equal(started.status, 201);
+    const id = started.data.booking.id;
+    const start = new Date(Date.now() - 810000);
+    await ctx.prisma.booking.update({ where: { id }, data: { startedAt: start, fareDetails: { ...started.data.booking.fareDetails, startedAt: start.toISOString() } } });
+    await ctx.prisma.driverLocation.deleteMany({ where: { bookingId: id } });
+    await ctx.prisma.driverLocation.createMany({ data: Array.from({ length: 55 }, (_, index) => ({
+      driverId: profile.id, bookingId: id, latitude: 13.36, longitude: 103.85 + index * 0.001,
+      accuracy: 5, recordedAt: new Date(start.getTime() + index * 15000),
+    })) });
+    const longer = await request('/api/driver/bookings', 'PATCH', { id, status: 'TRIP_COMPLETED' }, driver.cookie);
+    assert.equal(longer.status, 200);
+    assert.equal(longer.data.booking.estimatedPriceCents, 325);
+    assert.equal(longer.data.booking.fareDetails.distanceSource, 'GPS');
+    assert.ok(longer.data.booking.fareDetails.distanceMeters > 5000);
+    assert.ok(longer.data.booking.priceCents > 325);
+    assert.equal(longer.data.booking.priceCents, Math.round(longer.data.booking.fareDetails.distanceMeters * 65 / 1000));
+    assert.equal(longer.data.booking.fareDetails.zeroGpsEstimateRetained, undefined);
+    assert.equal(longer.data.booking.payments.length, 0);
+    const paid = await request('/api/driver/payments', 'POST', { bookingId: id, received: true, collectionMethod: 'CASH' }, driver.cookie);
+    assert.equal(paid.status, 200);
+    assert.equal(paid.data.booking.payments[0].amountCents, longer.data.booking.priceCents);
+  } finally { await ctx.cleanup(); }
+});

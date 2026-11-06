@@ -1,4 +1,5 @@
 const en = {
+  "auto.zeroGpsEstimate": "No GPS movement recorded: the estimated fare is retained. Payment must still be confirmed separately.",
   "auto.new": "Start a new trip", "auto.confirm": "CONFIRM AND START TRIP",
   "auto.preview": "Calculate route and fare", "auto.gps": "Detecting your current location…",
   "auto.gpsHelp": "GPS unavailable or permission denied. Enter the departure manually or retry GPS sharing.",
@@ -28,6 +29,7 @@ const en = {
   "auto.khrUnset": "KHR equivalent not configured", "auto.remaining": "Remaining route estimate",
 };
 const fr: typeof en = {
+  "auto.zeroGpsEstimate": "Aucun déplacement GPS enregistré : le prix estimé est conservé. Le paiement reste à confirmer séparément.",
   "auto.new": "Démarrer une nouvelle course", "auto.confirm": "CONFIRMER ET DÉMARRER LA COURSE",
   "auto.preview": "Calculer l’itinéraire et le tarif", "auto.gps": "Détection de votre position actuelle…",
   "auto.gpsHelp": "GPS indisponible ou autorisation refusée. Saisissez le départ manuellement ou relancez le partage GPS.",
@@ -57,6 +59,7 @@ const fr: typeof en = {
   "auto.khrUnset": "Équivalent KHR non configuré", "auto.remaining": "Estimation du trajet restant",
 };
 const km: typeof en = {
+  "auto.zeroGpsEstimate": "GPS មិនបានកត់ត្រាចលនា៖ រក្សាតម្លៃប៉ាន់ស្មាន។ ត្រូវបញ្ជាក់ការទូទាត់ដោយឡែក។",
   "auto.new": "ចាប់ផ្ដើមដំណើរថ្មី", "auto.confirm": "បញ្ជាក់ និងចាប់ផ្ដើមដំណើរ",
   "auto.preview": "គណនាផ្លូវ និងតម្លៃ", "auto.gps": "កំពុងរកទីតាំងបច្ចុប្បន្ន…",
   "auto.gpsHelp": "មិនអាចប្រើ GPS ឬមិនបានអនុញ្ញាត។ សូមបញ្ចូលទីតាំងចេញដំណើរដោយដៃ ឬសាកល្បង GPS ម្ដងទៀត។",

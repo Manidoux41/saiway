@@ -14,6 +14,7 @@ export function FareSummary({ details }: { details?: FareDetails | null }) {
     {details.mode === "CITY" && <p>{t("auto.pickup")}: {dollars(details.policy.cityPickupCents)} · {t("auto.minimum")}: {dollars(details.policy.cityMinimumCents)}</p>}
     {details.supplements?.map((item, index) => <p key={index}>{item.label}: +{dollars(item.cents)}</p>)}
     {details.initialPriceCents != null && <p>{t("auto.estimate")}: {dollars(details.initialPriceCents)}</p>}
+    {details.zeroGpsEstimateRetained && <p role="status">{t("auto.zeroGpsEstimate")}</p>}
     {details.adjustmentCents ? <p>{t("auto.correct")}: {dollars(details.adjustmentCents)}</p> : null}
     {details.mode === "OUTSIDE" && details.negotiatedPriceCents != null && <p>{t("auto.agreed")}: {dollars(details.negotiatedPriceCents)}</p>}
     {details.mode !== "OUTSIDE" || details.negotiatedPriceCents != null ? <p>{details.policy.khrPerUsd ? `≈ ${new Intl.NumberFormat(language, { maximumFractionDigits: 0 }).format(priceFare(details) * details.policy.khrPerUsd / 100)} KHR` : t("auto.khrUnset")}</p> : null}

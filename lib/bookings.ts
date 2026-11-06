@@ -211,6 +211,7 @@ export async function bookingRequest(request: Request, role: SessionRole) {
       }
       if (terminal.includes(existing.status)) throw new BookingError("A closed booking cannot be modified", 409);
       let update: Prisma.BookingUpdateInput;
+      let retainedEstimate = false;
       let status = existing.status;
       if (role === "ADMIN" && request.method === "PATCH" && "status" in parsed.data) {
         if (existing.status !== "PENDING_PAYMENT" || existing.driverId) throw new BookingError("Only an unassigned pending booking can be confirmed", 409);
@@ -261,8 +262,13 @@ export async function bookingRequest(request: Request, role: SessionRole) {
             const positions = await tx.driverLocation.findMany({ where: { driverId: existing.driverId!, bookingId: existing.id, recordedAt: { gte: new Date(snapshot.startedAt), lte: finished } }, orderBy: { recordedAt: "asc" } });
             const measured = measuredDistance(positions.map((p) => ({ latitude: Number(p.latitude), longitude: Number(p.longitude), accuracy: p.accuracy === null ? null : Number(p.accuracy), recordedAt: p.recordedAt })), new Date(snapshot.startedAt), finished);
             if (!measured.complete && confirmedRoute === null) throw new BookingError("GPS_INCOMPLETE_CONFIRM_ROUTE", 409);
-            snapshot.distanceMeters = measured.complete ? measured.meters : confirmedRoute;
-            snapshot.distanceSource = measured.complete ? "GPS" : "CONFIRMED_ROUTE";
+            retainedEstimate = measured.complete && measured.meters === 0 && existing.priceCents > 0;
+            if (retainedEstimate) {
+              snapshot.zeroGpsEstimateRetained = true;
+            } else {
+              snapshot.distanceMeters = measured.complete ? measured.meters : confirmedRoute;
+              snapshot.distanceSource = measured.complete ? "GPS" : "CONFIRMED_ROUTE";
+            }
           }
           if (snapshot.mode === "TOUR") {
             snapshot.extraHours = extraTourHours(snapshot.bookedHours, snapshot.startedAt ? finished.getTime() - new Date(snapshot.startedAt).getTime() : 0, snapshot.policy.tourIncludedHours);
@@ -283,8 +289,8 @@ export async function bookingRequest(request: Request, role: SessionRole) {
         }
       }
       const confirming = role === "ADMIN" && request.method === "PATCH" && "status" in parsed.data;
-      const result = await tx.booking.update({ where: { id: existing.id, updatedAt: existing.updatedAt }, data: { ...update, status, statusHistory: { create: { status, note: confirming ? "ADMIN operational confirmation; payment tracked separately" : status === "TRIP_COMPLETED" ? `FARE_FINALIZED ${existing.priceCents} -> ${String(update.priceCents ?? existing.priceCents)} USD cents; ${confirmedRoute !== null ? "driver confirmed road estimate" : existing.metered ? "GPS distance" : "agreed/package fare"}; ${ending.success ? ending.data.observations ?? "" : ""}` : `${role} update` } } }, include: bookingInclude });
-      await tx.auditLog.create({ data: { actorId: account.id, entity: "Booking", entityId: existing.id, action: confirming ? "CONFIRM" : request.method === "DELETE" ? "CANCEL" : "UPDATE", metadata: { oldCents: existing.priceCents, newCents: result.priceCents, status, confirmedEstimatedDistance: confirmedRoute !== null } } });
+      const result = await tx.booking.update({ where: { id: existing.id, updatedAt: existing.updatedAt }, data: { ...update, status, statusHistory: { create: { status, note: confirming ? "ADMIN operational confirmation; payment tracked separately" : status === "TRIP_COMPLETED" ? `FARE_FINALIZED ${existing.priceCents} -> ${String(update.priceCents ?? existing.priceCents)} USD cents; ${retainedEstimate ? "zero GPS distance; original road estimate retained" : confirmedRoute !== null ? "driver confirmed road estimate" : existing.metered ? "GPS distance" : "agreed/package fare"}; ${ending.success ? ending.data.observations ?? "" : ""}` : `${role} update` } } }, include: bookingInclude });
+      await tx.auditLog.create({ data: { actorId: account.id, entity: "Booking", entityId: existing.id, action: confirming ? "CONFIRM" : request.method === "DELETE" ? "CANCEL" : "UPDATE", metadata: { oldCents: existing.priceCents, newCents: result.priceCents, status, confirmedEstimatedDistance: confirmedRoute !== null, zeroGpsEstimateRetained: retainedEstimate } } });
       if (status === "TRIP_COMPLETED" && existing.driverId && await tx.hub.count({ where: { active: true } })) {
         await tx.driverProfile.update({ where: { id: existing.driverId }, data: { returningToHub: true } });
       }

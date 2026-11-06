@@ -45,6 +45,7 @@ export const fareDetailsSchema = z.object({
   extraHours: z.number().int().nonnegative(),
   startedAt: z.iso.datetime().nullable(),
   finalized: z.boolean(),
+  zeroGpsEstimateRetained: z.boolean().optional(),
   initialPriceCents: cents.nullable().optional(),
   negotiatedPriceCents: cents.nullable().optional(),
   adjustmentCents: z.number().int().optional(),
