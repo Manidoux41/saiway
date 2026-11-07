@@ -78,7 +78,7 @@ export function FleetSupervision() {
           {driver.stale && <small>{t("fleet.stale")}</small>}
         </span>
       </button>)}
-      {!state.drivers.length && state.loaded && <p className={styles.fleetEmpty}>{t("fleet.noDrivers")}</p>}
+      {!state.drivers.length && state.loaded && !state.error && <p className={styles.fleetEmpty}>{t("fleet.noDrivers")}</p>}
     </div>
     <FleetMap drivers={state.drivers} hubs={state.hubs} selectedId={selected?.id ?? null} onSelect={setSelectedId} height={expanded ? "100%" : "480px"} />
   </div>;
@@ -91,7 +91,7 @@ export function FleetSupervision() {
       </div>
     </div>
     {state.error && <p role="alert" className={styles.error}>{t("fleet.loadError")}</p>}
-    {!state.hubs.length && state.loaded && <p className={styles.fleetNotice}>{t("fleet.hubNotice")}</p>}
+    {!state.hubs.length && state.loaded && !state.error && <p className={styles.fleetNotice}>{t("fleet.hubNotice")}</p>}
     {content}
   </section>;
 }

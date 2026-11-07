@@ -401,7 +401,16 @@ Deployment: apply additive migration
 `20261107030000_driver_availability_dispatch` with `npx prisma migrate deploy`
 against the intended database after backup/testing, then deploy the application.
 No new environment variable is required. Production migration/deployment must
-be performed separately; the migration is tested only on an isolated local DB.
+be performed separately for each target environment.
+
+If trips or fleet positions return a service-unavailable error after updating
+the app, check `npx prisma migrate status` and apply pending migrations after
+backup. This version requires `DriverProfile.availableSince`,
+`DriverProfile.selectedVehicleId` and `Booking.dispatchEndsAt`; generating the
+Prisma client alone does not add those columns. Check the database actually used
+by the server: `PRISMA_DATABASE_URL` takes precedence over `DATABASE_URL`, while
+the migration CLI uses `DATABASE_URL`. Target the same intended database without
+printing or committing either connection string. Do not reset the database.
 
 `/admin` opens on the operational dispatch view, with database-backed counters,
 search, pickup-date and driver filters, trip maps, and driver workloads. Accounts,
@@ -695,6 +704,13 @@ vehicle marker is used on admin, driver, and customer maps. The category marker
 remains visible until a custom image loads, or if no custom image is available.
 Hubs are managed in
 the same section and are deactivated rather than deleted.
+The principal SAIWAY hub is **Tiara Air Tour & Travel, Taphul Village, Sangkat
+Svai DongKom, Siem Reap**, at **13.358859, 103.853188**, from the operator-provided
+[map pin](https://maps.app.goo.gl/fmXwg25Kor5XGM8f8). Register it as an active hub
+in each intended database; it is configuration data, not automatically recreated
+by a schema migration. It remains editable in Fleet & management.
+The "add an active hub" and "no drivers" notices appear only after a successful
+fleet response, not when loading has failed.
 
 | Endpoint | Access | Purpose |
 |----------|--------|---------|
