@@ -12,6 +12,11 @@ export const closedDriverStatuses = ["TRIP_COMPLETED", "CANCELLED", "NO_SHOW", "
 export type DriverTab = "today" | "upcoming" | "history";
 export type Coordinates = [number, number];
 
+export function showAutonomousAbaQr(course: Pick<Course, "originType" | "status" | "currency" | "payments">, method: string | null) {
+  return course.originType === "DRIVER" && course.status === "TRIP_COMPLETED" && course.currency === "USD"
+    && method === "ABA" && !course.payments?.some((payment) => ["PAID", "PROCESSING"].includes(payment.status));
+}
+
 export function driverDay(value: string | Date) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: driverTimeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(value));
 }

@@ -114,6 +114,11 @@
 .collection > strong { display: block; font-size: 20px; margin-top: 7px; }
 .collection > button { width: 100%; margin-top: 14px; }
 .collection fieldset button { width: 100%; }
+.abaQr { padding: 16px; border: 1px solid #dce3ed; border-radius: 12px; background: #f8fafc; overflow-wrap: anywhere; }
+.abaQr h5 { font-weight: 700; }
+.abaQrImage { display: block; width: 100%; max-width: 420px; height: auto; margin: 12px auto; }
+.abaQrActions { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.abaQrActions a { display: inline-flex; align-items: center; min-height: 44px; color: var(--color-primary); font-size: 13px; font-weight: 700; text-decoration: underline; }
 .secondaryButton { border: 1px solid #cbd5e1; border-radius: 14px; padding: 12px 16px; font-size: 13px; font-weight: 600; }
 .secondaryButton:disabled { opacity: 0.5; }
 .empty { padding: 40px 16px; text-align: center; color: #64748b; font-size: 13px; }

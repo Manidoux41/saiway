@@ -3,6 +3,7 @@
 import { localizedDate, localizedNumber } from "@/lib/locale-format";
 import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import { z } from "zod";
 import { ArrowDown, ArrowRight, BriefcaseBusiness, LocateFixed, LocateOff, CalendarDays, Check, CheckCheck, ChevronRight, Clock3, ExternalLink, FlaskConical, Mail, MapPin, MessageSquareText, Navigation, Phone, PhoneOff, Plane, RefreshCw, Search, ShieldCheck, Users, Wallet } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
@@ -10,7 +11,7 @@ import { ChangePasswordForm } from "@/components/auth/change-password-form";
 import { courseSchema, type Course } from "@/components/booking/course-dashboard";
 import { useBookings } from "@/components/booking/use-bookings";
 import { useLanguage } from "@/components/i18n/language-provider";
-import { closedDriverStatuses, contactLinks, createDemoCourses, customerContact, driverNextStatus, driverSummary, driverTimeZone, filterDriverCourses, navigationUrl, type ContactApp, type DriverTab } from "@/lib/driver-dashboard";
+import { closedDriverStatuses, contactLinks, createDemoCourses, customerContact, driverNextStatus, driverSummary, driverTimeZone, filterDriverCourses, navigationUrl, showAutonomousAbaQr, type ContactApp, type DriverTab } from "@/lib/driver-dashboard";
 import { DriverLicenseCard } from "./driver-license-card";
 import { DriverContactQrCard } from "./driver-contact-qr-card";
 import { distanceMeters, useLocationSharing } from "./use-location-sharing";
@@ -280,9 +281,20 @@ export function DriverDashboard() {
             <strong>{money(selected.priceCents, selected.currency)}</strong>
             {receipt?.collectionMethod && <p>{t(`payment.${receipt.collectionMethod}`)}</p>}
             {selected.status === "TRIP_COMPLETED" && !selected.payments?.some((item) => item.status === "PAID") && <fieldset disabled={pending || loading || selected.payments?.some((item) => item.status === "PROCESSING")} className="mt-3 space-y-3">
-              <label className="block text-sm">{t("payment.receivedVia")}<select className="mt-2 w-full rounded-xl border bg-white p-3 text-slate-900" value={selected.paymentMethod === "ONLINE" ? "ABA" : collection?.bookingId === selected.id ? collection.method : ""} disabled={selected.paymentMethod === "ONLINE"} onChange={(event) => { const method = z.enum(["CASH", "CARD", "ABA", "OTHER"]).parse(event.target.value); setCollection({ bookingId: selected.id, method }); }}>
+              <label className="block text-sm">{t(selected.originType === "DRIVER" ? "payment.method" : "payment.receivedVia")}<select className="mt-2 w-full rounded-xl border bg-white p-3 text-slate-900" value={selected.paymentMethod === "ONLINE" ? "ABA" : collection?.bookingId === selected.id ? collection.method : ""} disabled={selected.paymentMethod === "ONLINE"} onChange={(event) => { const method = z.enum(["CASH", "CARD", "ABA", "OTHER"]).parse(event.target.value); setCollection({ bookingId: selected.id, method }); }}>
                 <option value="" disabled>{t("payment.selectMethod")}</option>{(["CASH", "CARD", "ABA", "OTHER"] as const).map((method) => <option value={method} key={method}>{t(`payment.${method}`)}</option>)}
               </select></label>
+              {showAutonomousAbaQr(selected, collection?.bookingId === selected.id ? collection.method : null) && <div className={styles.abaQr}>
+                <h5>{t("customer.abaQrTitle")}</h5>
+                <p>{t("customer.abaAmount")}: <strong>{localizedNumber(language, { style: "currency", currency: "USD", currencyDisplay: "code" }).format(selected.priceCents / 100)}</strong></p>
+                <p>{t("customer.abaReference")}: <strong>{selected.reference}</strong></p>
+                <Image src="/aba_mobile_1792486034405.png" alt={t("customer.abaQrAlt")} width={1010} height={1426} unoptimized loading="eager" className={styles.abaQrImage} />
+                <div className={styles.abaQrActions}>
+                  <a href="/aba_mobile_1792486034405.png" download="saiway-aba-qr.png">{t("customer.downloadQr")}</a>
+                  <a href="/aba_mobile_1792486034405.png" target="_blank" rel="noopener noreferrer">{t("customer.openQr")}</a>
+                </div>
+                <p>{t("payment.driverAbaQrNotice")}</p>
+              </div>}
               {selected.paymentMethod === "ONLINE" && <p>{t("payment.manualVerification")}</p>}
               <button type="button" className={styles.primaryButton} disabled={selected.paymentMethod !== "ONLINE" && collection?.bookingId !== selected.id} onClick={() => void collectPayment(selected, true)}><Wallet size={17} />{t(pending ? "admin.saving" : "payment.collect")}</button>
               <button type="button" className={styles.secondaryButton} onClick={() => void collectPayment(selected, false)}>{t("payment.markUnpaid")}</button>

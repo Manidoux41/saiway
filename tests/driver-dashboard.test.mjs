@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createDemoCourses, filterDriverCourses, driverSummary, driverDay, navigationUrl, driverNextStatus } from '../lib/driver-dashboard.ts';
+import { createDemoCourses, filterDriverCourses, driverSummary, driverDay, navigationUrl, driverNextStatus, showAutonomousAbaQr } from '../lib/driver-dashboard.ts';
 
 const now = new Date('2026-10-20T02:00:00Z');
 const courses = createDemoCourses({ id: 'current-driver', name: 'Current Driver' }, now);
@@ -35,6 +35,19 @@ test('navigation encodes addresses rather than treating them as URL parameters',
   const url = new URL(navigationUrl({ fromAddress: 'Hotel & Spa', toAddress: 'SAI #1' }));
   assert.equal(url.searchParams.get('origin'), 'Hotel & Spa');
   assert.equal(url.searchParams.get('destination'), 'SAI #1');
+});
+
+test('the autonomous ABA QR is available only for completed unpaid USD trips when ABA is selected', () => {
+  const trip = { originType: 'DRIVER', status: 'TRIP_COMPLETED', currency: 'USD', payments: [] };
+  assert.equal(showAutonomousAbaQr(trip, 'ABA'), true);
+  assert.equal(showAutonomousAbaQr(trip, 'CASH'), false);
+  assert.equal(showAutonomousAbaQr(trip, null), false);
+  assert.equal(showAutonomousAbaQr({ ...trip, originType: 'CUSTOMER' }, 'ABA'), false);
+  assert.equal(showAutonomousAbaQr({ ...trip, status: 'TRIP_STARTED' }, 'ABA'), false);
+  assert.equal(showAutonomousAbaQr({ ...trip, currency: 'KHR' }, 'ABA'), false);
+  assert.equal(showAutonomousAbaQr({ ...trip, payments: [{ status: 'PAID' }] }, 'ABA'), false);
+  assert.equal(showAutonomousAbaQr({ ...trip, payments: [{ status: 'PROCESSING' }] }, 'ABA'), false);
+  assert.equal(showAutonomousAbaQr({ ...trip, payments: [{ status: 'FAILED' }] }, 'ABA'), true);
 });
 test('passenger contact links normalise numbers for WhatsApp, Telegram and SMS', async () => {
   const { internationalPhone, customerContact, contactLinks } = await import('../lib/driver-dashboard.ts');

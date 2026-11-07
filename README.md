@@ -489,6 +489,11 @@ not confirm payment: the driver must still record received or unpaid separately.
 Positive, complete GPS distance still determines the final city fare, including
 an increase when the driver travels farther than the estimated route. The
 original estimate remains visible and the receipt uses the final amount.
+For an unpaid completed autonomous USD trip, selecting ABA in the driver's
+payment section displays the existing static ABA QR, final fare and trip
+reference. The passenger enters the amount manually; the driver (or account
+holder) must verify the transfer in the receiving account before confirming
+receipt. Showing or scanning the QR does not record payment.
 Tour completion may supply `tourCircuit` to confirm an agreed upgrade.
 Final fare and status are saved atomically before the existing driver payment
 endpoint collects that amount. Metered trips and tours cannot start online
