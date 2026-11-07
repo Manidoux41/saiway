@@ -81,7 +81,7 @@ monitors GPS: those operations run inside the existing authenticated mutations.
 | Existing endpoint | Previous Vercel expression | Dependency retained | Free external schedule |
 |---|---|---|---|
 | `/api/cron/push-notifications` | `* * * * *` (incompatible with Hobby Cron) | Recover interrupted/provider-failed deliveries, drain backlog and delete delivery history expired over 7 days ago | Every minute |
-| `/api/cron/driver-location-retention` | `0 2 * * *` | Delete GPS positions older than 30 days when the admin retention switch is enabled | Daily 02:00 UTC / 09:00 Cambodia |
+| `/api/cron/driver-location-retention` | `0 2 * * *` | Delete GPS positions older than 30 days when the admin retention switch is enabled | Daily 03:00 Asia/Phnom_Penh / 20:00 UTC the previous day |
 
 Assignments, trip lifecycle, movement throttling and pickup arrival use the
 existing PostgreSQL transactions and immediate Next.js `after()` dispatch.
@@ -94,11 +94,13 @@ additional real-time connection is introduced.
 For production `https://saiway.vercel.app`, create a free
 [cron-job.org](https://cron-job.org/) account and configure **two** jobs:
 
-1. Choose timezone **UTC** and method **GET**.
+1. Choose timezone **Asia/Phnom_Penh** and method **GET**. Leave the request body
+   empty and HTTP Basic Authentication disabled: the custom Bearer header is used.
 2. Push recovery URL: `https://saiway.vercel.app/api/cron/push-notifications`,
    every minute (`* * * * *`).
 3. GPS cleanup URL: `https://saiway.vercel.app/api/cron/driver-location-retention`,
-   daily at 02:00 UTC (`0 2 * * *`).
+   daily at **03:00 Asia/Phnom_Penh** (`0 3 * * *` in that timezone).
+   If the scheduler is instead set to UTC, use `0 20 * * *`.
 4. For **each** job, add the custom header `Authorization` with value
    `Bearer <CRON_SECRET>`, using exactly the server-only secret configured in
    Vercel's **Production** environment. Enter it privately in the dashboard;
@@ -107,11 +109,11 @@ For production `https://saiway.vercel.app`, create a free
    `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`;
    keep the same value in the server and scheduler, and redeploy after changing
    production environment settings.
-5. Enable failure/recovery/automatic-disable email alerts. Test each job once
-   after deploying this version; inspect its last execution status in the
-   scheduler dashboard. The retention test really deletes GPS older than 30
-   days if enabled; pause the admin switch first if you only want a harmless
-   authenticated check. A missing/wrong secret returns 401; missing push keys
+5. Enable failure/recovery/automatic-disable email alerts. Test without mutation
+   first: temporarily append `?dryRun=true` to each URL, then inspect its last
+   execution status. This does not send pushes, claim deliveries, remove expired
+   push history or delete GPS points. Remove `?dryRun=true` for the scheduled jobs
+   after a successful check. A missing/wrong secret returns 401; missing push keys
    or a database/processing failure returns 503, not a false success.
 6. Confirm push recovery returns 200 with `configured: true`; GPS cleanup returns
    200 with its deletion count or `skipped: true` when paused. Retain one source
@@ -134,6 +136,15 @@ must be completed/verified in the operator's dashboard.
 Locally, keep the application running and use an OS scheduler calling the same
 endpoints on localhost with the same private header; an external scheduler cannot
 reach localhost. Do not run local tests against the production database.
+
+After deploying this version, run
+`node scripts/check-cron.mjs https://saiway.vercel.app` using the matching
+`CRON_SECRET` stored privately in your local environment. It checks missing/wrong
+credentials and authenticated **dry runs**, prints no secret, and refuses to send
+valid credentials to a deployment that does not advertise dry-run support via
+`OPTIONS`. It does not configure cron-job.org or Vercel.
+See [the configuration and audit report](docs/cron-job-configuration.md) for the
+exact environment table, diagnostics and operational checklist.
 
 Subscriptions and per-device deliveries reuse the existing database and User/
 DriverProfile relationships. Events are queued within the booking/GPS transaction.
@@ -601,7 +612,7 @@ hub records, driver return-to-hub state, GPS heading, and an index for retention
 cleanup. It does not delete existing records. Apply it with `npx prisma migrate
 deploy` only after review against the deployment database. Set `CRON_SECRET` to a
 long random secret. Configure the free external daily authenticated schedule at
-02:00 UTC as described above; `vercel.json` contains no scheduled jobs.
+03:00 Asia/Phnom_Penh as described above; `vercel.json` contains no scheduled jobs.
 Without that external schedule, old GPS records are not automatically purged.
 
 In **Admin → Fleet & management → Scheduled tasks (Cron)**, administrators can

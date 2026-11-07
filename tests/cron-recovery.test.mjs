@@ -27,6 +27,17 @@ test('external recovery honors leases, backoff and retry limits and repeat/concu
     const tick = () => fetch(`${base}/api/cron/push-notifications`, { headers: { authorization: `Bearer ${process.env.CRON_SECRET}` } });
     assert.equal((await request('/api/cron/push-notifications')).status, 401);
     assert.equal((await fetch(`${base}/api/cron/push-notifications`, { headers: { authorization: 'Bearer invalid' } })).status, 401);
+    const auth = { authorization: `Bearer ${process.env.CRON_SECRET}` };
+    assert.equal((await fetch(`${base}/api/cron/push-notifications`, { method: 'HEAD', headers: auth })).status, 200);
+    for (let i = 0; i < 2; i++) {
+      const response = await fetch(`${base}/api/cron/push-notifications?dryRun=true`, { headers: auth });
+      assert.equal(response.status, 200);
+      const data = await response.json();
+      assert.deepEqual([data.dryRun, data.sent, data.failed, data.removed], [true, 0, 0, 0]);
+      assert.ok(data.pending >= 2);
+      assert.equal((await ctx.prisma.pushDelivery.findUniqueOrThrow({ where: { id: abandoned.id } })).attempts, 1);
+      assert.ok(await ctx.prisma.pushDelivery.findUnique({ where: { id: old.id } }));
+    }
     assert.ok((await Promise.all([tick(), tick()])).every(response => response.status === 200));
     const delivered = await ctx.prisma.pushDelivery.findUniqueOrThrow({ where: { id: abandoned.id } });
     assert.ok(delivered.sentAt);

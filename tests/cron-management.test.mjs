@@ -41,12 +41,31 @@ test('admin can persistently pause and resume scheduled retention without exposi
     assert.ok(await ctx.prisma.driverLocation.findUnique({ where: { id: old.id } }));
 
     assert.equal((await request('/api/admin/management', 'POST', toggle(true), ctx.cookie)).status, 201);
+    const checkUrl = `${base}/api/cron/driver-location-retention?dryRun=true`;
+    assert.equal((await fetch(checkUrl)).status, 401);
+    assert.equal((await fetch(checkUrl, { headers: { Authorization: 'Bearer invalid' } })).status, 401);
+    const options = await fetch(checkUrl, { method: 'OPTIONS' });
+    assert.equal(options.headers.get('X-Saiway-Cron-Dry-Run'), '1');
+    assert.equal((await fetch(checkUrl, { method: 'POST', headers: { Authorization: `Bearer ${process.env.CRON_SECRET}` } })).status, 405);
+    const auth = { Authorization: `Bearer ${process.env.CRON_SECRET}` };
+    assert.equal((await fetch(`${base}/api/cron/driver-location-retention`, { method: 'HEAD', headers: auth })).status, 200);
+    assert.ok(await ctx.prisma.driverLocation.findUnique({ where: { id: old.id } }), 'HEAD must not execute cleanup');
+    for (let i = 0; i < 2; i++) {
+      const check = await fetch(checkUrl, { headers: auth });
+      assert.equal(check.status, 200);
+      const data = await check.json();
+      assert.equal(data.dryRun, true);
+      assert.equal(data.removed, 0);
+      assert.ok(data.eligible >= 1);
+      assert.ok(await ctx.prisma.driverLocation.findUnique({ where: { id: old.id } }));
+    }
     const executed = await runCron(process.env.CRON_SECRET);
     assert.equal(executed.status, 200);
     assert.equal(executed.data.skipped, false);
     assert.ok(executed.data.removed >= 1);
     assert.equal(await ctx.prisma.driverLocation.findUnique({ where: { id: old.id } }), null);
     assert.ok(await ctx.prisma.driverLocation.findUnique({ where: { id: recent.id } }));
+    assert.equal((await runCron(process.env.CRON_SECRET)).data.removed, 0, 'repeating cleanup cannot delete recent points');
     const audit = await ctx.prisma.auditLog.findMany({ where: { actorId: ctx.id, entity: 'setting', entityId: gpsRetentionSettingKey }, orderBy: { createdAt: 'asc' } });
     assert.deepEqual(audit.map(row => row.metadata), [{ enabled: false }, { enabled: true }]);
   } finally {
