@@ -489,7 +489,7 @@ not confirm payment: the driver must still record received or unpaid separately.
 Positive, complete GPS distance still determines the final city fare, including
 an increase when the driver travels farther than the estimated route. The
 original estimate remains visible and the receipt uses the final amount.
-For an unpaid completed autonomous USD trip, selecting ABA in the driver's
+For an unpaid completed USD trip, including a reservation, selecting ABA in the driver's
 payment section displays the existing static ABA QR, final fare and trip
 reference. The passenger enters the amount manually; the driver (or account
 holder) must verify the transfer in the receiving account before confirming
@@ -729,9 +729,11 @@ driver attestation, not an independently verified bank transaction.
 The assigned driver may also declare `{ bookingId, received: false }` after
 completion: this adds a `DRIVER_PAYMENT_NOT_RECEIVED` audit without creating a
 receipt or any revenue. It cannot reverse an already confirmed receipt.
-For manual ONLINE QR transfers, only collectionMethod ABA is accepted, recorded
-as PAID/ABA_QR_MANUAL after the driver verifies the full transfer in the bank
-account. UNDECIDED bookings can also be collected after completion with an explicit
+For manual ONLINE QR transfers, collectionMethod ABA is recorded as
+PAID/ABA_QR_MANUAL after verification in the receiving bank account. If an ONLINE
+customer actually pays by another method, the driver selects that actual method
+and records a DRIVER_DIRECT receipt only after checking no prior transfer was
+received. UNDECIDED bookings can also be collected after completion with an explicit
 method. Any PROCESSING online payment blocks manual confirmation.
 
 Administrator financial management includes a read-only receipt ledger derived
@@ -783,6 +785,8 @@ bookings, with the exact fare, a copyable booking reference, original-image link
 and download. Customers can scan it or import the downloaded image into their
 banking app. This is a direct bank transfer, not a PayWay transaction: displaying,
 downloading or scanning it never marks a booking PAID.
+The manual QR is hidden while a PayWay payment is processing to reduce the
+risk of paying twice; the driver also cannot record a manual receipt then.
 The static QR contains bank account data, not a payment URL. Its USD amount must
 be entered manually; the image is never rewritten to fabricate a dynamic payment
 link. The assigned driver verifies this transfer after the trip, as described

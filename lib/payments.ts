@@ -150,14 +150,13 @@ export async function driverPaymentReceived(request: Request) {
         return tx.booking.findUniqueOrThrow({ where: { id: existing.id }, include: bookingInclude });
       }
       if (existing.payments.some((item) => item.status === "PROCESSING")) throw new PaymentError("An online payment is already processing", 409);
-      if (parsed.data.received && existing.paymentMethod === "ONLINE" && parsed.data.collectionMethod !== "ABA") throw new PaymentError("Manual online transfers must be verified as ABA", 409);
       await tx.booking.update({ where: { id: existing.id, updatedAt: existing.updatedAt }, data: { updatedAt: new Date() } });
       if (!parsed.data.received) {
         await tx.auditLog.create({ data: { actorId: account.id, entity: "Booking", entityId: existing.id, action: "DRIVER_PAYMENT_NOT_RECEIVED", metadata: { driverId: existing.driverId } } });
         return tx.booking.findUniqueOrThrow({ where: { id: existing.id }, include: bookingInclude });
       }
       const collectionMethod = parsed.data.collectionMethod;
-      const provider = existing.paymentMethod === "ONLINE" ? "ABA_QR_MANUAL" : "DRIVER_DIRECT";
+      const provider = existing.paymentMethod === "ONLINE" && collectionMethod === "ABA" ? "ABA_QR_MANUAL" : "DRIVER_DIRECT";
       const payment = await tx.payment.create({ data: { bookingId: existing.id, provider, collectionMethod, providerRef: `driver-${existing.id}`, status: "PAID", amountCents: existing.priceCents, currency: existing.currency } });
       await tx.auditLog.create({ data: { actorId: account.id, entity: "Booking", entityId: existing.id, action: "DRIVER_PAYMENT_CONFIRMED", metadata: { paymentId: payment.id, driverId: existing.driverId, amountCents: existing.priceCents, currency: existing.currency, collectionMethod, provider } } });
       return tx.booking.findUniqueOrThrow({ where: { id: existing.id }, include: bookingInclude });

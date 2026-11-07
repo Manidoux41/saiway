@@ -183,13 +183,14 @@ export function CustomerDashboard() {
             <label><input type="radio" name="paymentMethod" value="DRIVER" checked={selected.paymentMethod === "DRIVER"} onChange={() => void choosePayment(selected, "DRIVER")} /><span>{t("payment.atDriver")}</span></label>
             <label><input type="radio" name="paymentMethod" value="ONLINE" checked={selected.paymentMethod === "ONLINE" || processing} disabled={selected.metered || selected.tripType === "TOURIST_TOUR" || closed(selected) || new Date(selected.pickupAt) <= now || pending || loading || processing} onChange={() => void choosePayment(selected, "ONLINE")} /><span>{t("payment.online")}</span></label>
           </fieldset>}
+          {payable(selected) && (selected.metered || selected.tripType === "TOURIST_TOUR") && <p className={styles.muted}>{t("payment.variableOnlineUnavailable")}</p>}
           {payable(selected) && selected.paymentMethod === "DRIVER" && <p className={styles.driverPaymentNotice}>{t("payment.driverNotice")} <strong>{money(selected)}</strong></p>}
           {payable(selected) && processing && <p className={styles.muted}>{t("payment.processingNotice")}</p>}
           {!paid(selected) && !closed(selected) && (selected.paymentMethod === "ONLINE" || processing) && <div className={styles.payment}>
             <h3 className={styles.qrHeading}><CreditCard size={21} />{t("customer.abaAutomatic")}</h3>
             <p>{t(new Date(selected.pickupAt) > now ? "booking.paymentHelp" : "customer.expired")}</p>
             <button type="button" className={styles.primaryButton} disabled={pending || loading || new Date(selected.pickupAt) <= now} onClick={() => void payment(selected, "checkout")}><CreditCard size={17} />{t(pending ? "customer.preparing" : "customer.pay")} · {money(selected)}</button>
-            {new Date(selected.pickupAt) > now && selected.currency === "USD" && <>
+            {!processing && new Date(selected.pickupAt) > now && selected.currency === "USD" && <>
               <h3 className={styles.qrHeading}><QrCode size={20} />{t("customer.abaQrTitle")}</h3>
               <dl className={styles.qrDetails}><div><dt>{t("customer.abaAmount")}</dt><dd>{localizedNumber(language, { style: "currency", currency: "USD", currencyDisplay: "code" }).format(selected.priceCents / 100)}</dd></div><div><dt>{t("customer.abaReference")}</dt><dd className={styles.qrReference}><span>{selected.reference}</span><button type="button" className={styles.iconButton} title={t("customer.copyReference")} aria-label={t("customer.copyReference")} onClick={() => void copyReference(selected.reference)}><Copy size={16} /></button></dd></div></dl>
               {copiedReference === selected.reference && <p role="status">{t("customer.referenceCopied")}</p>}

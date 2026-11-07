@@ -1,6 +1,7 @@
 import "server-only";
 import path from "node:path";
 import PDFDocument from "pdfkit";
+import { drawPdfBrand } from "@/lib/pdf-brand";
 
 const fontDir = path.join(process.cwd(), "assets", "fonts");
 const fontFiles = {
@@ -176,6 +177,7 @@ export function renderEmploymentContract(input: ContractPdfInput): Promise<Buffe
     doc.switchToPage(index);
     const bottom = doc.page.margins.bottom;
     doc.page.margins.bottom = 0;
+    drawPdfBrand(doc, margin, 15);
     if (input.status === "DRAFT") {
       doc.save().rotate(-35, { origin: [doc.page.width / 2, doc.page.height / 2] }).fillOpacity(0.08).fillColor("#1e3a8a");
       doc.font("latinBold").fontSize(96).text("DRAFT", 0, doc.page.height / 2 - 90, { width: doc.page.width, align: "center", lineBreak: false });

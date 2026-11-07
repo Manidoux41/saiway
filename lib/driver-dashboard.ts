@@ -12,8 +12,8 @@ export const closedDriverStatuses = ["TRIP_COMPLETED", "CANCELLED", "NO_SHOW", "
 export type DriverTab = "today" | "upcoming" | "history";
 export type Coordinates = [number, number];
 
-export function showAutonomousAbaQr(course: Pick<Course, "originType" | "status" | "currency" | "payments">, method: string | null) {
-  return course.originType === "DRIVER" && course.status === "TRIP_COMPLETED" && course.currency === "USD"
+export function showDriverAbaQr(course: Pick<Course, "status" | "currency" | "payments">, method: string | null) {
+  return course.status === "TRIP_COMPLETED" && course.currency === "USD"
     && method === "ABA" && !course.payments?.some((payment) => ["PAID", "PROCESSING"].includes(payment.status));
 }
 

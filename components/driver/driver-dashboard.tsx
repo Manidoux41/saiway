@@ -11,7 +11,7 @@ import { ChangePasswordForm } from "@/components/auth/change-password-form";
 import { courseSchema, type Course } from "@/components/booking/course-dashboard";
 import { useBookings } from "@/components/booking/use-bookings";
 import { useLanguage } from "@/components/i18n/language-provider";
-import { closedDriverStatuses, contactLinks, createDemoCourses, customerContact, driverNextStatus, driverSummary, driverTimeZone, filterDriverCourses, navigationUrl, showAutonomousAbaQr, type ContactApp, type DriverTab } from "@/lib/driver-dashboard";
+import { closedDriverStatuses, contactLinks, createDemoCourses, customerContact, driverNextStatus, driverSummary, driverTimeZone, filterDriverCourses, navigationUrl, showDriverAbaQr, type ContactApp, type DriverTab } from "@/lib/driver-dashboard";
 import { DriverLicenseCard } from "./driver-license-card";
 import { DriverContactQrCard } from "./driver-contact-qr-card";
 import { distanceMeters, useLocationSharing } from "./use-location-sharing";
@@ -141,7 +141,7 @@ export function DriverDashboard() {
   }
 
   async function collectPayment(course: Course, received: boolean) {
-    const method = course.paymentMethod === "ONLINE" ? "ABA" : collection?.bookingId === course.id ? collection.method : null;
+    const method = collection?.bookingId === course.id ? collection.method : null;
     if (demo || course.id.startsWith("demo-") || collectionLock.current || pending || loading || course.status !== "TRIP_COMPLETED" || received && !method || course.payments?.some((item) => ["PAID", "PROCESSING"].includes(item.status))) return;
     if (!window.confirm(`${t(received ? "payment.confirmReceipt" : "payment.confirmUnpaid")}\n${money(course.priceCents, course.currency)} · ${course.reference}${received && method ? `\n${t(`payment.${method}`)}` : ""}`)) return;
     collectionLock.current = true; setPending(true); setError(""); setMessage("");
@@ -280,11 +280,12 @@ export function DriverDashboard() {
             <p>{t(selected.payments?.some((item) => item.status === "PAID") ? "payment.collected" : selected.paymentMethod === "DRIVER" ? "payment.toCollect" : selected.paymentMethod === "ONLINE" ? "payment.online" : "payment.unselected")}</p>
             <strong>{money(selected.priceCents, selected.currency)}</strong>
             {receipt?.collectionMethod && <p>{t(`payment.${receipt.collectionMethod}`)}</p>}
+            {selected.payments?.some((item) => item.status === "PROCESSING") && <p>{t("payment.processingNotice")}</p>}
             {selected.status === "TRIP_COMPLETED" && !selected.payments?.some((item) => item.status === "PAID") && <fieldset disabled={pending || loading || selected.payments?.some((item) => item.status === "PROCESSING")} className="mt-3 space-y-3">
-              <label className="block text-sm">{t(selected.originType === "DRIVER" ? "payment.method" : "payment.receivedVia")}<select className="mt-2 w-full rounded-xl border bg-white p-3 text-slate-900" value={selected.paymentMethod === "ONLINE" ? "ABA" : collection?.bookingId === selected.id ? collection.method : ""} disabled={selected.paymentMethod === "ONLINE"} onChange={(event) => { const method = z.enum(["CASH", "CARD", "ABA", "OTHER"]).parse(event.target.value); setCollection({ bookingId: selected.id, method }); }}>
+              <label className="block text-sm">{t("payment.method")}<select className="mt-2 w-full rounded-xl border bg-white p-3 text-slate-900" value={collection?.bookingId === selected.id ? collection.method : ""} onChange={(event) => { const method = z.enum(["CASH", "CARD", "ABA", "OTHER"]).parse(event.target.value); setCollection({ bookingId: selected.id, method }); }}>
                 <option value="" disabled>{t("payment.selectMethod")}</option>{(["CASH", "CARD", "ABA", "OTHER"] as const).map((method) => <option value={method} key={method}>{t(`payment.${method}`)}</option>)}
               </select></label>
-              {showAutonomousAbaQr(selected, collection?.bookingId === selected.id ? collection.method : null) && <div className={styles.abaQr}>
+              {showDriverAbaQr(selected, collection?.bookingId === selected.id ? collection.method : null) && <div className={styles.abaQr}>
                 <h5>{t("customer.abaQrTitle")}</h5>
                 <p>{t("customer.abaAmount")}: <strong>{localizedNumber(language, { style: "currency", currency: "USD", currencyDisplay: "code" }).format(selected.priceCents / 100)}</strong></p>
                 <p>{t("customer.abaReference")}: <strong>{selected.reference}</strong></p>
@@ -295,8 +296,8 @@ export function DriverDashboard() {
                 </div>
                 <p>{t("payment.driverAbaQrNotice")}</p>
               </div>}
-              {selected.paymentMethod === "ONLINE" && <p>{t("payment.manualVerification")}</p>}
-              <button type="button" className={styles.primaryButton} disabled={selected.paymentMethod !== "ONLINE" && collection?.bookingId !== selected.id} onClick={() => void collectPayment(selected, true)}><Wallet size={17} />{t(pending ? "admin.saving" : "payment.collect")}</button>
+              {selected.paymentMethod === "ONLINE" && <p>{t("payment.onlineCollectionWarning")}</p>}
+              <button type="button" className={styles.primaryButton} disabled={collection?.bookingId !== selected.id} onClick={() => void collectPayment(selected, true)}><Wallet size={17} />{t(pending ? "admin.saving" : "payment.collect")}</button>
               <button type="button" className={styles.secondaryButton} onClick={() => void collectPayment(selected, false)}>{t("payment.markUnpaid")}</button>
             </fieldset>}
           </section>}

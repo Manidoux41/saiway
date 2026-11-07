@@ -224,11 +224,12 @@ function BookingForm() {
                   <div className="mt-4 flex justify-between gap-4"><span>{t("booking.contactDetails")}</span><strong className="text-right text-[var(--color-text)]">{t("booking.passengerProvided")}</strong></div>
                   <div className="mt-4 flex justify-between gap-4 border-t border-black/10 pt-4"><span>{t("ui.total")}</span><strong className="text-xl text-[var(--color-primary)]">{priceLabel}</strong></div>
                 </div><fieldset className="space-y-3"><legend className="mb-3 text-lg font-bold">{t("payment.method")}</legend>
-                  {(["DRIVER", "ONLINE"] as const).map((method) => <label key={method} className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-4 ${paymentMethod === method ? "border-[var(--color-primary)] bg-emerald-50" : "border-slate-200"}`}>
-                    <input type="radio" name="bookingPayment" value={method} checked={(tripType === "tourist-tour" ? "DRIVER" : paymentMethod) === method} disabled={tripType === "tourist-tour" && method === "ONLINE"} onChange={() => setPaymentMethod(method)} className="mt-1 accent-[var(--color-primary)]" />
+                  {(["DRIVER", "ONLINE"] as const).map((method) => <label key={method} className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-4 ${effectivePaymentMethod === method ? "border-[var(--color-primary)] bg-emerald-50" : "border-slate-200"} ${tripType === "tourist-tour" && method === "ONLINE" ? "cursor-not-allowed opacity-60" : ""}`}>
+                    <input type="radio" name="bookingPayment" value={method} checked={effectivePaymentMethod === method} disabled={tripType === "tourist-tour" && method === "ONLINE"} onChange={() => setPaymentMethod(method)} className="mt-1 h-5 w-5 shrink-0 accent-[var(--color-primary)]" />
                     {method === "ONLINE" ? <CreditCard size={20} className="mt-0.5 shrink-0" /> : <Wallet size={20} className="mt-0.5 shrink-0" />}
                     <span><strong className="block text-sm">{t(method === "ONLINE" ? "payment.online" : "payment.atDriver")}</strong><span className="mt-1 block text-xs leading-5 text-slate-500">{t(method === "ONLINE" ? "booking.paymentHelp" : "booking.driverPaymentHelp")}</span></span>
                   </label>)}
+                  {tripType === "tourist-tour" && <p className="text-sm text-slate-600">{t("payment.tourOnlineUnavailable")}</p>}
                 </fieldset></div>
               )}
 
