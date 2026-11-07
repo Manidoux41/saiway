@@ -146,6 +146,14 @@ valid credentials to a deployment that does not advertise dry-run support via
 See [the configuration and audit report](docs/cron-job-configuration.md) for the
 exact environment table, diagnostics and operational checklist.
 
+Authentication uses **`process.env.CRON_SECRET`**, not `CRON_API_KEY` or
+`INTERNAL_API_SECRET`. Configure `CRON_SECRET` in Vercel **Production** and put
+the exact same value in both cron-job.org `Authorization: Bearer …` headers.
+Changing a Vercel environment variable requires a new deployment. Never copy a
+secret into frontend code, logs or this README. `HEAD` verifies authentication
+without executing a task; `OPTIONS` advertises safe-check support. Neither
+replaces an authenticated `GET ?dryRun=true` check of the database/Push setup.
+
 Subscriptions and per-device deliveries reuse the existing database and User/
 DriverProfile relationships. Events are queued within the booking/GPS transaction.
 `after()` attempts delivery after the API response, so a provider outage does not
@@ -544,6 +552,27 @@ is restored after hydration to avoid server/client text mismatches.
 translation coverage and legal/formatting regressions without a database.
 
 ### Customer pickup and place suggestions
+
+#### Responsive application layout
+
+Public pages and the customer, driver and administrator dashboards use wrapping
+navigation and controls that can shrink within their cards. Booking steps use
+two columns on phones and four on wider screens; fleet/GPS forms avoid narrow
+five-column layouts on tablets. Installation QR codes scale to the available
+width. Push and vehicle-preview dialogs stay within the viewport and scroll on
+short screens; fullscreen fleet maps share the available height with the driver
+list. Mobile driver progress labels are larger and empty map panels are shorter.
+Header actions and dashboard navigation offer 44-pixel-high touch targets.
+Tables and business-card previews may scroll horizontally **inside their own
+panels**; printable cards retain their exact 85 x 55 mm dimensions.
+These changes do not alter fares, permissions, GPS consent or task execution.
+
+The homepage reservation card stacks pickup and destination on small screens
+and gives them separate, wider columns on desktop. Date/time have their own row;
+GPS controls and coordinate inputs wrap inside the card, including in French
+and Khmer. The price button spans the available width on mobile/tablet instead
+of forcing a fixed minimum width. These layout changes preserve pickup consent,
+place suggestions, map selection, route reversal and navigation to booking.
 
 At `/booking`, pickup and destination are independently editable. Pickup can use
 an address, one permission-based current GPS fix, manually entered latitude and

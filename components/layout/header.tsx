@@ -38,7 +38,7 @@ export function Header() {
           <Link href="/help" className="transition hover:text-[var(--color-primary)]">{t("nav.help")}</Link>
         </nav>
 
-        <div className="flex items-center gap-3">
+        <div className="flex max-w-full flex-wrap items-center gap-2 sm:gap-3">
           <PushNotifications />
           <div className="flex items-center gap-1 rounded-full border border-slate-200 bg-white p-1" aria-label={t("ui.language")}>
             {languageOptions.map((option) => (
@@ -49,17 +49,17 @@ export function Header() {
                 aria-label={option.label}
                 aria-pressed={language === option.code}
                 title={option.label}
-                className={`flex h-8 w-8 items-center justify-center rounded-full text-base transition ${language === option.code ? "bg-[var(--color-primary)]/10 ring-1 ring-[var(--color-primary)]/30" : "opacity-60 hover:opacity-100"}`}
+                className={`flex h-11 w-11 items-center justify-center rounded-full text-base transition ${language === option.code ? "bg-[var(--color-primary)]/10 ring-1 ring-[var(--color-primary)]/30" : "opacity-60 hover:opacity-100"}`}
               >
                 <span aria-hidden="true">{option.flag}</span>
               </button>
             ))}
           </div>
-          {customerNavigation && <Link href="/booking" aria-label={t("nav.bookNow")} title={t("nav.bookNow")} className="inline-flex items-center justify-center rounded-full bg-[var(--color-primary)] px-2 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--color-primary-dark)] sm:px-4">
+          {customerNavigation && <Link href="/booking" aria-label={t("nav.bookNow")} title={t("nav.bookNow")} className="inline-flex min-h-11 min-w-11 max-w-full items-center justify-center rounded-full bg-[var(--color-primary)] px-2 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--color-primary-dark)] sm:px-4">
             <CalendarPlus size={20} className="sm:hidden" aria-hidden="true" /><span className="hidden sm:inline">{t("nav.bookNow")}</span>
           </Link>}
-          <Link href={user ? roleHome(user.role) : "/auth"} aria-label={t(user?.role === "admin" ? "nav.adminDashboard" : user?.role === "driver" ? "nav.driverDashboard" : "nav.account")} title={t(user?.role === "admin" ? "nav.adminDashboard" : user?.role === "driver" ? "nav.driverDashboard" : "nav.account")} className="text-sm font-semibold text-slate-600 transition hover:text-[var(--color-primary)]"><LayoutDashboard size={20} className="sm:hidden" aria-hidden="true" /><span className="hidden sm:inline">{t(user?.role === "admin" ? "nav.adminDashboard" : user?.role === "driver" ? "nav.driverDashboard" : "nav.account")}</span></Link>
-          {user && <button type="button" onClick={logout} aria-label={t("nav.signOut")} title={t("nav.signOut")} className="text-sm font-semibold text-slate-600"><LogOut size={20} className="sm:hidden" aria-hidden="true" /><span className="hidden sm:inline">{t("nav.signOut")}</span></button>}
+          <Link href={user ? roleHome(user.role) : "/auth"} aria-label={t(user?.role === "admin" ? "nav.adminDashboard" : user?.role === "driver" ? "nav.driverDashboard" : "nav.account")} title={t(user?.role === "admin" ? "nav.adminDashboard" : user?.role === "driver" ? "nav.driverDashboard" : "nav.account")} className="inline-flex min-h-11 min-w-11 max-w-full items-center justify-center text-sm font-semibold text-slate-600 transition hover:text-[var(--color-primary)]"><LayoutDashboard size={20} className="sm:hidden" aria-hidden="true" /><span className="hidden sm:inline">{t(user?.role === "admin" ? "nav.adminDashboard" : user?.role === "driver" ? "nav.driverDashboard" : "nav.account")}</span></Link>
+          {user && <button type="button" onClick={logout} aria-label={t("nav.signOut")} title={t("nav.signOut")} className="inline-flex min-h-11 min-w-11 max-w-full items-center justify-center text-sm font-semibold text-slate-600"><LogOut size={20} className="sm:hidden" aria-hidden="true" /><span className="hidden sm:inline">{t("nav.signOut")}</span></button>}
           {error && <p role="alert" className="text-sm text-[var(--color-error)]">{t("nav.signOutError")}</p>}
           <Link href="/install" aria-label={t("ui.install")} title={t("ui.install")} className="hidden text-sm font-semibold text-[var(--color-accent)] transition hover:text-[var(--color-primary)] lg:inline">{t("ui.install")}</Link>
         </div>

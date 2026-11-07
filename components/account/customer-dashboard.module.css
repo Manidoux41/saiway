@@ -12,7 +12,7 @@
 .primaryButton:hover { background: var(--color-primary-dark); }
 .secondaryButton { border: 1px solid #cdd7e5; color: var(--color-primary); background: #fff; }
 .primaryButton svg, .secondaryButton svg { flex-shrink: 0; }
-.navigation { display: flex; gap: 24px; border-bottom: 1px solid #d9e2ef; margin-top: 28px; }
+.navigation { display: flex; flex-wrap: wrap; gap: 24px; border-bottom: 1px solid #d9e2ef; margin-top: 28px; }
 .navigation button, .navigation a { display: flex; align-items: center; gap: 7px; border-bottom: 2px solid transparent; padding: 0 0 14px; font-size: 13px; font-weight: 650; color: #64748b; }
 .navigation button[aria-pressed="true"] { color: var(--color-primary); border-color: var(--color-primary); }
 .navigation a { margin-left: auto; }
@@ -96,5 +96,8 @@
 .profile fieldset { display: grid; gap: 20px; margin-top: 24px; }
 .profile label { display: grid; gap: 8px; font-size: 12px; font-weight: 650; }
 .profile input, .profile textarea { width: 100%; min-width: 0; border: 1px solid #cdd7e5; background: #fff; border-radius: 6px; padding: 12px; font-weight: 400; }
+.tripTop, .tripBottom { flex-wrap: wrap; }
+.navigation button, .navigation a, .filters button { min-height: 44px; }
+.primaryButton, .secondaryButton { min-width: 0; max-width: 100%; }
 @media (prefers-reduced-motion: no-preference) { .workspace { animation: reveal .3s ease-out; } @keyframes reveal { from { opacity: .5; } to { opacity: 1; } } }
 @media (max-width: 700px) { .dashboard { padding: 24px 16px 40px; } .heading { align-items: flex-start; flex-wrap: wrap; gap: 16px; } .heading h1 { font-size: 26px; } .workspace { grid-template-columns: minmax(0, 1fr); gap: 30px; } .details { border-top: 1px solid #dce3ed; padding-top: 22px; } .metrics { gap: 12px; } .metrics span { font-size: 11px; } .metrics span svg { display: none; } .metrics strong { font-size: 26px; } .nextTrip { padding: 14px 12px; gap: 12px; flex-wrap: wrap; } .nextTrip > svg:first-child { display: none; } .nextTrip > span > strong { font-size: 11px; } .nextDestination { font-size: 11px; min-width: 80px; } .navigation { gap: 20px; } .navigation button, .navigation a { font-size: 12px; } .tripList { max-height: 500px; overflow-y: auto; padding: 3px; margin: -3px; } }

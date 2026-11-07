@@ -70,7 +70,7 @@ export function ManagementPanel({ data, loading, loadError, onReload }: { data: 
   const expenses = data.entries.filter((item) => item.type !== "REVENUE").reduce((sum, item) => sum + item.amountCents, 0);
   const forecastRevenue = data.forecasts.reduce((sum, item) => sum + item.expectedRevenueCents, 0);
   const forecastExpenses = data.forecasts.reduce((sum, item) => sum + item.expectedExpenseCents, 0);
-  const inputClass = "rounded-xl border p-3";
+  const inputClass = "w-full min-w-0 max-w-full rounded-xl border p-3";
   const buttonClass = "rounded-full bg-[var(--color-primary)] p-3 text-sm font-semibold text-white";
 
   return <div className="mt-8 space-y-8">
@@ -109,15 +109,15 @@ export function ManagementPanel({ data, loading, loadError, onReload }: { data: 
         <div id="fleet-management" className="scroll-mt-6 rounded-[28px] bg-white p-6 shadow-sm"><h2 className="text-xl font-bold">{t("fleet.management")}</h2>
           <p className="mt-2 text-sm text-slate-500">{t("fleet.addVehicleHelp")}</p>
           <form onSubmit={(event) => create(event, "vehicle")} className="mt-4 grid gap-3 sm:grid-cols-3">
-            <label className="grid gap-2 text-sm">{t("fleet.vehicleName")}<input name="name" required maxLength={500} className={inputClass} /></label>
-            <label className="grid gap-2 text-sm">{t("fleet.plate")}<input name="plate" required maxLength={500} className={inputClass} /></label>
-            <label className="grid gap-2 text-sm">{t("fleet.seats")}<input name="seats" required type="number" min="1" max="50" defaultValue="4" className={inputClass} /></label>
+            <label className="grid min-w-0 gap-2 text-sm">{t("fleet.vehicleName")}<input name="name" required maxLength={500} className={inputClass} /></label>
+            <label className="grid min-w-0 gap-2 text-sm">{t("fleet.plate")}<input name="plate" required maxLength={500} className={inputClass} /></label>
+            <label className="grid min-w-0 gap-2 text-sm">{t("fleet.seats")}<input name="seats" required type="number" min="1" max="50" defaultValue="4" className={inputClass} /></label>
             <label className="grid gap-2 text-sm sm:col-span-3">{t("fleet.iconCategory")}<select name="iconCategory" defaultValue="OTHER" className={inputClass}>{vehicleIconCategories.map((category) => <option key={category} value={category}>{t(vehicleCategoryLabels[category])}</option>)}</select></label>
             <button type="submit" className={`${buttonClass} sm:col-span-3`}>{t("fleet.addVehicle")}</button>
           </form>
           {!data.vehicles.length && <p className="mt-4 text-sm text-slate-500">{t("fleet.empty")}</p>}
-          <div className="mt-5 space-y-3">{data.vehicles.map((item) => <div key={item.id} className="grid gap-2 border-t pt-3 text-sm sm:grid-cols-[1fr_auto] sm:items-center">
-            <span>{item.name} · {item.plate} · {item.seats} {t("fleet.seats")} · {t(item.active ? "fleet.activeVehicle" : "fleet.inactiveVehicle")}</span>
+          <div className="mt-5 space-y-3">{data.vehicles.map((item) => <div key={item.id} className="grid min-w-0 gap-2 border-t pt-3 text-sm">
+            <span className="break-words">{item.name} · {item.plate} · {item.seats} {t("fleet.seats")} · {t(item.active ? "fleet.activeVehicle" : "fleet.inactiveVehicle")}</span>
             <div className="flex flex-wrap items-center gap-2">
               <select aria-label={`${t("fleet.iconCategory")} · ${item.name}`} className={inputClass} value={item.iconCategory} disabled={pending} onChange={(event) => void mutate("PATCH", { entity: "vehicle", id: item.id, data: { iconCategory: event.target.value } })}>{vehicleIconCategories.map((category) => <option key={category} value={category}>{t(vehicleCategoryLabels[category])}</option>)}</select>
               <button type="button" className={`${buttonClass} inline-flex items-center gap-2`} onClick={() => setPreviewVehicleId(item.id)}><MapPinned size={16} aria-hidden="true" />{t("fleet.previewIcon")}</button>
@@ -134,19 +134,19 @@ export function ManagementPanel({ data, loading, loadError, onReload }: { data: 
       <section className="rounded-[28px] bg-white p-6 shadow-sm">
         <h2 className="text-xl font-bold">{t("fleet.hubs")}</h2>
         <p className="mt-2 text-sm text-slate-500">{t("fleet.hubsHelp")}</p>
-        <form onSubmit={(event) => create(event, "hub")} className="mt-4 grid gap-3 md:grid-cols-5">
+        <form onSubmit={(event) => create(event, "hub")} className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <input name="name" required maxLength={500} placeholder={t("fleet.hubName")} className={inputClass} />
           <input name="address" maxLength={500} placeholder={t("fleet.hubAddress")} className={inputClass} />
           <input name="latitude" required type="number" min="-90" max="90" step="any" placeholder={t("fleet.latitude")} className={inputClass} />
           <input name="longitude" required type="number" min="-180" max="180" step="any" placeholder={t("fleet.longitude")} className={inputClass} />
           <button className={buttonClass}>{t("fleet.addHub")}</button>
         </form>
-        <div className="mt-5 space-y-3">{data.hubs.map((hub) => <form key={hub.id} onSubmit={(event) => create(event, "hub", hub.id)} className="grid gap-2 border-t pt-3 sm:grid-cols-5">
+        <div className="mt-5 space-y-3">{data.hubs.map((hub) => <form key={hub.id} onSubmit={(event) => create(event, "hub", hub.id)} className="grid gap-2 border-t pt-3 sm:grid-cols-2 xl:grid-cols-5">
           <input name="name" required maxLength={500} defaultValue={hub.name} className={inputClass} />
           <input name="address" maxLength={500} defaultValue={hub.address ?? ""} placeholder={t("fleet.hubAddress")} className={inputClass} />
           <input name="latitude" required type="number" min="-90" max="90" step="any" defaultValue={hub.latitude} className={inputClass} />
           <input name="longitude" required type="number" min="-180" max="180" step="any" defaultValue={hub.longitude} className={inputClass} />
-          <div className="flex gap-2"><button type="submit" className={buttonClass}>{t("dispatch.save")}</button>{hub.active && <button type="button" className="text-[var(--color-error)]" onClick={() => void mutate("DELETE", { entity: "hub", id: hub.id })}>{t("fleet.disableHub")}</button>}</div>
+          <div className="flex flex-wrap gap-2"><button type="submit" className={buttonClass}>{t("dispatch.save")}</button>{hub.active && <button type="button" className="text-[var(--color-error)]" onClick={() => void mutate("DELETE", { entity: "hub", id: hub.id })}>{t("fleet.disableHub")}</button>}</div>
         </form>)}</div>
       </section>
       <section className="rounded-[28px] bg-white p-6 shadow-sm"><h2 className="text-xl font-bold">{t("ui.forecasts")}</h2><form onSubmit={(event) => create(event, "forecast")} className="mt-4 grid gap-3 md:grid-cols-4"><input name="month" required type="month" aria-label={t("records.month")} className={inputClass} /><input name="revenue" required type="number" min="0" step="0.01" placeholder={t("ui.expectedRevenue")} className={inputClass} /><input name="expense" required type="number" min="0" step="0.01" placeholder={t("ui.expectedExpenses")} className={inputClass} /><button className={buttonClass}>{t("ui.addForecast")}</button></form><div className="mt-5 grid gap-3 md:grid-cols-3">{data.forecasts.map((item) => <div key={item.id} className="rounded-2xl bg-[var(--color-input)] p-4 text-sm"><div>{localizedDate(language, { month: "long", year: "numeric", timeZone: "Asia/Phnom_Penh" }).format(new Date(item.month))}</div><div>+{localizedNumber(language, { style: "currency", currency: "USD" }).format(item.expectedRevenueCents / 100)}</div><div>−{localizedNumber(language, { style: "currency", currency: "USD" }).format(item.expectedExpenseCents / 100)}</div></div>)}</div></section>
@@ -154,10 +154,10 @@ export function ManagementPanel({ data, loading, loadError, onReload }: { data: 
     </fieldset>
     {previewVehicleId && (() => {
       const vehicle = data.vehicles.find((item) => item.id === previewVehicleId);
-      return vehicle ? <div className="fixed inset-0 z-[1200] grid place-items-center bg-slate-950/60 p-4" role="dialog" aria-modal="true" aria-label={t("fleet.previewMap")}>
-        <section className="w-full max-w-2xl rounded-2xl bg-white p-5 shadow-2xl">
-          <header className="mb-4 flex items-center justify-between gap-4"><div><h2 className="text-xl font-bold">{t("fleet.previewIcon")}</h2><p className="text-sm text-slate-600">{vehicle.name} · {vehicle.plate} · {t(vehicleCategoryLabels[vehicle.iconCategory])}</p></div>
-            <button type="button" className={buttonClass} onClick={() => setPreviewVehicleId(null)} aria-label={t("fleet.closeFullscreen")}><X size={18} aria-hidden="true" /></button>
+      return vehicle ? <div className="fixed inset-0 z-[1200] grid place-items-center overflow-y-auto bg-slate-950/60 p-4" role="dialog" aria-modal="true" aria-label={t("fleet.previewMap")}>
+        <section className="max-h-[calc(100dvh-2rem)] w-full min-w-0 max-w-2xl overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl">
+          <header className="mb-4 flex items-center justify-between gap-4"><div className="min-w-0 break-words"><h2 className="text-xl font-bold">{t("fleet.previewIcon")}</h2><p className="text-sm text-slate-600">{vehicle.name} · {vehicle.plate} · {t(vehicleCategoryLabels[vehicle.iconCategory])}</p></div>
+            <button type="button" className={`${buttonClass} shrink-0`} onClick={() => setPreviewVehicleId(null)} aria-label={t("fleet.closeFullscreen")}><X size={18} aria-hidden="true" /></button>
           </header>
           <VehicleIconPreview vehicleId={vehicle.id} category={vehicle.iconCategory} />
         </section>

@@ -56,7 +56,7 @@
 .sectionTitle > span { background: #e2e9f5; font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 4px; }
 .navigationLink { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--color-primary); }
 .navigationLink:hover { text-decoration: underline; }
-.tabs { display: flex; gap: 16px; border-bottom: 1px solid #dce3ed; }
+.tabs { display: flex; flex-wrap: wrap; gap: 16px; border-bottom: 1px solid #dce3ed; }
 .tabs button { padding: 0 0 12px; font-size: 12px; font-weight: 650; color: #64748b; border-bottom: 2px solid transparent; text-align: left; }
 .tabs button[aria-selected="true"] { color: var(--color-primary); border-bottom-color: var(--color-primary); }
 .filters { display: flex; flex-direction: column; gap: 8px; margin: 16px 0; }
@@ -145,6 +145,12 @@
 .licenseUpload:hover { background: #edf2fa; }
 .licenseUpload:focus-within { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 .licenseUpload[aria-disabled="true"] { opacity: .5; pointer-events: none; }
+.sourceBar, .liveShare, .detailHeading, .tripTop, .actions { flex-wrap: wrap; }
+.heading > div, .nextRoute, .detailHeading > div { min-width: 0; }
+.dashboard .primaryButton, .dashboard .secondaryButton, .gpsButton, .liveShare button { min-width: 0; max-width: 100%; }
+.tabs button, .segment button { min-height: 44px; }
+.progress small { font-size: 11px; }
+@media (max-width: 700px) { .progress { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; } .emptyMap { min-height: 260px; padding: 24px; } }
 @media (max-width: 700px) { .licenseSides { grid-template-columns: minmax(0, 1fr); } }
 @media (prefers-reduced-motion: no-preference) { .workspace { animation: appear .3s ease-out; } @keyframes appear { from { opacity: .5; transform: translateY(5px); } to { opacity: 1; transform: none; } } }
 @media (max-width: 950px) { .workspace { gap: 22px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .nextRoute { flex-direction: column; align-items: flex-start; gap: 4px; } .nextRoute svg { display: none; } .sectionTitle { align-items: flex-start; } }

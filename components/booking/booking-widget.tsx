@@ -29,9 +29,9 @@ export function BookingWidget() {
   }
 
   return (
-    <section className="mx-auto w-full max-w-5xl rounded-[32px] border border-black/5 bg-white p-4 shadow-[0_18px_60px_rgba(23,34,31,0.08)] md:p-6">
-      <div className="mb-6 flex items-center justify-between gap-3">
-        <div>
+    <section className="mx-auto w-full min-w-0 max-w-5xl rounded-[32px] border border-black/5 bg-white p-4 shadow-[0_18px_60px_rgba(23,34,31,0.08)] md:p-6">
+      <div className="mb-6 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--color-primary)]">
             {t("booking.widgetEyebrow")}
           </p>
@@ -39,31 +39,34 @@ export function BookingWidget() {
             {t("home.title")}
           </h2>
         </div>
-        <div className="rounded-full border border-[var(--color-primary)]/15 bg-[var(--color-primary)]/5 px-3 py-1.5 text-xs font-medium text-[var(--color-primary)]">
+        <div className="max-w-full rounded-full border border-[var(--color-primary)]/15 bg-[var(--color-primary)]/5 px-3 py-1.5 text-xs font-medium text-[var(--color-primary)]">
           {t("booking.trusted")}
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-[1.2fr_1.2fr_0.8fr_0.8fr]">
-        <div className="rounded-2xl border border-slate-200 bg-[var(--color-input)] p-4">
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="min-w-0 rounded-2xl border border-slate-200 bg-[var(--color-input)] p-4">
           <PickupLocation value={pickup} onChange={setPickup} />
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-[var(--color-input)] p-4">
+        <div className="min-w-0 rounded-2xl border border-slate-200 bg-[var(--color-input)] p-4">
           <HotelSearch value={destination} onChange={setDestination} label={t("booking.to")} placeholder={t("booking.searchDestination")} />
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-[var(--color-input)] p-4">
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-4">
+        <div className="min-w-0 rounded-2xl border border-slate-200 bg-[var(--color-input)] p-3 sm:p-4">
           <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
             {t("booking.date")}
           </label>
-          <input type="date" value={date} onChange={(event) => setDate(event.target.value)} className="w-full bg-transparent text-base font-semibold text-[var(--color-text)] outline-none" aria-label={t("booking.date")} />
+          <input type="date" value={date} onChange={(event) => setDate(event.target.value)} className="block w-full min-w-0 max-w-full bg-transparent text-sm font-semibold text-[var(--color-text)] outline-none sm:text-base" aria-label={t("booking.date")} />
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-[var(--color-input)] p-4">
+        <div className="min-w-0 rounded-2xl border border-slate-200 bg-[var(--color-input)] p-3 sm:p-4">
           <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
             {t("booking.time")}
           </label>
-          <input type="time" value={time} onChange={(event) => setTime(event.target.value)} className="w-full bg-transparent text-base font-semibold text-[var(--color-text)] outline-none" aria-label={t("booking.time")} />
+          <input type="time" value={time} onChange={(event) => setTime(event.target.value)} className="block w-full min-w-0 max-w-full bg-transparent text-sm font-semibold text-[var(--color-text)] outline-none sm:text-base" aria-label={t("booking.time")} />
         </div>
       </div>
 
@@ -71,8 +74,8 @@ export function BookingWidget() {
         <span aria-hidden="true" className="text-lg leading-none">⇄</span>{t("booking.swapRoute")}
       </button>
 
-      <div className="mt-4 grid gap-4 md:grid-cols-[1fr_1fr_auto] md:items-end">
-        <div className="rounded-2xl border border-slate-200 bg-[var(--color-input)] p-4">
+      <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:items-end">
+        <div className="min-w-0 rounded-2xl border border-slate-200 bg-[var(--color-input)] p-4">
           <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
             {t("booking.passengers")}
           </label>
@@ -83,14 +86,14 @@ export function BookingWidget() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-[var(--color-input)] p-4">
+        <div className="min-w-0 rounded-2xl border border-slate-200 bg-[var(--color-input)] p-4">
           <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
             {t("booking.tripType")}
           </div>
-          <select value={tripType} onChange={(event) => setTripType(event.target.value)} className="mt-2 w-full bg-transparent text-base font-semibold text-[var(--color-text)] outline-none"><option value="airport-transfer">{t("fare.airport")}</option><option value="city-transfer">{t("fare.city")}</option><option value="tourist-tour">{t("fare.tour")}</option><option value="private-transfer">{t("booking.privateTransfer")}</option><option value="hotel-transfer">{t("booking.hotelTransfer")}</option></select>
+          <select value={tripType} onChange={(event) => setTripType(event.target.value)} className="mt-2 w-full min-w-0 max-w-full bg-transparent text-base font-semibold text-[var(--color-text)] outline-none"><option value="airport-transfer">{t("fare.airport")}</option><option value="city-transfer">{t("fare.city")}</option><option value="tourist-tour">{t("fare.tour")}</option><option value="private-transfer">{t("booking.privateTransfer")}</option><option value="hotel-transfer">{t("booking.hotelTransfer")}</option></select>
         </div>
 
-        <Button type="button" onClick={checkPrice} className="h-[74px] min-w-[220px] text-base">{t("booking.checkPrice")}</Button>
+        <Button type="button" onClick={checkPrice} className="min-h-[56px] w-full min-w-0 text-base sm:col-span-2 lg:col-span-1 lg:min-h-[74px]">{t("booking.checkPrice")}</Button>
       </div>
     </section>
   );

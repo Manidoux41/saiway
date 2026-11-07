@@ -21,13 +21,13 @@ export default function CancellationPolicyPage() {
     <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
       <div className="rounded-[30px] border border-black/5 bg-white p-6 shadow-sm md:p-10">
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--color-primary)]">{copy?.legal ?? "Legal"}</p>
-        <h1 className="mt-3 text-4xl font-black tracking-[-0.05em] text-[var(--color-text)]">{policy?.title ?? "Cancellation Policy"}</h1>
+        <h1 className="mt-3 break-words text-3xl font-black tracking-[-0.05em] text-[var(--color-text)] sm:text-4xl">{policy?.title ?? "Cancellation Policy"}</h1>
         <p className="mt-3 text-sm text-slate-500">{copy?.updated ?? "Last updated"}: {updated}</p>
         <p className="mt-8 leading-7 text-slate-600">{policy?.intro ?? "This policy applies to SAIWAY private transfers unless different terms are clearly shown in your booking confirmation. It is intended to be read with Cambodia's Law on Consumer Protection (2019), Law on E-Commerce (2019), Road Traffic Law (2014), Civil Code and applicable passenger-transport requirements. Cancellation rights that are mandatory under Cambodian law remain unaffected."}</p>
 
         <div className="mt-8 overflow-hidden rounded-2xl border border-slate-200">
-          <div className="grid grid-cols-[1.1fr_1fr] bg-[var(--color-primary-dark)] px-4 py-3 text-xs font-semibold uppercase tracking-[0.12em] text-white sm:px-5"><span>{policy?.when ?? "When you cancel"}</span><span>{policy?.refund ?? "Refund"}</span></div>
-          {translatedRules.map((rule) => <div key={rule.timing} className="grid grid-cols-[1.1fr_1fr] gap-4 border-t border-slate-200 px-4 py-4 text-sm sm:px-5"><span className="font-semibold text-[var(--color-text)]">{rule.timing}</span><span className="text-slate-600">{rule.result}</span></div>)}
+          <div className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] gap-4 break-words bg-[var(--color-primary-dark)] px-4 py-3 text-xs font-semibold uppercase tracking-[0.12em] text-white sm:px-5"><span>{policy?.when ?? "When you cancel"}</span><span>{policy?.refund ?? "Refund"}</span></div>
+          {translatedRules.map((rule) => <div key={rule.timing} className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] gap-4 break-words border-t border-slate-200 px-4 py-4 text-sm sm:px-5"><span className="font-semibold text-[var(--color-text)]">{rule.timing}</span><span className="text-slate-600">{rule.result}</span></div>)}
         </div>
 
         <div className="mt-10 space-y-8">

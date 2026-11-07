@@ -80,7 +80,7 @@ export function HotelSearch({ value, onChange, label, placeholder, onSelectPoint
   }
 
   return (
-    <div className="relative">
+    <div className="relative min-w-0">
       <label htmlFor={id} className="mb-2 block text-sm font-semibold text-[var(--color-text)]">{label || t("booking.destinationLabel")}</label>
       <input
         id={id}
@@ -101,14 +101,14 @@ export function HotelSearch({ value, onChange, label, placeholder, onSelectPoint
         required
         autoComplete="off"
         placeholder={placeholder || t("booking.destinationPlaceholder")}
-        className="w-full rounded-2xl border border-slate-200 bg-[var(--color-input)] px-4 py-3.5 text-[var(--color-text)] outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/10"
+        className="w-full min-w-0 rounded-2xl border border-slate-200 bg-[var(--color-input)] px-4 py-3.5 text-[var(--color-text)] outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/10"
       />
       {focused && suggestions.length > 0 && (
         <ul id={`${id}-list`} className="absolute z-20 mt-2 w-full overflow-hidden rounded-2xl border border-slate-200 bg-white p-1 shadow-xl" role="listbox">
           {suggestions.map((destination, index) => (
             <li key={`${destination.name}-${destination.detail}`} id={`${id}-option-${index}`} role="option" aria-selected={activeIndex === index}>
               <button type="button" tabIndex={-1} onPointerDown={(event) => event.preventDefault()} onClick={() => select(index)} className={`flex w-full items-start justify-between gap-3 rounded-xl px-4 py-3 text-left hover:bg-[var(--color-background)] ${activeIndex === index ? "bg-slate-100" : ""}`}>
-                <span><span className="block text-sm font-semibold text-[var(--color-text)]">{destination.name}</span><span className="mt-0.5 block text-xs text-slate-500">{destination.detail}</span></span>
+                <span className="min-w-0 break-words"><span className="block text-sm font-semibold text-[var(--color-text)]">{destination.name}</span><span className="mt-0.5 block text-xs text-slate-500">{destination.detail}</span></span>
                 <span className="shrink-0 rounded-full bg-[var(--color-primary)]/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--color-primary)]">{destination.kind}</span>
               </button>
             </li>

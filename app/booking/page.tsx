@@ -112,8 +112,8 @@ function BookingForm() {
           <Link href="/auth" className="mt-6 inline-flex rounded-full bg-[var(--color-primary)] px-6 py-3 text-sm font-semibold text-white">{t("booking.registerSignIn")}</Link>
         </section>
       ) : (
-      <div className="grid gap-8 lg:grid-cols-[1fr_360px]">
-        <section className="rounded-[32px] border border-black/5 bg-white p-6 shadow-[0_18px_60px_rgba(23,34,31,0.06)] md:p-8">
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <section className="min-w-0 rounded-[32px] border border-black/5 bg-white p-5 shadow-[0_18px_60px_rgba(23,34,31,0.06)] sm:p-6 md:p-8">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[var(--color-primary)]">{t("booking.titleEyebrow")}</p>
@@ -126,13 +126,13 @@ function BookingForm() {
             </div>
           </div>
 
-          <div className="mt-8 grid grid-cols-4 gap-2" aria-label={t("ui.progress")}>
+          <div className="mt-8 grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label={t("ui.progress")}>
             {steps.map((label, index) => (
               <div key={label} title={label} aria-label={label} aria-current={index === step ? "step" : undefined} className={`flex min-w-0 flex-col items-start gap-2 rounded-2xl p-3 text-xs font-semibold ${index === step ? "bg-emerald-50" : "bg-slate-50"}`}>
                 <span className={`flex h-8 w-8 items-center justify-center rounded-full ${index <= step ? "bg-[var(--color-primary)] text-white" : "bg-slate-100 text-slate-400"}`}>
                   {index < step ? <Check size={16} /> : index + 1}
                 </span>
-                <span className={`${index <= step ? "text-[var(--color-text)]" : "text-slate-400"}`}>{label}</span>
+                <span className={`min-w-0 max-w-full break-words ${index <= step ? "text-[var(--color-text)]" : "text-slate-400"}`}>{label}</span>
               </div>
             ))}
           </div>
@@ -217,7 +217,7 @@ function BookingForm() {
               {step === 3 && (
                 <div className="space-y-5"><div className="rounded-3xl bg-[var(--color-background)] p-5 text-sm text-slate-600">
                   <h2 className="mb-5 text-lg font-bold text-[var(--color-text)]">{t("booking.reviewDetails")}</h2>
-                  <div className="flex justify-between gap-4"><span>{t("booking.route")}</span><strong className="text-right text-[var(--color-text)]">{fromAddress} → {toAddress}</strong></div>
+                  <div className="flex flex-wrap justify-between gap-4"><span>{t("booking.route")}</span><strong className="min-w-0 break-words text-right text-[var(--color-text)]">{fromAddress} → {toAddress}</strong></div>
                   <div className="mt-4 flex justify-between gap-4"><span>{t("booking.pickup")}</span><strong className="text-[var(--color-text)]">{pickupDate} · {pickupTime}</strong></div>
                   <div className="mt-4 flex justify-between gap-4"><span>{t("booking.passengers")}</span><strong className="text-[var(--color-text)]">{passengers}</strong></div>
                   <div className="mt-4 flex justify-between gap-4"><span>{t("booking.tripType")}</span><strong className="text-[var(--color-text)]">{tripType === "airport-transfer" ? t("fare.airport") : tripType === "tourist-tour" ? t("fare.tour") : t("fare.city")}</strong></div>
@@ -232,7 +232,7 @@ function BookingForm() {
                 </fieldset></div>
               )}
 
-              <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-6">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-6">
                 <button type="button" onClick={() => setStep((currentStep) => Math.max(0, currentStep - 1))} disabled={step === 0 || pending} className="rounded-full px-4 py-3 text-sm font-semibold text-slate-500 disabled:invisible">{t("booking.back")}</button>
                 <Button type="submit" disabled={pending || step === steps.length - 1 && !quote}>{pending ? t("admin.saving") : step === steps.length - 1 ? t("booking.requestTransfer") : t("booking.continue")}</Button>
               </div>

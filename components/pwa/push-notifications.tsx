@@ -108,10 +108,10 @@ export function PushNotifications() {
 
   if (!user) return null;
   return <>
-    <button type="button" aria-label={t("push.title")} title={t("push.title")} aria-expanded={open} onClick={() => setOpen(!open)} className="rounded-full border border-slate-200 p-2 text-[var(--color-primary)]"><Bell size={20} aria-hidden="true" /></button>
-    {open && createPortal(<dialog ref={dialog} onCancel={() => setOpen(false)} aria-labelledby="push-title" className="m-auto w-[calc(100%-2rem)] max-w-lg rounded-2xl bg-white p-0 backdrop:bg-slate-950/60">
+    <button type="button" aria-label={t("push.title")} title={t("push.title")} aria-expanded={open} onClick={() => setOpen(!open)} className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-200 text-[var(--color-primary)]"><Bell size={20} aria-hidden="true" /></button>
+    {open && createPortal(<dialog ref={dialog} onCancel={() => setOpen(false)} aria-labelledby="push-title" className="m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg overflow-y-auto rounded-2xl bg-white p-0 backdrop:bg-slate-950/60">
       <section className="w-full max-w-lg space-y-4 rounded-2xl bg-white p-5 shadow-xl">
-        <header className="flex items-center justify-between gap-3"><h2 id="push-title" className="text-lg font-bold">{t("push.title")}</h2><button type="button" onClick={() => setOpen(false)} aria-label={t("push.closed")}><X aria-hidden="true" /></button></header>
+        <header className="flex items-center justify-between gap-3"><h2 id="push-title" className="min-w-0 text-lg font-bold">{t("push.title")}</h2><button type="button" onClick={() => setOpen(false)} aria-label={t("push.closed")} className="inline-flex h-11 w-11 shrink-0 items-center justify-center"><X aria-hidden="true" /></button></header>
         <p className="text-sm">{t("push.help")}</p>
         {user.role === "admin" && <p className="text-sm">{t("push.adminHelp")}</p>}
         <p role="status" className="text-sm">{t(pending ? "push.loading" : !supported ? "push.unsupported" : !publicKey ? "push.unconfigured" : enabled ? "push.enabled" : "push.disabled")}</p>

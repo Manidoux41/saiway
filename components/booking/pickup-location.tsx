@@ -43,8 +43,8 @@ export function PickupLocation({ value, onChange }: { value: string; onChange: (
       if (!(error instanceof DOMException && error.name === "AbortError")) setMessage("places.shareError");
     }
   }
-  const button = "rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold";
-  return <div className="space-y-3">
+  const button = "max-w-full whitespace-normal rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold";
+  return <div className="min-w-0 space-y-3">
     <HotelSearch value={value} onChange={onChange} label={t("booking.from")} placeholder={t("places.pickupPlaceholder")} />
     <p className="text-xs text-slate-500">{t("places.gpsConsent")}</p>
     <div className="flex flex-wrap gap-2">
@@ -54,8 +54,8 @@ export function PickupLocation({ value, onChange }: { value: string; onChange: (
     </div>
     <details className="rounded-xl border p-3"><summary className="cursor-pointer text-sm font-semibold">{t("places.coordinates")}</summary>
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
-        <label className="text-sm">{t("fleet.latitude")}<input type="number" step="any" min="-90" max="90" value={latitude} onChange={(event) => setLatitude(event.target.value)} className="mt-1 w-full rounded-xl border p-2" /></label>
-        <label className="text-sm">{t("fleet.longitude")}<input type="number" step="any" min="-180" max="180" value={longitude} onChange={(event) => setLongitude(event.target.value)} className="mt-1 w-full rounded-xl border p-2" /></label>
+        <label className="min-w-0 text-sm">{t("fleet.latitude")}<input type="number" step="any" min="-90" max="90" value={latitude} onChange={(event) => setLatitude(event.target.value)} className="mt-1 w-full min-w-0 rounded-xl border p-2" /></label>
+        <label className="min-w-0 text-sm">{t("fleet.longitude")}<input type="number" step="any" min="-180" max="180" value={longitude} onChange={(event) => setLongitude(event.target.value)} className="mt-1 w-full min-w-0 rounded-xl border p-2" /></label>
       </div>
       <button type="button" className={`${button} mt-3`} onClick={() => {
         const point = { latitude: Number(latitude), longitude: Number(longitude) };

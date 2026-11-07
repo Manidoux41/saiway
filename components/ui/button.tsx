@@ -25,7 +25,7 @@ export function Button({
   return (
     <button
       {...props}
-      className={`inline-flex items-center justify-center rounded-full px-5 py-3 text-sm font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30 disabled:cursor-not-allowed disabled:opacity-60 ${variantClasses[variant]} ${className}`}
+      className={`inline-flex min-h-11 min-w-0 max-w-full items-center justify-center whitespace-normal rounded-full px-5 py-3 text-sm font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30 disabled:cursor-not-allowed disabled:opacity-60 ${variantClasses[variant]} ${className}`}
     >
       {children}
     </button>

@@ -19,7 +19,7 @@ type Account = {
 };
 type Feedback = { kind: "ok" | "error"; key: Key; missing?: string[] } | null;
 
-const inputClass = "w-full rounded-2xl border border-slate-200 bg-[var(--color-input)] px-4 py-2.5 text-sm outline-none focus:border-[var(--color-primary)]";
+const inputClass = "w-full min-w-0 rounded-2xl border border-slate-200 bg-[var(--color-input)] px-4 py-2.5 text-sm outline-none focus:border-[var(--color-primary)]";
 const buttonClass = "inline-flex items-center justify-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold disabled:opacity-50";
 const primaryButton = `${buttonClass} bg-[var(--color-primary)] text-white`;
 const secondaryButton = `${buttonClass} border border-slate-300 bg-white text-slate-800`;
@@ -35,13 +35,13 @@ async function call(path: string, init?: RequestInit) {
 const json = (method: string, body: unknown): RequestInit => ({ method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 
 function Field({ label, value, onChange, type = "text", multiline = false, required = false, clearLabel, ...rest }: { label: string; value: string; onChange: (value: string) => void; type?: string; multiline?: boolean; required?: boolean; clearLabel: string; min?: number; max?: number; step?: string; maxLength?: number; inputMode?: "tel" | "decimal" | "numeric" }) {
-  return <label className={`grid gap-1 text-sm font-medium text-slate-700 ${multiline ? "sm:col-span-2" : ""}`}>
+  return <label className={`grid min-w-0 gap-1 text-sm font-medium text-slate-700 ${multiline ? "sm:col-span-2" : ""}`}>
     {label}
-    <span className="flex items-start gap-1.5">
+    <span className="flex min-w-0 items-start gap-1.5">
       {multiline
         ? <textarea value={value} onChange={(event) => onChange(event.target.value)} rows={3} maxLength={rest.maxLength} className={inputClass} />
         : <input value={value} onChange={(event) => onChange(event.target.value)} type={type} required={required} className={inputClass} {...rest} />}
-      {!required && value && <button type="button" onClick={() => onChange("")} aria-label={`${clearLabel} · ${label}`} title={clearLabel} className="mt-1.5 rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-[var(--color-error)]"><X size={15} aria-hidden="true" /></button>}
+      {!required && value && <button type="button" onClick={() => onChange("")} aria-label={`${clearLabel} · ${label}`} title={clearLabel} className="mt-1.5 shrink-0 rounded-full p-1.5 text-slate-400 hover:bg-slate-100 hover:text-[var(--color-error)]"><X size={15} aria-hidden="true" /></button>}
     </span>
   </label>;
 }

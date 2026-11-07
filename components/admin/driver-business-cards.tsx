@@ -136,7 +136,7 @@ export function DriverBusinessCards({ users, onChanged }: { users: ManagementDat
     <div className="mt-5 grid gap-6 lg:grid-cols-2">{drivers.map((item, index) => {
       const card = cards[index];
       const driver = item.driver!;
-      return <div key={item.id} className="rounded-2xl border border-slate-200 p-4">
+      return <div key={item.id} className="min-w-0 rounded-2xl border border-slate-200 p-3 sm:p-4">
         {card ? <div className="overflow-x-auto"><DriverBusinessCard driver={card} bookingUrl={bookingUrl} /></div> : <div className="rounded-xl bg-amber-50 p-4 text-sm text-amber-800"><strong>{item.name}</strong><br />{t("cards.noPhone")}</div>}
         <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
           <label className={`inline-flex cursor-pointer items-center gap-2 rounded-full border border-slate-300 px-3 py-1.5 font-semibold text-[var(--color-primary)] ${busy !== null || printing ? "pointer-events-none opacity-50" : ""}`}><Camera size={15} aria-hidden="true" />{t(driver.photo ? "cards.replacePhoto" : "cards.addPhoto")}<input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" disabled={busy !== null || printing !== null} onChange={(event) => void upload(driver.id, event)} aria-label={`${t(driver.photo ? "cards.replacePhoto" : "cards.addPhoto")} · ${item.name}`} /></label>
