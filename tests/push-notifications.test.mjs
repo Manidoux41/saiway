@@ -102,10 +102,54 @@ test('booking assignment, passenger arrival and driver lifecycle notify only the
     const deliveries = await ctx.prisma.pushDelivery.findMany({ where: { bookingId: id }, include: { subscription: true } });
     const accounts = [ctx.id, customer.id, other.id, driver.id, otherDriver.id];
     assert.deepEqual(deliveries.filter(event => accounts.includes(event.subscription.userId)).map(event => [event.kind, event.subscription.userId]).sort(), [
+      ['BOOKED', customer.id], ['NEW_BOOKING', ctx.id], ['DISPATCHED', ctx.id],
       ['ASSIGNED', driver.id], ['ARRIVED', customer.id], ['EN_ROUTE', ctx.id], ['STARTED', ctx.id], ['COMPLETED', ctx.id],
     ].sort());
     assert.ok(deliveries.filter(event => !accounts.includes(event.subscription.userId)).every(event => event.recipientRole === 'ADMIN'));
     assert.equal(await ctx.prisma.payment.count({ where: { bookingId: id } }), 0, 'Completion notification does not mean payment');
+  } finally { await ctx.cleanup(); }
+});
+
+test('reservation acknowledgement reaches its customer and administrators before driver assignment, without duplicate alerts on edits', async () => {
+  const ctx = await setup();
+  try {
+    assert.ok(process.env.PUSH_VALIDATION_LOG);
+    const customer = await createAccount(ctx, 'CUSTOMER');
+    const other = await createAccount(ctx, 'CUSTOMER', 'other');
+    const driver = await createAccount(ctx, 'DRIVER');
+    const recipients = [[ctx, 'admin', 'en'], [customer, 'customer', 'fr'], [other, 'other', 'km'], [driver, 'driver', 'km']];
+    for (const [account, label, language] of recipients) {
+      assert.equal((await request('/api/notifications/subscriptions', 'POST', subscription(`${ctx.prefix}-${label}`, language), account.cookie)).status, 201);
+    }
+    const body = {
+      fromAddress: 'SAI Airport', toAddress: 'Validation hotel', direction: 'AIRPORT_TO_CITY',
+      tripType: 'AIRPORT_TRANSFER', passengers: 1, pickupAt: new Date(Date.now() + 86400000).toISOString(),
+    };
+    assert.equal((await request('/api/bookings', 'POST', body)).status, 403);
+    assert.equal((await request('/api/bookings', 'POST', body, driver.cookie)).status, 403);
+    const created = await request('/api/bookings', 'POST', body, customer.cookie);
+    assert.equal(created.status, 201);
+    const bookingId = created.data.booking.id;
+    assert.equal(created.data.booking.driverId, null);
+    for (const kind of ['BOOKED', 'NEW_BOOKING']) {
+      await waitFor(() => ctx.prisma.pushDelivery.findFirst({ where: { bookingId, kind, sentAt: { not: null } } }));
+    }
+    assert.equal((await request('/api/admin/bookings', 'PATCH', { id: bookingId, pickupNotes: 'Updated note' }, ctx.cookie)).status, 200);
+    assert.equal((await request('/api/admin/bookings', 'PATCH', { id: bookingId, status: 'CONFIRMED' }, ctx.cookie)).status, 200);
+    const deliveries = await ctx.prisma.pushDelivery.findMany({ where: { bookingId }, include: { subscription: true } });
+    assert.deepEqual(deliveries.map(item => [item.kind, item.subscription.userId]).sort(), [
+      ['BOOKED', customer.id], ['NEW_BOOKING', ctx.id],
+    ].sort());
+    assert.equal(await ctx.prisma.payment.count({ where: { bookingId } }), 0);
+    const transport = readFileSync(process.env.PUSH_VALIDATION_LOG, 'utf8').trim().split('\n').map(line => JSON.parse(line));
+    const acknowledgement = transport.find(item => item.endpoint === `https://fcm.googleapis.com/${ctx.prefix}-customer/normal`);
+    assert.equal(acknowledgement.payload.data.url, '/account');
+    assert.match(acknowledgement.payload.body, /prise en compte par SAIWAY/);
+    assert.match(acknowledgement.payload.body, /suivis séparément/);
+    const adminAlert = transport.find(item => item.endpoint === `https://fcm.googleapis.com/${ctx.prefix}-admin/normal`);
+    assert.equal(adminAlert.payload.data.url, '/admin');
+    assert.match(adminAlert.payload.body, /new reservation/);
+    assert.ok(!JSON.stringify(acknowledgement.payload).includes(customer.email));
   } finally { await ctx.cleanup(); }
 });
 
@@ -160,10 +204,14 @@ test('stale booking ownership, suspended recipients and expired alerts never rea
     } });
     const base = { subscriptionId, recipientRole: 'CUSTOMER', expiresAt: new Date(Date.now() + 60_000) };
     const stale = await ctx.prisma.pushDelivery.create({ data: { ...base, eventKey: `${ctx.prefix}:stale`, kind: 'ARRIVED', bookingId: booking.id, driverId } });
+    const wrongCustomer = await ctx.prisma.pushDelivery.create({ data: { ...base, eventKey: `${ctx.prefix}:wrong-customer`, kind: 'BOOKED', bookingId: booking.id } });
+    const wrongRole = await ctx.prisma.pushDelivery.create({ data: { ...base, eventKey: `${ctx.prefix}:wrong-role`, kind: 'DISPATCHED', bookingId: booking.id, driverId } });
     const expired = await ctx.prisma.pushDelivery.create({ data: { ...base, eventKey: `${ctx.prefix}:expired`, kind: 'TEST', expiresAt: new Date(Date.now() - 1000) } });
     const cron = () => fetch(`${process.env.VALIDATION_URL}/api/cron/push-notifications`, { headers: { Authorization: `Bearer ${process.env.CRON_SECRET}` } });
     assert.equal((await cron()).status, 200);
     assert.equal((await ctx.prisma.pushDelivery.findUniqueOrThrow({ where: { id: stale.id } })).lastError, 'STALE_OR_UNAUTHORIZED');
+    assert.equal((await ctx.prisma.pushDelivery.findUniqueOrThrow({ where: { id: wrongCustomer.id } })).lastError, 'STALE_OR_UNAUTHORIZED');
+    assert.equal((await ctx.prisma.pushDelivery.findUniqueOrThrow({ where: { id: wrongRole.id } })).lastError, 'STALE_OR_UNAUTHORIZED');
     assert.equal((await ctx.prisma.pushDelivery.findUniqueOrThrow({ where: { id: expired.id } })).sentAt, null);
     const suspended = await ctx.prisma.pushDelivery.create({ data: { ...base, eventKey: `${ctx.prefix}:suspended`, kind: 'TEST' } });
     await ctx.prisma.user.update({ where: { id: customer.id }, data: { status: 'SUSPENDED' } });

@@ -11,6 +11,17 @@
 .iconButton { display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 42px; flex-shrink: 0; border: 1px solid #dce3ed; border-radius: 8px; background: #fff; color: var(--color-text); }
 .iconButton:hover { background: #edf2fa; }
 .sourceBar { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 26px; }
+.availability { margin-top: 18px; padding: 16px; border: 1px solid #dce3ed; border-radius: 8px; background: #fff; }
+.availabilityTop { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.availabilityTop h2 { font-size: 14px; font-weight: 700; }
+.availabilityTop strong { display: block; margin-top: 4px; color: var(--color-primary); }
+.availabilitySwitch { width: 56px; height: 44px; flex-shrink: 0; padding: 10px 4px; background: #64748b; border-radius: 24px; }
+.availabilitySwitch span { display: block; width: 24px; height: 24px; border-radius: 50%; background: #fff; }
+.availabilitySwitch[aria-checked="true"] { background: #16744e; }
+.availabilitySwitch[aria-checked="true"] span { transform: translateX(24px); }
+.availability label { display: grid; gap: 6px; margin-top: 14px; font-size: 13px; font-weight: 600; }
+.availability select { width: 100%; min-width: 0; min-height: 44px; padding: 8px; border: 1px solid #dce3ed; border-radius: 6px; background: #fff; }
+.availability p { margin-top: 8px; font-size: 12px; overflow-wrap: anywhere; }
 .gpsButton { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 42px; margin-left: auto; padding: 0 14px; border-radius: 8px; background: var(--color-primary); color: #fff; font-size: 12px; font-weight: 700; }
 .gpsOverlay { position: fixed; inset: 0; z-index: 1200; display: flex; flex-direction: column; padding: 16px; background: #fff; }
 .gpsOverlay header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 12px; }

@@ -1,4 +1,6 @@
 const en = {
+  "push.AVAILABLE": "A driver has enabled availability or updated their vehicle. Open fleet supervision.",
+  "push.UNAVAILABLE": "A driver is no longer available for new assignments. Existing trips are retained.",
   "push.title": "Push notifications", "push.enable": "Enable on this device", "push.disable": "Disable on this device",
   "push.test": "Send a test", "push.enabled": "Notifications enabled on this device.",
   "push.disabled": "Notifications disabled on this device.", "push.queued": "Test queued. Delivery depends on your browser and connection.",
@@ -9,6 +11,9 @@ const en = {
   "push.unconfigured": "Push notifications are not configured on this server. Contact the administrator.",
   "push.error": "Unable to update notifications. Check your session and connection, then retry.",
   "push.loading": "Checking notifications…", "push.closed": "Close",
+  "push.BOOKED": "SAIWAY has received your reservation. Driver assignment and payment are tracked separately.",
+  "push.NEW_BOOKING": "SAIWAY has received a new reservation. Open the bookings dashboard to check its assignment.",
+  "push.DISPATCHED": "A reservation has been assigned to a driver. Open SAIWAY to view it.",
   "push.ASSIGNED": "A new trip has been assigned to you. Open SAIWAY to view it.",
   "push.ARRIVED": "Your driver has arrived at the pickup point and is ready to start your trip.",
   "push.EN_ROUTE": "The driver is on the way to the passenger.",
@@ -18,6 +23,8 @@ const en = {
   "push.TEST": "SAIWAY push notifications are working on this device.",
 };
 const fr: typeof en = {
+  "push.AVAILABLE": "Un chauffeur a activé sa disponibilité ou changé de véhicule. Consultez la supervision.",
+  "push.UNAVAILABLE": "Un chauffeur n’est plus disponible pour de nouvelles attributions. Ses courses existantes sont conservées.",
   "push.title": "Notifications push", "push.enable": "Activer sur cet appareil", "push.disable": "Désactiver sur cet appareil",
   "push.test": "Envoyer un test", "push.enabled": "Notifications activées sur cet appareil.",
   "push.disabled": "Notifications désactivées sur cet appareil.", "push.queued": "Test mis en file d’envoi. La réception dépend du navigateur et de la connexion.",
@@ -28,6 +35,9 @@ const fr: typeof en = {
   "push.unconfigured": "Les notifications push ne sont pas configurées sur ce serveur. Contactez l’administrateur.",
   "push.error": "Impossible de modifier les notifications. Vérifiez votre session et la connexion, puis réessayez.",
   "push.loading": "Vérification des notifications…", "push.closed": "Fermer",
+  "push.BOOKED": "Votre réservation a été prise en compte par SAIWAY. L’attribution du chauffeur et le paiement sont suivis séparément.",
+  "push.NEW_BOOKING": "SAIWAY a reçu une nouvelle réservation. Consultez les courses pour vérifier son attribution.",
+  "push.DISPATCHED": "Une réservation a été attribuée à un chauffeur. Ouvrez SAIWAY pour la consulter.",
   "push.ASSIGNED": "Une nouvelle course vous a été attribuée. Ouvrez SAIWAY pour la consulter.",
   "push.ARRIVED": "Votre chauffeur est arrivé au point de départ et est prêt à commencer votre course.",
   "push.EN_ROUTE": "Le chauffeur est en route vers le passager.",
@@ -37,6 +47,8 @@ const fr: typeof en = {
   "push.TEST": "Les notifications push SAIWAY fonctionnent sur cet appareil.",
 };
 const km: typeof en = {
+  "push.AVAILABLE": "អ្នកបើកបរបានបើកភាពទំនេរ ឬប្ដូរយានយន្ត។ សូមមើលផែនទីគ្រប់គ្រង។",
+  "push.UNAVAILABLE": "អ្នកបើកបរមិនទំនេរសម្រាប់ការចាត់តាំងថ្មីទេ។ ដំណើរដែលមានរួចត្រូវបានរក្សាទុក។",
   "push.title": "ការជូនដំណឹង Push", "push.enable": "បើកលើឧបករណ៍នេះ", "push.disable": "បិទលើឧបករណ៍នេះ",
   "push.test": "ផ្ញើការសាកល្បង", "push.enabled": "បានបើកការជូនដំណឹងលើឧបករណ៍នេះ។",
   "push.disabled": "បានបិទការជូនដំណឹងលើឧបករណ៍នេះ។", "push.queued": "បានដាក់ការសាកល្បងក្នុងជួរផ្ញើ។ ការទទួលអាស្រ័យលើកម្មវិធីរុករក និងការតភ្ជាប់។",
@@ -47,6 +59,9 @@ const km: typeof en = {
   "push.unconfigured": "ម៉ាស៊ីនមេមិនទាន់កំណត់ការជូនដំណឹង Push។ សូមទាក់ទងអ្នកគ្រប់គ្រង។",
   "push.error": "មិនអាចកែការជូនដំណឹង។ សូមពិនិត្យគណនី និងការតភ្ជាប់ ហើយសាកម្ដងទៀត។",
   "push.loading": "កំពុងពិនិត្យការជូនដំណឹង…", "push.closed": "បិទ",
+  "push.BOOKED": "SAIWAY បានទទួលការកក់របស់អ្នក។ ការចាត់តាំងអ្នកបើកបរ និងការទូទាត់ត្រូវបានតាមដានដោយឡែក។",
+  "push.NEW_BOOKING": "SAIWAY បានទទួលការកក់ថ្មី។ សូមមើលបញ្ជីដំណើរដើម្បីពិនិត្យការចាត់តាំងអ្នកបើកបរ។",
+  "push.DISPATCHED": "បានចាត់តាំងការកក់ឱ្យអ្នកបើកបរ។ សូមបើក SAIWAY ដើម្បីមើល។",
   "push.ASSIGNED": "បានចាត់តាំងដំណើរថ្មីឱ្យអ្នក។ សូមបើក SAIWAY ដើម្បីមើល។",
   "push.ARRIVED": "អ្នកបើកបររបស់អ្នកបានមកដល់ចំណុចចេញដំណើរ ហើយត្រៀមចាប់ផ្ដើមដំណើរ។",
   "push.EN_ROUTE": "អ្នកបើកបរកំពុងទៅរកអ្នកដំណើរ។",

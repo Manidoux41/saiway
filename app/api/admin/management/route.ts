@@ -5,6 +5,9 @@ import { authorize } from "@/lib/access";
 import { gpsRetentionEnabled, gpsRetentionSettingKey } from "@/lib/cron-settings";
 import { farePolicy, farePolicyKey, farePolicySchema } from "@/lib/fare-policy";
 import { activeFarePolicy } from "@/lib/fare-store";
+import { DispatchError, dispatchTransaction } from "@/lib/driver-dispatch";
+import { enqueueAvailabilityPush } from "@/lib/push-events";
+import { schedulePushDelivery } from "@/lib/push-delivery";
 
 export const runtime = "nodejs";
 
@@ -64,7 +67,7 @@ async function mutate(request: Request) {
     if ((updating || removing) && entity === "user" && id === actor.id) return Response.json({ error: "An administrator cannot modify or suspend their own account here" }, { status: 409 });
     if (removing && !["user", "vehicle", "hub", "pricing", "contract"].includes(entity)) return Response.json({ error: "Financial history cannot be deleted. Edit the record instead." }, { status: 409 });
     if (!updating && !removing && entity === "user") return Response.json({ error: "Use account creation" }, { status: 400 });
-    const item = await prisma.$transaction(async (tx) => {
+    const item = await dispatchTransaction(async (tx) => {
       let result;
       if (removing) {
         if (entity === "user") result = await tx.user.update({ where: { id }, data: { status: "SUSPENDED" } });
@@ -78,10 +81,13 @@ async function mutate(request: Request) {
       } else {
         if (entity === "user") {
           const { isAvailable, licenseNo, licenseExpiresAt, ...value } = fields.user.partial().strict().parse(data);
-          const existing = await tx.user.findUniqueOrThrow({ where: { id } });
+          const existing = await tx.user.findUniqueOrThrow({ where: { id }, include: { driver: true } });
           const driverFields = isAvailable !== undefined || licenseNo !== undefined || licenseExpiresAt !== undefined;
           if (driverFields && existing.role !== "DRIVER") throw new z.ZodError([{ code: "custom", path: ["isAvailable"], message: "Driver fields require a driver account" }]);
-          result = await tx.user.update({ where: { id }, data: { ...value, ...(driverFields ? { driver: { update: { isAvailable, licenseNo: licenseNo === "" ? null : licenseNo, licenseExpiresAt } } } : {}) }, select: { id: true, name: true, email: true, role: true, status: true } });
+          result = await tx.user.update({ where: { id }, data: { ...value, ...(driverFields ? { driver: { update: { isAvailable, ...(isAvailable === true && !existing.driver?.isAvailable ? { availableSince: new Date() } : {}), licenseNo: licenseNo === "" ? null : licenseNo, licenseExpiresAt } } } : {}) }, select: { id: true, name: true, email: true, role: true, status: true } });
+          if (isAvailable !== undefined && existing.driver && existing.driver.isAvailable !== isAvailable) {
+            await enqueueAvailabilityPush(tx, await tx.driverProfile.findUniqueOrThrow({ where: { id: existing.driver.id } }));
+          }
         }
         if (entity === "vehicle") {
           const value = updating ? fields.vehicle.partial().parse(data) : fields.vehicle.parse(data);
@@ -126,11 +132,13 @@ async function mutate(request: Request) {
       await tx.auditLog.create({ data: { actorId: actor.id, entity, entityId: entity === "setting" ? fields.setting.parse(data).key : id ?? null, action: removing ? "ARCHIVE" : updating ? "UPDATE" : "CREATE", ...(entity === "setting" && data.key === gpsRetentionSettingKey ? { metadata: { enabled: data.value === true } } : {}) } });
       return result;
     });
+    if (entity === "user" && data.isAvailable !== undefined) schedulePushDelivery();
     return Response.json(removing ? { ok: true } : { item }, { status: updating || removing ? 200 : 201 });
   } catch (error) { return failure(error); }
 }
 
 function failure(error: unknown) {
+  if (error instanceof DispatchError) return Response.json({ error: error.message }, { status: error.status });
   if (error instanceof z.ZodError || error instanceof SyntaxError) return Response.json({ error: "Invalid values" }, { status: 400 });
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
     if (error.code === "P2002") return Response.json({ error: "A record already exists with these unique values" }, { status: 409 });

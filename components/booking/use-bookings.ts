@@ -4,12 +4,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { courseSchema, type Course } from "@/components/booking/course-dashboard";
 import { useLanguage } from "@/components/i18n/language-provider";
+import { driverAvailabilitySchema, type DriverAvailabilityState } from "@/lib/driver-availability-client";
 
-const bookingsSchema = z.object({ bookings: z.array(courseSchema) });
+const bookingsSchema = z.object({ bookings: z.array(courseSchema), driverAvailability: driverAvailabilitySchema.optional() });
 
 export function useBookings(endpoint: "/api/admin/bookings" | "/api/driver/bookings" | "/api/bookings", paused = false) {
   const { t } = useLanguage();
   const [courses, setCourses] = useState<Course[]>([]);
+  const [driverAvailability, setDriverAvailability] = useState<DriverAvailabilityState | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -42,6 +44,7 @@ export function useBookings(endpoint: "/api/admin/bookings" | "/api/driver/booki
         const result = bookingsSchema.parse(await response.json());
         if (controller.signal.aborted) return;
         setCourses(result.bookings); setLoaded(true); setLastUpdated(new Date()); setError("");
+        if (result.driverAvailability) setDriverAvailability(result.driverAvailability);
       } catch {
         if (!controller.signal.aborted) setError(t(signal.aborted ? "courses.loadTimeout" : failureKey));
       } finally {
@@ -52,5 +55,5 @@ export function useBookings(endpoint: "/api/admin/bookings" | "/api/driver/booki
     return () => { controller.abort(); inFlight.current = false; };
   }, [endpoint, revision, paused, t]);
 
-  return { courses, setCourses, loaded, loading, error, setError, refresh, lastUpdated };
+  return { courses, setCourses, loaded, loading, error, setError, refresh, lastUpdated, driverAvailability, setDriverAvailability };
 }

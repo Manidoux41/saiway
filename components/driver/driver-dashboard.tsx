@@ -21,6 +21,7 @@ import { WalkupTrip } from "./walkup-trip";
 import { FareSummary } from "@/components/booking/fare-summary";
 import { circuitSchema } from "@/lib/fare-policy";
 import { coordinateAddress } from "@/lib/booking-location";
+import { DriverAvailability } from "./driver-availability";
 
 const TripMap = dynamic(() => import("./trip-map"), { ssr: false, loading: () => <div className="h-[370px] animate-pulse bg-slate-100" /> });
 const SavedRouteMap = dynamic(() => import("@/components/maps/saved-route-map").then((module) => module.SavedRouteMap), { ssr: false });
@@ -41,7 +42,7 @@ export function DriverDashboard() {
   const [message, setMessage] = useState("");
   const [pending, setPending] = useState(false);
   const collectionLock = useRef(false);
-  const { courses, setCourses, loaded, loading, error, setError, refresh } = useBookings("/api/driver/bookings", pending);
+  const { courses, setCourses, loaded, loading, error, setError, refresh, driverAvailability, setDriverAvailability } = useBookings("/api/driver/bookings", pending);
   const [tab, setTab] = useState<DriverTab>("today");
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("");
@@ -84,7 +85,7 @@ export function DriverDashboard() {
   const locationStatus: FleetDriver["status"] = liveTrip?.status === "TRIP_STARTED" ? "ON_TRIP"
     : liveTrip && ["DRIVER_EN_ROUTE", "DRIVER_ARRIVED"].includes(liveTrip.status) ? "TO_PICKUP"
       : liveTrip ? "ASSIGNED"
-        : sharing.returningToHub ? "RETURNING_TO_HUB" : "AVAILABLE";
+        : sharing.returningToHub ? "RETURNING_TO_HUB" : driverAvailability?.isAvailable === false ? "UNAVAILABLE" : "AVAILABLE";
   const nearestHub = sharing.point && sharing.hubs.length ? sharing.hubs.reduce((nearest, hub) => {
     if (!nearest) return hub;
     return distanceMeters(sharing.point!, hub) < distanceMeters(sharing.point!, nearest) ? hub : nearest;
@@ -172,6 +173,8 @@ export function DriverDashboard() {
     {demo && <p className={styles.demoNotice}><FlaskConical size={18} aria-hidden="true" />{t("driver.demoNotice")}</p>}
     {error && <p role="alert" className={styles.error}>{error}</p>}
     {message && <p role="status" className={styles.success}><Check size={16} />{message}</p>}
+    {!demo && <DriverAvailability value={driverAvailability} inService={courses.some((course) => ["DRIVER_EN_ROUTE", "DRIVER_ARRIVED", "TRIP_STARTED"].includes(course.status))} disabled={loading || pending || !loaded}
+      onPending={setPending} onSaved={(value) => { setDriverAvailability(value); sharing.retry(); refresh(); }} />}
     <WalkupTrip location={currentPoint} gpsPhase={sharing.phase} retryGps={sharing.retry} disabled={demo || loading || pending || courses.some((course) => ["DRIVER_EN_ROUTE", "DRIVER_ARRIVED", "TRIP_STARTED"].includes(course.status))} onStarted={() => { setMode("real"); setTab("today"); refresh(); }} />
     {selected && <FareSummary details={selected.fareDetails} />}
     {selected?.status === "TRIP_STARTED" && selected.fareDetails?.mode === "TOUR" && <label className="my-3 block text-sm">{t("fare.circuitAtFinish")}

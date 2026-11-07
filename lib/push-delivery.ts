@@ -51,11 +51,17 @@ export async function dispatchPush(limit = 25) {
     if (allowed && delivery.bookingId) {
       const booking = await prisma.booking.findUnique({ where: { id: delivery.bookingId }, select: { customerId: true, driverId: true, status: true } });
       if (!booking) allowed = false;
+      else if (delivery.kind === "BOOKED") allowed = delivery.recipientRole === "CUSTOMER" && booking.customerId === subscription.userId && !["CANCELLED", "NO_SHOW", "REFUNDED"].includes(booking.status);
+      else if (delivery.kind === "NEW_BOOKING") allowed = delivery.recipientRole === "ADMIN";
+      else if (delivery.kind === "DISPATCHED") allowed = delivery.recipientRole === "ADMIN" && booking.driverId === delivery.driverId && !["CANCELLED", "NO_SHOW", "REFUNDED"].includes(booking.status);
       else if (delivery.kind === "ARRIVED") allowed = booking.customerId === subscription.userId && booking.driverId === delivery.driverId && booking.status === "DRIVER_ARRIVED";
       else if (delivery.kind === "ASSIGNED") allowed = booking.driverId === delivery.driverId && booking.status === "DRIVER_ASSIGNED" &&
         Boolean(await prisma.driverProfile.count({ where: { id: booking.driverId ?? "", userId: subscription.userId } }));
     }
-    if (allowed && delivery.driverId) allowed = Boolean(await prisma.driverProfile.count({ where: { id: delivery.driverId, user: { status: "ACTIVE" } } }));
+    if (allowed && delivery.driverId) allowed = Boolean(await prisma.driverProfile.count({
+      where: { id: delivery.driverId, user: { status: "ACTIVE" }, ...(["AVAILABLE", "UNAVAILABLE"].includes(delivery.kind) ? { isAvailable: delivery.kind === "AVAILABLE" } : {}) },
+    }));
+    if (["AVAILABLE", "UNAVAILABLE"].includes(delivery.kind) && delivery.recipientRole !== "ADMIN") allowed = false;
     if (!allowed || !pushKinds.includes(delivery.kind as PushKind) || delivery.expiresAt <= new Date()) {
       await prisma.pushDelivery.updateMany({ where: { id, lockToken: token }, data: { failedAt: new Date(), lastError: "STALE_OR_UNAUTHORIZED", lockToken: null, lockedUntil: null } });
       failed++;

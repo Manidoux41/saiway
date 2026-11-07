@@ -29,7 +29,7 @@ test('one GPS stream feeds the admin fleet and only its own customer booking', a
       tripType: 'PRIVATE_TRANSFER', pickupAt: new Date(Date.now() + 3_600_000).toISOString(),
       passengers: 1, paymentMethod: 'DRIVER',
     }, customer.cookie)));
-    assert.ok(bookings.every((response) => response.status === 201));
+    assert.ok(bookings.every((response) => response.status === 201), JSON.stringify(bookings.map(({ status, data }) => ({ status, error: data.error }))));
 
     const driverProfiles = await Promise.all(drivers.map((driver) => ctx.prisma.driverProfile.findUniqueOrThrow({ where: { userId: driver.id } })));
     await Promise.all(bookings.map((response, index) => ctx.prisma.booking.update({

@@ -16,3 +16,8 @@ export function parseCoordinateAddress(value: string): LocationPoint | null {
   const point = { latitude: Number(match[1]), longitude: Number(match[2]) };
   return validLocationPoint(point) ? point : null;
 }
+
+export function knownLocationPoint(value: string): LocationPoint | null {
+  return parseCoordinateAddress(value) ?? (/^(SAI Airport|Siem Reap Angkor International Airport)/i.test(value)
+    ? { latitude: 13.3692, longitude: 104.2231 } : null);
+}

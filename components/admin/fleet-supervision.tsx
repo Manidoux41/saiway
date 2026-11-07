@@ -13,7 +13,7 @@ const FleetMap = dynamic(() => import("@/components/maps/fleet-map").then((modul
 const fleetSchema = z.object({
   hubs: z.array(z.object({ id: z.string(), name: z.string(), address: z.string().nullable(), latitude: z.number(), longitude: z.number() })),
   drivers: z.array(z.object({
-    id: z.string(), name: z.string(), status: z.enum(["AVAILABLE", "ASSIGNED", "TO_PICKUP", "ON_TRIP", "RETURNING_TO_HUB"]),
+    id: z.string(), name: z.string(), status: z.enum(["AVAILABLE", "UNAVAILABLE", "ASSIGNED", "TO_PICKUP", "ON_TRIP", "RETURNING_TO_HUB"]),
     location: z.object({ latitude: z.number(), longitude: z.number(), accuracy: z.number().nullable(), heading: z.number().nullable(), recordedAt: z.string() }).nullable(),
     booking: z.object({ id: z.string(), reference: z.string(), status: z.string() }).nullable(),
     vehicle: z.object({ id: z.string(), name: z.string(), plate: z.string(), iconCategory: z.enum(["TUK_TUK", "PASSAPP", "SEDAN", "SUV", "MINIVAN", "MINIBUS", "VAN", "OTHER"]) }).nullable(),
@@ -24,6 +24,7 @@ const fleetSchema = z.object({
 
 const labelKey = {
   AVAILABLE: "fleet.available",
+  UNAVAILABLE: "driver.unavailable",
   ASSIGNED: "fleet.assigned",
   TO_PICKUP: "fleet.toPickup",
   ON_TRIP: "fleet.onTrip",

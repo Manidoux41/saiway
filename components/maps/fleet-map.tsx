@@ -8,7 +8,7 @@ import { mapTileAttribution, mapTileUrl, locateMapAddress, routeMapPoints, vehic
 import { useLanguage, type Language } from "@/components/i18n/language-provider";
 
 export type FleetHub = { id: string; name: string; address: string | null; latitude: number; longitude: number };
-export type FleetDriverStatus = "AVAILABLE" | "ASSIGNED" | "TO_PICKUP" | "ON_TRIP" | "RETURNING_TO_HUB";
+export type FleetDriverStatus = "AVAILABLE" | "UNAVAILABLE" | "ASSIGNED" | "TO_PICKUP" | "ON_TRIP" | "RETURNING_TO_HUB";
 export type FleetDriver = {
   id: string;
   name: string;
@@ -28,6 +28,7 @@ const routeColors: Record<string, string> = {
 };
 const statusLabels = {
   AVAILABLE: "fleet.available",
+  UNAVAILABLE: "driver.unavailable",
   ASSIGNED: "fleet.assigned",
   TO_PICKUP: "fleet.toPickup",
   ON_TRIP: "fleet.onTrip",

@@ -19,9 +19,15 @@ async function enqueue(
 export async function enqueueBookingPush(tx: Prisma.TransactionClient, booking: Booking, previous?: Pick<Booking, "status" | "driverId">) {
   if (previous && previous.status === booking.status && previous.driverId === booking.driverId) return;
   const eventKey = `booking:${booking.id}:${booking.status}:${booking.driverId ?? "none"}:${booking.updatedAt.toISOString()}`;
+  if (!previous && booking.originType !== "DRIVER") {
+    const receivedKey = `booking:${booking.id}:received`;
+    if (booking.customerId) await enqueue(tx, { userId: booking.customerId }, { eventKey: receivedKey, kind: "BOOKED", bookingId: booking.id, reference: booking.reference, recipientRole: "CUSTOMER" });
+    await enqueue(tx, {}, { eventKey: receivedKey, kind: "NEW_BOOKING", bookingId: booking.id, reference: booking.reference, recipientRole: "ADMIN" });
+  }
   if (booking.status === "DRIVER_ASSIGNED" && booking.driverId && (!previous || previous.driverId !== booking.driverId)) {
     const driver = await tx.driverProfile.findUniqueOrThrow({ where: { id: booking.driverId }, select: { userId: true } });
     await enqueue(tx, { userId: driver.userId }, { eventKey, kind: "ASSIGNED", bookingId: booking.id, driverId: booking.driverId, reference: booking.reference, recipientRole: "DRIVER" });
+    await enqueue(tx, {}, { eventKey, kind: "DISPATCHED", bookingId: booking.id, driverId: booking.driverId, reference: booking.reference, recipientRole: "ADMIN" });
   }
   if (booking.status === "DRIVER_ARRIVED" && booking.customerId) {
     await enqueue(tx, { userId: booking.customerId }, { eventKey, kind: "ARRIVED", bookingId: booking.id, driverId: booking.driverId, reference: booking.reference, recipientRole: "CUSTOMER" });
@@ -46,4 +52,8 @@ export async function enqueueMovementPush(tx: Prisma.TransactionClient, driverId
   });
   if (!claimed.count) return;
   await enqueue(tx, {}, { eventKey: `moving:${driverId}:${recordedAt.toISOString()}`, kind: "MOVING", driverId, recipientRole: "ADMIN" });
+}
+
+export async function enqueueAvailabilityPush(tx: Prisma.TransactionClient, driver: { id: string; isAvailable: boolean; updatedAt: Date }) {
+  await enqueue(tx, {}, { eventKey: `availability:${driver.id}:${driver.updatedAt.toISOString()}`, kind: driver.isAvailable ? "AVAILABLE" : "UNAVAILABLE", driverId: driver.id, recipientRole: "ADMIN" });
 }

@@ -6,6 +6,7 @@ const errors: Record<string, TranslationKey> = {
   "Vehicle category changed; calculate a new quote": "ui.quoteExpired",
   "Vehicle already in use": "ui.vehicleBusy",
   "Finish the current trip first": "ui.finishTrip",
+  "Driver or vehicle already reserved for this time": "ui.scheduleConflict",
   "Select an active vehicle": "ui.capacity",
   "Select an active vehicle with enough seats": "ui.capacity",
   "Invalid vehicle capacity": "ui.capacity",

@@ -1,4 +1,6 @@
 const en = {
+  "ui.noteAutoAssigned": "Automatically assigned to an available driver; payment tracked separately",
+  "ui.scheduleConflict": "The driver or vehicle is already reserved for this time. Choose another driver, vehicle or departure time.",
   "ui.noteStarted": "Driver started autonomous trip; estimate retained",
   "ui.noteCreated": "Booking created; payment is tracked separately",
   "ui.noteConfirmed": "Administrator operational confirmation; payment tracked separately",
@@ -45,6 +47,8 @@ const en = {
   "ui.share": "Share my location", "ui.stopShare": "Stop sharing", "ui.sharing": "Location sharing is active", "ui.notSharing": "Location sharing is off",
 };
 const fr: typeof en = {
+  "ui.noteAutoAssigned": "Attribuée automatiquement à un chauffeur disponible ; paiement suivi séparément",
+  "ui.scheduleConflict": "Le chauffeur ou le véhicule est déjà réservé sur ce créneau. Choisissez un autre chauffeur, véhicule ou horaire.",
   "ui.noteStarted": "Course autonome démarrée par le chauffeur ; estimation conservée",
   "ui.noteCreated": "Réservation créée ; le paiement est suivi séparément",
   "ui.noteConfirmed": "Confirmation opérationnelle par l’administrateur ; paiement suivi séparément",
@@ -91,6 +95,8 @@ const fr: typeof en = {
   "ui.share": "Partager ma position", "ui.stopShare": "Arrêter le partage", "ui.sharing": "Le partage de position est actif", "ui.notSharing": "Le partage de position est désactivé",
 };
 const km: typeof en = {
+  "ui.noteAutoAssigned": "បានចាត់តាំងដោយស្វ័យប្រវត្តិឱ្យអ្នកបើកបរទំនេរ។ ការទូទាត់តាមដានដោយឡែក",
+  "ui.scheduleConflict": "អ្នកបើកបរ ឬយានយន្តត្រូវបានកក់សម្រាប់ពេលនេះ។ សូមជ្រើសអ្នកបើកបរ យានយន្ត ឬពេលចេញដំណើរផ្សេង។",
   "ui.noteStarted": "អ្នកបើកបរបានចាប់ផ្ដើមដំណើរផ្ទាល់ខ្លួន ហើយរក្សាតម្លៃប៉ាន់ស្មាន",
   "ui.noteCreated": "បានបង្កើតការកក់ ហើយតាមដានការទូទាត់ដោយឡែក",
   "ui.noteConfirmed": "អ្នកគ្រប់គ្រងបានបញ្ជាក់ប្រតិបត្តិការ ហើយតាមដានការទូទាត់ដោយឡែក",

@@ -28,7 +28,9 @@ browsers require HTTPS, except localhost for development.
 
 | Event | Recipient |
 |---|---|
-| Administrator assigns or reassigns a booking to a driver | Newly assigned driver |
+| Customer or administrator creates a reservation | Customer owning the reservation (receipt acknowledgement, not payment confirmation), active administrators |
+| A booking is assigned or reassigned to a driver | Newly assigned driver, active administrators |
+| Driver changes availability or their selected vehicle | Active administrators |
 | Driver confirms `DRIVER_ARRIVED`, manually or through backend GPS arrival detection | Customer owning that reservation |
 | Driver changes to `DRIVER_EN_ROUTE`, `TRIP_STARTED`, `TRIP_COMPLETED` | Active administrators |
 | Autonomous driver trip starts | Active administrators |
@@ -336,6 +338,70 @@ Invalid/skipped transitions, foreign bookings and concurrent stale updates are r
 Trip changes retain status history and audit records. Assignment does not confirm payment.
 
 ### Administrator dispatch and shared data
+
+#### Driver availability and automatic assignment
+
+The real driver dashboard has a persisted availability switch and a vehicle
+selector. Select an active vehicle to opt into automatic assignments; simply
+having an existing `isAvailable` flag is not enough without a selected vehicle.
+One vehicle cannot be selected by two active available drivers through this API.
+During `DRIVER_EN_ROUTE`, `DRIVER_ARRIVED` or `TRIP_STARTED`, the dashboard displays
+**In service**. Availability remains a preference for new assignments: disabling
+it does not cancel existing trips or prevent their completion. A driver in
+service may receive a future reservation only if the occupied intervals do not
+overlap. Vehicle changes are blocked during service.
+
+On `POST /api/bookings`, the backend immediately assigns the nearest eligible
+active/available driver and their selected active vehicle, without requiring
+administrator confirmation or payment. Capacity and both the driver and
+vehicle schedules are checked. Distance is straight-line distance to the saved
+pickup, using the latest GPS fix (at most two minutes old, accuracy at most 50 m).
+Explicit coordinates, a saved road route or the known SAI airport location are
+used; automatic dispatch never geocodes an ambiguous pickup label. Reliable
+located candidates precede candidates without usable GPS. If no usable GPS/pickup
+is available, the driver available since the earliest time is selected, with
+stable creation-time/id tie breakers.
+
+Occupied intervals use the saved route duration, or the tourist package's booked
+hours, plus **30 minutes**. A non-tour trip without a route duration uses
+**180 minutes plus 30 minutes**; a legacy tourist booking without a snapshot uses
+the default eight-hour package plus the margin. Historical bookings need no
+destructive backfill. Still-running trips reserve at least the next 30 minutes,
+even when their planned end has passed. These are schedule estimates, not
+guarantees against traffic delays. Departure is rejected if that driver or
+vehicle is already servicing another trip. Autonomous starts and administrator
+assignment/rescheduling also check occupied intervals.
+
+If no compatible driver is available at creation, the reservation stays in the
+existing unassigned workflow for **manual administrator assignment**. Switching
+availability back on or completing a trip does not auto-assign that backlog.
+Administrator-created trips preserve explicit manual dispatch.
+
+Assignments, history, audits and notification outbox entries commit together in
+serializable database transactions with bounded retries of PostgreSQL
+serialization/deadlock conflicts (including Prisma's driver-adapter conflict
+shape). Failed transactions do not retain partial assignments or notifications.
+Reservation acknowledgement goes to its customer, new-reservation and assignment
+alerts to active administrators, and assignment alerts only to the selected
+driver. Payment is never confirmed by reservation, assignment or completion.
+Device consent and the existing VAPID/retry configuration still apply; no new
+Cron or paid service is required.
+
+API:
+
+- `GET /api/driver/availability`: own persisted availability and active vehicle
+  options; authenticated active driver only.
+- `PATCH /api/driver/availability`: `{ isAvailable: boolean,
+  selectedVehicleId: string | null }`; own profile only. Enabling requires an
+  active vehicle. Repeating unchanged values is idempotent.
+- `GET /api/driver/bookings` also returns `driverAvailability`; the existing
+  15-second refresh is reused, without a second availability polling loop.
+
+Deployment: apply additive migration
+`20261107030000_driver_availability_dispatch` with `npx prisma migrate deploy`
+against the intended database after backup/testing, then deploy the application.
+No new environment variable is required. Production migration/deployment must
+be performed separately; the migration is tested only on an isolated local DB.
 
 `/admin` opens on the operational dispatch view, with database-backed counters,
 search, pickup-date and driver filters, trip maps, and driver workloads. Accounts,

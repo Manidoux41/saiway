@@ -9,6 +9,7 @@ import { courseSchema, type Course } from "@/components/booking/course-dashboard
 import { useBookings } from "@/components/booking/use-bookings";
 import { useLanguage } from "@/components/i18n/language-provider";
 import { bookingHistoryNote } from "@/components/i18n/booking-history-note";
+import { bookingErrorKey } from "@/components/i18n/booking-error";
 import type { ManagementData } from "@/lib/admin-client";
 import { closedDriverStatuses, driverDay, driverTimeZone, navigationUrl } from "@/lib/driver-dashboard";
 import { FareSummary } from "@/components/booking/fare-summary";
@@ -122,7 +123,11 @@ export function AdminBookings({ management, disabled }: { management: Management
     mutationLock.current = true; setPending(true); setMutationError(""); setMessage("");
     try {
       const response = await fetch("/api/admin/bookings", { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      if (!response.ok) throw new Error("Booking update failed");
+      if (!response.ok) {
+        const failure = z.object({ error: z.string() }).parse(await response.json());
+        setMutationError(t(bookingErrorKey(failure.error, "dispatch.failed")));
+        return;
+      }
       const result = z.object({ booking: courseSchema }).parse(await response.json());
       setCourses((current) => [...current.filter((course) => course.id !== result.booking.id), result.booking].sort((first, second) => Date.parse(first.pickupAt) - Date.parse(second.pickupAt)));
       setSelectedId(result.booking.id); setEditor(null); setMessage(t("dispatch.saved"));

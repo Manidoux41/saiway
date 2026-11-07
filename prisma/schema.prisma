@@ -194,12 +194,17 @@ model DriverProfile {
   adminNotes   String?
   employmentContracts EmploymentContract[]
   isAvailable  Boolean         @default(true)
+  availableSince DateTime      @default(now())
+  selectedVehicleId String?
+  selectedVehicle Vehicle?     @relation("DriverSelectedVehicle", fields: [selectedVehicleId], references: [id], onDelete: SetNull)
   returningToHub Boolean       @default(false)
   lastMovementPushAt DateTime?
   bookings     Booking[]       @relation("DriverBookings")
   locations    DriverLocation[]
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
+
+  @@index([isAvailable, availableSince])
 }
 
 enum LicenseSide {
@@ -289,6 +294,7 @@ model Vehicle {
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt
   contracts     VehicleContract[]
+  selectedByDrivers DriverProfile[] @relation("DriverSelectedVehicle")
 }
 
 model VehicleIconImage {
@@ -381,6 +387,7 @@ model Booking {
   direction      TripDirection
   tripType       TripType
   pickupAt       DateTime
+  dispatchEndsAt DateTime?
   flightNumber   String?
   contactPhone   String?
   passengers     Int
@@ -400,6 +407,8 @@ model Booking {
   messages       DriverMessage[]
 
   @@index([originType, pickupAt])
+  @@index([driverId, pickupAt, dispatchEndsAt])
+  @@index([vehicleId, pickupAt, dispatchEndsAt])
 }
 
 model BookingStatusHistory {

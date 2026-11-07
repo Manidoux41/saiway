@@ -31,6 +31,7 @@ export async function driverLocationAccess(request: Request) {
       where: { userId: account.id },
       select: {
         id: true, isAvailable: true, returningToHub: true,
+        selectedVehicle: { select: { id: true, name: true, plate: true, iconCategory: true } },
         bookings: { where: { status: { in: customerLocationStatuses } }, select: { id: true, status: true, fromAddress: true, toAddress: true, vehicle: { select: { id: true, name: true, plate: true, iconCategory: true } } }, orderBy: [{ status: "desc" }, { pickupAt: "asc" }], take: 1 },
         locations: { orderBy: { recordedAt: "desc" }, take: 1, select: { latitude: true, longitude: true, accuracy: true, heading: true, recordedAt: true } },
       },
@@ -48,7 +49,7 @@ export async function driverLocationAccess(request: Request) {
       enabled: driver.isAvailable || driver.returningToHub || driver.bookings.length > 0,
       returningToHub: driver.returningToHub,
       booking: activeBooking,
-      vehicle: activeBooking?.vehicle ?? returnVehicle?.vehicle ?? null,
+      vehicle: activeBooking?.vehicle ?? driver.selectedVehicle ?? returnVehicle?.vehicle ?? null,
       location: latest ? { latitude: Number(latest.latitude), longitude: Number(latest.longitude), accuracy: latest.accuracy === null ? null : Number(latest.accuracy), heading: latest.heading === null ? null : Number(latest.heading), recordedAt: latest.recordedAt } : null,
       hubs: hubs.map((hub) => ({ ...hub, latitude: Number(hub.latitude), longitude: Number(hub.longitude) })),
     });
@@ -117,12 +118,12 @@ export async function adminFleetLocations(request: Request) {
       prisma.driverProfile.findMany({
         where: {
           user: { status: "ACTIVE" },
-          OR: [{ isAvailable: true }, { returningToHub: true }, { bookings: { some: { status: { in: customerLocationStatuses } } } }],
         },
         select: {
           id: true,
           isAvailable: true,
           returningToHub: true,
+          selectedVehicle: { select: { id: true, name: true, plate: true, iconCategory: true } },
           user: { select: { name: true } },
           locations: { orderBy: { recordedAt: "desc" }, take: 1 },
           bookings: {
@@ -152,7 +153,7 @@ export async function adminFleetLocations(request: Request) {
       hubs: hubs.map((hub) => ({ ...hub, latitude: Number(hub.latitude), longitude: Number(hub.longitude) })),
       drivers: drivers.map((driver) => {
         const latest = driver.locations[0];
-        const location = latest && latest.recordedAt >= freshSince ? {
+        const location = latest && latest.recordedAt >= freshSince && (driver.isAvailable || driver.returningToHub || driver.bookings.length > 0) ? {
           latitude: Number(latest.latitude),
           longitude: Number(latest.longitude),
           accuracy: latest.accuracy === null ? null : Number(latest.accuracy),
@@ -163,7 +164,7 @@ export async function adminFleetLocations(request: Request) {
         const status = booking?.status === "TRIP_STARTED" ? "ON_TRIP"
           : booking && trackingStatuses.includes(booking.status) ? "TO_PICKUP"
             : booking ? "ASSIGNED"
-              : driver.returningToHub ? "RETURNING_TO_HUB" : "AVAILABLE";
+              : driver.returningToHub ? "RETURNING_TO_HUB" : driver.isAvailable ? "AVAILABLE" : "UNAVAILABLE";
         const nearestHub = !booking && status === "RETURNING_TO_HUB" && location
           ? hubs.reduce<typeof hubs[number] | null>((nearest, hub) => {
               if (!nearest) return hub;
@@ -182,7 +183,7 @@ export async function adminFleetLocations(request: Request) {
           status,
           location,
           booking: booking ? { id: booking.id, reference: booking.reference, status: booking.status } : null,
-          vehicle: booking?.vehicle ?? lastVehicles.get(driver.id) ?? null,
+          vehicle: booking?.vehicle ?? driver.selectedVehicle ?? lastVehicles.get(driver.id) ?? null,
           target,
           stale: Boolean(latest && !location),
         };

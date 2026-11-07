@@ -1,14 +1,13 @@
 import { z } from "zod";
-import { parseCoordinateAddress, type LocationPoint } from "@/lib/booking-location";
+import { knownLocationPoint, type LocationPoint } from "@/lib/booking-location";
 import { searchPlaces } from "@/lib/place-search";
 import { routeDetailsSchema, type SavedRoute } from "@/lib/route-details";
 
 export async function roadRoute(fromAddress: string, toAddress: string, fromPoint?: LocationPoint, toPoint?: LocationPoint, cambodiaOnly = false): Promise<SavedRoute> {
   const signal = AbortSignal.timeout(15000);
   async function locate(address: string): Promise<LocationPoint> {
-    const point = parseCoordinateAddress(address);
+    const point = knownLocationPoint(address);
     if (point) return point;
-    if (/^(SAI Airport|Siem Reap Angkor International Airport)/i.test(address)) return { latitude: 13.3692, longitude: 104.2231 };
     const places = await searchPlaces(address, signal, cambodiaOnly);
     if (!places[0]) throw new Error("Address not found");
     return { latitude: places[0].latitude, longitude: places[0].longitude };
