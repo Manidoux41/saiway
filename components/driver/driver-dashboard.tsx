@@ -189,6 +189,7 @@ export function DriverDashboard() {
         <strong>{t(`live.${sharing.phase === "error" ? "sendError" : sharing.phase}`)}</strong>
         <span>{liveTrip ? `${liveTrip.reference} · ${liveTrip.customer.name}` : t("live.adminOnlySharing")}{sharing.lastSent ? ` · ${t("live.lastSent")} ${formatDate(sharing.lastSent, { hour: "2-digit", minute: "2-digit", second: "2-digit" })}` : ""}</span>
         <small>{t("live.keepOpen")}</small>
+        {liveTrip?.status === "DRIVER_EN_ROUTE" && <small>{t("live.autoArrival")}</small>}
       </div>
       {["denied", "unavailable", "timeout", "error"].includes(sharing.phase) && <button type="button" onClick={sharing.retry}>{t("live.retry")}</button>}
     </section>}

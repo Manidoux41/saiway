@@ -1,5 +1,6 @@
 export const trackingCopy = {
   en: {
+    "live.autoArrival": "Arrival is confirmed automatically within 50 m of a GPS/map pickup, with GPS accuracy of 20 m or better for at least 15 seconds. For a text-only address or an unreliable signal, use the manual arrival button.",
     "live.eyebrow": "Live tracking", "live.title": "Follow my driver live",
     "live.intro": "Your driver's position refreshes every few seconds while they are on the way and during the trip.",
     "live.trip": "Trip", "live.noTrip": "No trip to follow right now. Tracking becomes available once a driver is assigned to your booking.",
@@ -19,6 +20,7 @@ export const trackingCopy = {
     "live.keepOpen": "Keep this page open during the trip: sharing stops when it is closed or the phone locks.", "live.lastSent": "Last sent",
   },
   fr: {
+    "live.autoArrival": "L’arrivée est confirmée automatiquement à moins de 50 m d’un départ GPS/carte, avec une précision GPS de 20 m maximum pendant au moins 15 secondes. Pour une adresse sans coordonnées ou un signal imprécis, utilisez le bouton d’arrivée manuelle.",
     "live.eyebrow": "Suivi en direct", "live.title": "Suivre mon chauffeur en direct",
     "live.intro": "La position de votre chauffeur s'actualise toutes les quelques secondes pendant son trajet vers vous et pendant la course.",
     "live.trip": "Course", "live.noTrip": "Aucune course à suivre pour le moment. Le suivi est disponible dès qu'un chauffeur est attribué à votre réservation.",
@@ -38,6 +40,7 @@ export const trackingCopy = {
     "live.keepOpen": "Gardez cette page ouverte pendant la course : le partage s'arrête si elle est fermée ou si le téléphone se verrouille.", "live.lastSent": "Dernier envoi",
   },
   km: {
+    "live.autoArrival": "ការមកដល់ត្រូវបានបញ្ជាក់ដោយស្វ័យប្រវត្តិក្នុងចម្ងាយ 50 ម៉ែត្រពីចំណុចទទួល GPS ឬផែនទី ដោយមានភាពត្រឹមត្រូវ GPS មិនលើស 20 ម៉ែត្រ យ៉ាងហោចណាស់ 15 វិនាទី។ បើមានតែអាសយដ្ឋានអក្សរ ឬសញ្ញាមិនច្បាស់ សូមប្រើប៊ូតុងបញ្ជាក់ការមកដល់ដោយដៃ។",
     "live.eyebrow": "តាមដានផ្ទាល់", "live.title": "តាមដានអ្នកបើកបររបស់ខ្ញុំផ្ទាល់",
     "live.intro": "ទីតាំងអ្នកបើកបររបស់អ្នកធ្វើបច្ចុប្បន្នភាពរៀងរាល់ប៉ុន្មានវិនាទី នៅពេលកំពុងមកទទួល និងពេលធ្វើដំណើរ។",
     "live.trip": "ដំណើរ", "live.noTrip": "មិនមានដំណើរដែលអាចតាមដានបានទេ។ ការតាមដាននឹងមាននៅពេលអ្នកបើកបរត្រូវបានចាត់តាំងឱ្យការកក់របស់អ្នក។",

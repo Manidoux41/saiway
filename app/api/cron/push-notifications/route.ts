@@ -1,13 +1,11 @@
-import { timingSafeEqual } from "node:crypto";
+import { authorizedCron } from "@/lib/cron-auth";
 import { dispatchPush } from "@/lib/push-delivery";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 export async function GET(request: Request) {
-  const expected = Buffer.from(process.env.CRON_SECRET ?? "");
-  const received = Buffer.from(request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? "");
-  if (!expected.length || expected.length !== received.length || !timingSafeEqual(expected, received)) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!authorizedCron(request)) return Response.json({ error: "Unauthorized" }, { status: 401, headers: { "Cache-Control": "no-store" } });
   try {
     const result = await dispatchPush();
     if (!result.configured) return Response.json({ error: "Push not configured" }, { status: 503 });

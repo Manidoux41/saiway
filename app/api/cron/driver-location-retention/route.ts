@@ -1,16 +1,13 @@
-import { timingSafeEqual } from "node:crypto";
+import { authorizedCron } from "@/lib/cron-auth";
 import { prisma } from "@/lib/prisma";
 import { gpsRetentionEnabled, gpsRetentionSettingKey } from "@/lib/cron-settings";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 export async function GET(request: Request) {
-  const secret = process.env.CRON_SECRET;
-  const supplied = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? "";
-  const expected = Buffer.from(secret ?? "");
-  const received = Buffer.from(supplied);
-  if (!secret || received.length !== expected.length || !timingSafeEqual(received, expected)) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!authorizedCron(request)) {
+    return Response.json({ error: "Unauthorized" }, { status: 401, headers: { "Cache-Control": "no-store" } });
   }
   try {
     const result = await prisma.$transaction(async (tx) => {

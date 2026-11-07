@@ -22,6 +22,7 @@ export function pushConfiguration() {
 }
 
 export async function dispatchPush(limit = 25) {
+  const deadline = Date.now() + 15_000;
   const config = pushConfiguration();
   if (!config) return { configured: false, sent: 0, failed: 0 };
   const vapidDetails = config;
@@ -40,6 +41,11 @@ export async function dispatchPush(limit = 25) {
     if (!claimed.count) return;
     const delivery = await prisma.pushDelivery.findUnique({ where: { id }, include: { subscription: { include: { user: { select: { id: true, status: true, role: true } } } } } });
     if (!delivery) return;
+    if (delivery.attempts > 5) {
+      await prisma.pushDelivery.updateMany({ where: { id, lockToken: token }, data: { failedAt: new Date(), lastError: "RETRY_LIMIT", lockToken: null, lockedUntil: null } });
+      failed++;
+      return;
+    }
     const { subscription } = delivery;
     let allowed = subscription.user.status === "ACTIVE" && subscription.user.role === delivery.recipientRole && allowedPushEndpoint(subscription.endpoint);
     if (allowed && delivery.bookingId) {
@@ -66,7 +72,7 @@ export async function dispatchPush(limit = 25) {
     });
     try {
       await webpush.sendNotification({ endpoint: subscription.endpoint, keys: { p256dh: subscription.p256dh, auth: subscription.auth } }, payload, {
-        vapidDetails, timeout: 10_000, TTL: Math.max(1, Math.floor((delivery.expiresAt.getTime() - Date.now()) / 1000)),
+        vapidDetails, timeout: 5_000, TTL: Math.max(1, Math.floor((delivery.expiresAt.getTime() - Date.now()) / 1000)),
       });
       await prisma.pushDelivery.updateMany({ where: { id, lockToken: token }, data: { sentAt: new Date(), lockToken: null, lockedUntil: null, lastError: null } });
       sent++;
@@ -86,6 +92,7 @@ export async function dispatchPush(limit = 25) {
     }
   }
   for (let offset = 0; offset < pending.length; offset += 5) {
+    if (Date.now() >= deadline) break;
     await Promise.all(pending.slice(offset, offset + 5).map(({ id }) => deliver(id)));
   }
   return { configured: true, sent, failed };

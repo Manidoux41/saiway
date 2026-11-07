@@ -1,21 +1,16 @@
 import "server-only";
 import type { BookingStatus } from "@prisma/client";
-import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { activeAccount, authorize } from "@/lib/access";
 import { enqueueMovementPush } from "@/lib/push-events";
 import { schedulePushDelivery } from "@/lib/push-delivery";
+import { detectDriverArrival } from "@/lib/driver-arrival";
+import { driverPositionSchema } from "@/lib/driver-location-input";
 
 export const trackingStatuses: BookingStatus[] = ["DRIVER_EN_ROUTE", "DRIVER_ARRIVED", "TRIP_STARTED"];
 export const customerLocationStatuses: BookingStatus[] = ["DRIVER_ASSIGNED", "DRIVER_ACCEPTED", ...trackingStatuses];
 const minIntervalMs = 2_000;
 const noStore = { "Cache-Control": "no-store" };
-const position = z.object({
-  latitude: z.number().finite().min(-90).max(90),
-  longitude: z.number().finite().min(-180).max(180),
-  accuracy: z.number().finite().nonnegative().max(100_000).nullable().optional(),
-  heading: z.number().finite().min(0).lt(360).nullable().optional(),
-}).strict();
 
 function json(body: unknown, status = 200) {
   return Response.json(body, { status, headers: noStore });
@@ -29,16 +24,17 @@ export async function shareTripLocation(request: Request, bookingId: string) {
     if (!booking?.driverId) return json({ error: "Booking not found" }, 404);
     const driverId = booking.driverId;
     if (!trackingStatuses.includes(booking.status)) return json({ error: "Location sharing starts when the driver departs" }, 409);
-    const parsed = position.safeParse(await request.json());
+    const parsed = driverPositionSchema.safeParse(await request.json());
     if (!parsed.success) return json({ error: "Invalid coordinates" }, 400);
     const latest = await prisma.driverLocation.findFirst({ where: { bookingId }, orderBy: { recordedAt: "desc" }, select: { recordedAt: true } });
-    if (latest && Date.now() - latest.recordedAt.getTime() < minIntervalMs) return json({ accepted: false }, 202);
+    if (latest && (Date.now() - latest.recordedAt.getTime() < minIntervalMs || parsed.data.capturedAt && parsed.data.capturedAt <= latest.recordedAt)) return json({ accepted: false }, 202);
     const { latitude, longitude, accuracy, heading } = parsed.data;
     const saved = await prisma.$transaction(async (tx) => {
       const location = await tx.driverLocation.create({
-        data: { bookingId, driverId, latitude, longitude, accuracy: accuracy ?? null, heading: heading ?? null },
+        data: { bookingId, driverId, latitude, longitude, accuracy: accuracy ?? null, heading: heading ?? null, recordedAt: parsed.data.capturedAt },
         select: { recordedAt: true },
       });
+      await detectDriverArrival(tx, bookingId, driverId, account.id, location.recordedAt);
       await enqueueMovementPush(tx, driverId, location.recordedAt, parsed.data);
       return location;
     });

@@ -12,6 +12,7 @@ test('generated booking history is localized without rewriting passenger observa
     const t = key => interfaceCopy[language][key];
     const money = cents => localizedNumber(language, { style: 'currency', currency: 'USD' }).format(cents / 100);
     assert.equal(bookingHistoryNote('Booking created; payment is tracked separately', t, money), t('ui.noteCreated'));
+    assert.equal(bookingHistoryNote('GPS confirmed driver arrival', t, money), t('ui.noteAutoArrival'));
     for (const [reason, key] of [
       ['zero GPS distance; original road estimate retained', 'ui.noteZeroGps'],
       ['driver confirmed road estimate', 'ui.noteEstimateConfirmed'],

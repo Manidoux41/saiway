@@ -98,6 +98,7 @@ export function ManagementPanel({ data, loading, loadError, onReload }: { data: 
         <h2 id="cron-heading" className="text-xl font-bold">{t("cron.title")}</h2>
         <p className="mt-2 text-sm text-slate-600">{t("cron.description")}</p>
         <p className="mt-2 text-sm text-slate-500">{t("cron.schedule")}</p>
+        <p className="mt-2 text-sm text-slate-500">{t("cron.recovery")}</p>
         {!data.cron.configured && <p role="alert" className="mt-3 text-sm text-[var(--color-error)]">{t("cron.notConfigured")}</p>}
         <label className="mt-4 flex items-center gap-3 font-semibold">
           <input type="checkbox" role="switch" checked={data.cron.gpsRetentionEnabled} disabled={pending || loading || Boolean(loadError)} onChange={(event) => void mutate("POST", { entity: "setting", data: { key: gpsRetentionSettingKey, value: event.target.checked } })} className="h-5 w-5 accent-[var(--color-primary)]" />

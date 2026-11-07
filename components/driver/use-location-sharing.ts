@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 export type SharingPhase = "starting" | "sharing" | "denied" | "unavailable" | "timeout" | "unsupported" | "error" | "inactive";
-type Fix = { latitude: number; longitude: number; accuracy: number | null; heading: number | null };
+type Fix = { latitude: number; longitude: number; accuracy: number | null; heading: number | null; capturedAt?: string };
 type Hub = { id: string; name: string; address: string | null; latitude: number; longitude: number };
 type Vehicle = { id: string; name: string; plate: string; iconCategory: "TUK_TUK" | "PASSAPP" | "SEDAN" | "SUV" | "MINIVAN" | "MINIBUS" | "VAN" | "OTHER" };
 
@@ -84,6 +84,7 @@ export function useLocationSharing(bookingId: string | null, enabled: boolean) {
         longitude: position.coords.longitude,
         accuracy: Number.isFinite(position.coords.accuracy) ? position.coords.accuracy : null,
         heading: Number.isFinite(position.coords.heading) && position.coords.heading !== null ? position.coords.heading : null,
+        capturedAt: new Date(position.timestamp).toISOString(),
       };
       latest.current = fix;
       acquiredAt.current = position.timestamp;

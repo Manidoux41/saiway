@@ -1,6 +1,5 @@
 import "server-only";
 import { Prisma } from "@prisma/client";
-import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { authorize } from "@/lib/access";
 import { customerLocationStatuses, trackingStatuses } from "@/lib/trip-location";
@@ -8,15 +7,12 @@ import { routeDetailsSchema } from "@/lib/route-details";
 import { coordinateAddress } from "@/lib/booking-location";
 import { enqueueMovementPush } from "@/lib/push-events";
 import { schedulePushDelivery } from "@/lib/push-delivery";
+import { detectDriverArrival } from "@/lib/driver-arrival";
+import { metersBetween } from "@/lib/arrival-policy";
+import { driverPositionSchema } from "@/lib/driver-location-input";
 
 const noStore = { "Cache-Control": "no-store" };
 const minIntervalMs = 2_000;
-const pointSchema = z.object({
-  latitude: z.number().finite().min(-90).max(90),
-  longitude: z.number().finite().min(-180).max(180),
-  accuracy: z.number().finite().nonnegative().max(100_000).nullable().optional(),
-  heading: z.number().finite().min(0).lt(360).nullable().optional(),
-}).strict();
 
 function json(body: unknown, status = 200) {
   return Response.json(body, { status, headers: noStore });
@@ -59,21 +55,13 @@ export async function driverLocationAccess(request: Request) {
   } catch (error) { return unavailable(error); }
 }
 
-function metersBetween(a: { latitude: number; longitude: number }, b: { latitude: number; longitude: number }) {
-  const radians = (value: number) => value * Math.PI / 180;
-  const dLat = radians(b.latitude - a.latitude);
-  const dLon = radians(b.longitude - a.longitude);
-  const value = Math.sin(dLat / 2) ** 2 + Math.cos(radians(a.latitude)) * Math.cos(radians(b.latitude)) * Math.sin(dLon / 2) ** 2;
-  return 6_371_000 * 2 * Math.atan2(Math.sqrt(value), Math.sqrt(1 - value));
-}
-
 export async function shareDriverLocation(request: Request) {
   try {
     const account = await authorize(request, "DRIVER");
     if (!account) return json({ error: "Driver access required" }, 403);
     let body: unknown;
     try { body = await request.json(); } catch { return json({ error: "Invalid JSON" }, 400); }
-    const parsed = pointSchema.safeParse(body);
+    const parsed = driverPositionSchema.safeParse(body);
     if (!parsed.success) return json({ error: "Invalid coordinates" }, 400);
     const driver = await prisma.driverProfile.findUnique({
       where: { userId: account.id },
@@ -84,7 +72,7 @@ export async function shareDriverLocation(request: Request) {
     if (!driver.isAvailable && !driver.returningToHub && !booking) return json({ error: "Location sharing is only available while on duty" }, 409);
 
     const latest = await prisma.driverLocation.findFirst({ where: { driverId: driver.id }, orderBy: { recordedAt: "desc" }, select: { recordedAt: true } });
-    if (latest && Date.now() - latest.recordedAt.getTime() < minIntervalMs) return json({ accepted: false, recordedAt: latest.recordedAt }, 202);
+    if (latest && (Date.now() - latest.recordedAt.getTime() < minIntervalMs || parsed.data.capturedAt && parsed.data.capturedAt <= latest.recordedAt)) return json({ accepted: false, recordedAt: latest.recordedAt }, 202);
 
     const saved = await prisma.$transaction(async (tx) => {
       const location = await tx.driverLocation.create({
@@ -95,9 +83,11 @@ export async function shareDriverLocation(request: Request) {
           longitude: parsed.data.longitude,
           accuracy: parsed.data.accuracy ?? null,
           heading: parsed.data.heading ?? null,
+          recordedAt: parsed.data.capturedAt,
         },
         select: { recordedAt: true },
       });
+      if (booking) await detectDriverArrival(tx, booking.id, driver.id, account.id, location.recordedAt);
       await enqueueMovementPush(tx, driver.id, location.recordedAt, parsed.data);
       return location;
     });

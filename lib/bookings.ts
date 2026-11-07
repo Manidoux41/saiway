@@ -243,6 +243,7 @@ export async function bookingRequest(request: Request, role: SessionRole) {
         const { driverId: ignoredDriver, vehicleId: ignoredVehicle, ...fields } = changes;
         void ignoredDriver; void ignoredVehicle;
         update = { ...fields, ...(pickupAt ? { pickupAt: new Date(pickupAt) } : {}), ...(driverId !== existing.driverId ? { driver: driverId ? { connect: { id: driverId } } : { disconnect: true } } : {}), ...(vehicleId !== existing.vehicleId ? { vehicle: vehicleId ? { connect: { id: vehicleId } } : { disconnect: true } } : {}) };
+        if (changes.fromAddress !== undefined && changes.fromAddress !== existing.fromAddress || changes.toAddress !== undefined && changes.toAddress !== existing.toAddress) update.routeDetails = Prisma.DbNull;
         if (existing.fareDetails && fareChanged) {
           if (existing.metered) throw new BookingError("Metered fare cannot be manually edited during a trip", 409);
           update.fareDetails = Prisma.DbNull;

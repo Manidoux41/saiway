@@ -7,6 +7,7 @@ export function bookingHistoryNote(note: string | null, t: Translate, money: (ce
   const fixed = {
     "Driver started autonomous trip; estimate retained": "ui.noteStarted",
     "Booking created; payment is tracked separately": "ui.noteCreated",
+    "GPS confirmed driver arrival": "ui.noteAutoArrival",
     "ADMIN operational confirmation; payment tracked separately": "ui.noteConfirmed",
     "ADMIN update": "ui.noteAdmin", "DRIVER update": "ui.noteDriver", "CUSTOMER update": "ui.noteCustomer",
   } as const;

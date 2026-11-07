@@ -29,13 +29,29 @@ browsers require HTTPS, except localhost for development.
 | Event | Recipient |
 |---|---|
 | Administrator assigns or reassigns a booking to a driver | Newly assigned driver |
-| Driver confirms `DRIVER_ARRIVED` | Customer owning that reservation |
+| Driver confirms `DRIVER_ARRIVED`, manually or through backend GPS arrival detection | Customer owning that reservation |
 | Driver changes to `DRIVER_EN_ROUTE`, `TRIP_STARTED`, `TRIP_COMPLETED` | Active administrators |
 | Autonomous driver trip starts | Active administrators |
 | Reliable GPS shows movement of at least 50 m over approximately one minute | Active administrators, at most once per minute per driver |
 
-Arrival is confirmed by the driver, not inferred from GPS proximity. Completion
-does **not** confirm payment. GPS alerts reuse both existing position endpoints;
+Backend arrival detection runs only for `DRIVER_EN_ROUTE`: received GPS fixes must
+remain within 50 m of the saved pickup, with accuracy at most 20 m, spanning at
+least 15 seconds and with no gap over 20 seconds. Only the last 45 seconds since
+the latest booking update are eligible. One fix, poor accuracy, an interruption
+or fixes from another booking/driver cannot confirm arrival. The driver sends
+the acquisition timestamp (`capturedAt`); the backend validates it and stores it
+as `recordedAt`. Replayed/out-of-order acquisitions are ignored, and the final
+arrival fix must be at most 10 seconds old. Legacy API clients may omit the
+timestamp and retain server receipt-time semantics. Pickup must have
+explicit GPS/map coordinates or a valid saved route; a text-only address keeps
+the manual arrival button rather than trusting an ambiguous geocoder result.
+Editing an address invalidates any saved route. No external geocoder is called
+for GPS updates. Keep the driver's page open and GPS enabled: a browser cannot
+guarantee background location collection when closed or locked.
+The conditional transition, history, audit and customer push outbox commit in
+one transaction; concurrent manual/GPS confirmations create only one arrival.
+Automatic arrival does not start the trip, change the price or confirm payment.
+Completion does **not** confirm payment. GPS alerts reuse both existing position endpoints;
 no additional GPS transmission or polling connection is introduced. Poor accuracy
 or a GPS interruption suppresses movement alerts rather than inventing movement.
 Each push is translated into the language last selected on its subscribed device.
@@ -52,17 +68,84 @@ Setup:
 3. Set `VAPID_PUBLIC_KEY`, **server-only** `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT`
    in production's environment settings, using the same stable pair. Only the
    public key is returned by the authenticated subscription API. Restart the app.
-4. Schedule `/api/cron/push-notifications` every minute, passing
-   `Authorization: Bearer <CRON_SECRET>`. The Vercel schedule is included; minute
-   schedules require a suitable hosting plan (not Vercel Hobby's daily cron).
-   On a persistent local server, use an OS scheduler with the same authenticated
-   HTTP request. Do not put the secret in a URL.
+4. Configure the two free external schedules below. `vercel.json` deliberately
+   declares **no Cron Jobs**: deployment remains on Vercel Hobby, with no paid
+   scheduler requirement. No schema migration is required for this scheduling/
+   automatic-arrival change.
+
+#### Scheduling audit and free external setup (Vercel Hobby)
+
+The audit found exactly two periodic jobs. Neither detects booking changes or
+monitors GPS: those operations run inside the existing authenticated mutations.
+
+| Existing endpoint | Previous Vercel expression | Dependency retained | Free external schedule |
+|---|---|---|---|
+| `/api/cron/push-notifications` | `* * * * *` (incompatible with Hobby Cron) | Recover interrupted/provider-failed deliveries, drain backlog and delete delivery history expired over 7 days ago | Every minute |
+| `/api/cron/driver-location-retention` | `0 2 * * *` | Delete GPS positions older than 30 days when the admin retention switch is enabled | Daily 02:00 UTC / 09:00 Cambodia |
+
+Assignments, trip lifecycle, movement throttling and pickup arrival use the
+existing PostgreSQL transactions and immediate Next.js `after()` dispatch.
+Existing UI synchronization is HTTP polling (fleet/customer positions every
+5 seconds, booking lists every 15 seconds while visible), **not** Supabase
+Realtime or WebSockets. The application uses Prisma PostgreSQL; that alone does
+not provide Supabase Cron. No Supabase account, migration, paid service or
+additional real-time connection is introduced.
+
+For production `https://saiway.vercel.app`, create a free
+[cron-job.org](https://cron-job.org/) account and configure **two** jobs:
+
+1. Choose timezone **UTC** and method **GET**.
+2. Push recovery URL: `https://saiway.vercel.app/api/cron/push-notifications`,
+   every minute (`* * * * *`).
+3. GPS cleanup URL: `https://saiway.vercel.app/api/cron/driver-location-retention`,
+   daily at 02:00 UTC (`0 2 * * *`).
+4. For **each** job, add the custom header `Authorization` with value
+   `Bearer <CRON_SECRET>`, using exactly the server-only secret configured in
+   Vercel's **Production** environment. Enter it privately in the dashboard;
+   never put it in a URL, source code, screenshot or exported job configuration.
+   Generate a new secret if needed with
+   `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`;
+   keep the same value in the server and scheduler, and redeploy after changing
+   production environment settings.
+5. Enable failure/recovery/automatic-disable email alerts. Test each job once
+   after deploying this version; inspect its last execution status in the
+   scheduler dashboard. The retention test really deletes GPS older than 30
+   days if enabled; pause the admin switch first if you only want a harmless
+   authenticated check. A missing/wrong secret returns 401; missing push keys
+   or a database/processing failure returns 503, not a false success.
+6. Confirm push recovery returns 200 with `configured: true`; GPS cleanup returns
+   200 with its deletion count or `skipped: true` when paused. Retain one source
+   of schedules only; remove any old/manual duplicate jobs.
+
+The provider documents a free one-minute minimum interval and a 30-second HTTP
+timeout ([FAQ](https://cron-job.org/en/faq/)). Push dispatch starts batches of five
+within a 15-second processing budget, with a 5-second transport timeout per push;
+remaining jobs stay persisted for the next event/tick. Database/network delays
+can still cause an external timeout: retries safely reclaim abandoned leases.
+Do not treat a timeout as proof that no processing occurred.
+
+No external jobs are created automatically by the app or the admin switch.
+`cron.configured` means only that `CRON_SECRET` is present, **not** that an external
+schedule is active. Without an external recovery tick, normal event-driven sends
+continue, but recovery during inactivity and periodic cleanup are not guaranteed.
+External account creation, private header configuration and production execution
+must be completed/verified in the operator's dashboard.
+
+Locally, keep the application running and use an OS scheduler calling the same
+endpoints on localhost with the same private header; an external scheduler cannot
+reach localhost. Do not run local tests against the production database.
 
 Subscriptions and per-device deliveries reuse the existing database and User/
 DriverProfile relationships. Events are queued within the booking/GPS transaction.
 `after()` attempts delivery after the API response, so a provider outage does not
 roll back a trip or falsely report a failed booking. The cron retries with backoff,
-claims jobs atomically and removes expired history after seven days. Provider
+claims jobs atomically and removes expired history after seven days. Stable
+event keys and a per-device unique constraint deduplicate the same event; leases
+and due-time checks prevent concurrent scheduler ticks from claiming it twice.
+An interrupted lease becomes reclaimable after 60 seconds. Physical exactly-once
+delivery cannot be guaranteed if a provider accepted a push immediately before
+the server stopped; retries use the same notification tag to replace an existing
+notification rather than create a separate card. Provider
 404/410 removes the invalid subscription; transient failures retry at most five
 times. Status notifications expire after 15 minutes; movement/test notifications
 after one minute. Reassigned, cancelled or already-started arrival/assignment
@@ -174,6 +257,9 @@ variables take precedence over files. Restart the server after changing values.
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Stable Web Push key pair and public contact (`mailto:` or HTTPS URL). Keep the private key server-only; generate using `scripts/setup-push.mjs`. |
 | `PAYWAY_ENVIRONMENT`, `PAYWAY_MERCHANT_ID`, `PAYWAY_API_KEY`, `PAYWAY_PUBLIC_URL` | Optional PayWay configuration; all four are needed for online checkout. |
 | `VALIDATION_URL` | Optional base URL for integration tests; defaults to `http://localhost:3000`. Use an isolated test database. |
+
+The repository's `.env.example` contains placeholders only, with one entry per
+supported variable. Real `.env` and `.env.local` files remain ignored.
 
 `NEXT_PUBLIC_` values are exposed to browsers and embedded at build time:
 set the correct values **before** building each deployment, never put secrets
@@ -514,9 +600,9 @@ The additive Prisma migration
 hub records, driver return-to-hub state, GPS heading, and an index for retention
 cleanup. It does not delete existing records. Apply it with `npx prisma migrate
 deploy` only after review against the deployment database. Set `CRON_SECRET` to a
-long random secret. `vercel.json` schedules the retention endpoint daily at
-02:00 UTC; Vercel sends that value as a bearer token. Other hosts must configure
-an equivalent daily authenticated schedule, or old GPS records are not purged.
+long random secret. Configure the free external daily authenticated schedule at
+02:00 UTC as described above; `vercel.json` contains no scheduled jobs.
+Without that external schedule, old GPS records are not automatically purged.
 
 In **Admin → Fleet & management → Scheduled tasks (Cron)**, administrators can
 enable or pause GPS retention. The existing `SystemSetting` record
@@ -527,7 +613,7 @@ pauses cleanup; use the boolean `true` to enable it. Changes are admin-only and
 audited. The management response includes `cron.gpsRetentionEnabled` and
 `cron.configured` (secret presence only; no secret is returned). An authenticated
 scheduled call while paused returns `{ "skipped": true, "reason": "DISABLED",
-"removed": 0 }` without deleting positions. The hosting schedule remains active;
+"removed": 0 }` without deleting positions. The external schedule remains active;
 enabling does not run an immediate purge, and an already running cleanup may
 finish. Invalid stored settings fail explicitly rather than deleting data.
 

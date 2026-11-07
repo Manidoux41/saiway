@@ -1,6 +1,5 @@
 import "server-only";
 import type { Booking, Prisma, UserRole } from "@prisma/client";
-import { randomUUID } from "node:crypto";
 import { movementPushIntervalMs, movingBetween, type PushKind } from "@/lib/push-policy";
 
 async function enqueue(
@@ -19,7 +18,7 @@ async function enqueue(
 
 export async function enqueueBookingPush(tx: Prisma.TransactionClient, booking: Booking, previous?: Pick<Booking, "status" | "driverId">) {
   if (previous && previous.status === booking.status && previous.driverId === booking.driverId) return;
-  const eventKey = `booking:${booking.id}:${randomUUID()}`;
+  const eventKey = `booking:${booking.id}:${booking.status}:${booking.driverId ?? "none"}:${booking.updatedAt.toISOString()}`;
   if (booking.status === "DRIVER_ASSIGNED" && booking.driverId && (!previous || previous.driverId !== booking.driverId)) {
     const driver = await tx.driverProfile.findUniqueOrThrow({ where: { id: booking.driverId }, select: { userId: true } });
     await enqueue(tx, { userId: driver.userId }, { eventKey, kind: "ASSIGNED", bookingId: booking.id, driverId: booking.driverId, reference: booking.reference, recipientRole: "DRIVER" });
