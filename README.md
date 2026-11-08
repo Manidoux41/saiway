@@ -16,6 +16,16 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Homepage and partnership opportunities
+
+The homepage highlights airport arrivals, city trips and sightseeing instead of
+unverified availability, arrival-time or driver-count statistics. The airport
+example links to the booking quote rather than advertising a hard-coded fare.
+Partnership invitations address hotels/guesthouses, travel agencies and local
+drivers, with a map link to the principal Siem Reap hub for a discussion.
+These are opportunities, not claims of signed partnerships or guaranteed terms.
+All new copy is available in English, French and Khmer.
+
 ## Database and administration
 
 ### Push notifications

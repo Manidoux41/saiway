@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ArrowUpRight, Building2, Compass, Handshake, MapPin, Plane, Route } from "lucide-react";
 import { BookingWidget } from "@/components/booking/booking-widget";
 import { useLanguage } from "@/components/i18n/language-provider";
 import { defaultHeroBackground } from "@/lib/site";
@@ -9,7 +10,11 @@ export default function HomePage({ background = defaultHeroBackground }: { backg
   const { t } = useLanguage();
   const heroBackground = background;
   const trustItems = [t("home.fixedPrice"), t("home.professionalDriver"), t("home.doorToDoor"), t("home.flightDetails"), t("home.liveTracking"), t("home.securePayment")];
-  const stats = [{ label: t("home.sameDay"), value: "24/7" }, { label: t("home.averageEta"), value: "8 min" }, { label: t("home.driverNetwork"), value: "50+" }];
+  const experiences = [
+    { icon: Plane, title: "home.arriveTitle", description: "home.arriveText" },
+    { icon: Route, title: "home.moveTitle", description: "home.moveText" },
+    { icon: Compass, title: "home.discoverTitle", description: "home.discoverText" },
+  ] as const;
 
   return (
     <main className="min-h-screen bg-[var(--color-background)] text-[var(--color-text)]">
@@ -45,11 +50,12 @@ export default function HomePage({ background = defaultHeroBackground }: { backg
 
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
         <div className="grid gap-6 md:grid-cols-3">
-          {stats.map((stat) => (
-            <div key={stat.label} className="rounded-3xl border border-black/5 bg-white p-6 shadow-sm">
-              <div className="text-3xl font-black text-[var(--color-primary)]">{stat.value}</div>
-              <div className="mt-2 text-sm text-slate-600">{stat.label}</div>
-            </div>
+          {experiences.map(({ icon: Icon, title, description }) => (
+            <article key={title} className="min-w-0 rounded-3xl border border-black/5 bg-white p-6 shadow-sm">
+              <span className="inline-flex rounded-2xl bg-[var(--color-primary)]/5 p-3 text-[var(--color-primary)]"><Icon size={24} aria-hidden="true" /></span>
+              <h2 className="mt-5 text-xl font-bold">{t(title)}</h2>
+              <p className="mt-3 leading-7 text-slate-600">{t(description)}</p>
+            </article>
           ))}
         </div>
       </section>
@@ -84,8 +90,33 @@ export default function HomePage({ background = defaultHeroBackground }: { backg
             </div>
             <div className="rounded-2xl border border-[var(--color-accent)]/25 bg-[var(--color-accent)]/10 p-4">
               <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-primary)]">{t("home.price")}</div>
-              <div className="mt-2 text-3xl font-black text-[var(--color-text)]">$35</div>
+              <Link href="/booking" className="mt-2 inline-flex items-center gap-2 font-bold text-[var(--color-primary)]">{t("booking.checkPrice")}<ArrowUpRight size={18} aria-hidden="true" /></Link>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section aria-labelledby="partnerships-title" className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+        <div className="grid gap-8 rounded-[30px] bg-[var(--color-primary-dark)] p-6 text-white sm:p-8 lg:grid-cols-2 lg:p-10">
+          <div className="min-w-0">
+            <Handshake size={32} aria-hidden="true" className="text-white/80" />
+            <p className="mt-5 text-sm font-semibold uppercase tracking-[0.18em] text-white/70">{t("home.partnersEyebrow")}</p>
+            <h2 id="partnerships-title" className="mt-3 text-3xl font-bold">{t("home.partnersTitle")}</h2>
+            <p className="mt-4 leading-7 text-white/80">{t("home.partnersText")}</p>
+            <a href="https://maps.app.goo.gl/fmXwg25Kor5XGM8f8" target="_blank" rel="noopener noreferrer" className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-white px-5 py-3 font-semibold text-[var(--color-primary)]">
+              <MapPin size={20} className="shrink-0" aria-hidden="true" />{t("home.partnersMeet")}<ArrowUpRight size={18} className="shrink-0" aria-hidden="true" />
+            </a>
+            <p className="mt-3 text-sm leading-6 text-white/70">Tiara Air Tour &amp; Travel · Siem Reap</p>
+          </div>
+          <div className="grid content-center gap-4">
+            {([
+              { icon: Building2, title: "home.partnerHotels", description: "home.partnerHotelsText" },
+              { icon: Compass, title: "home.partnerAgencies", description: "home.partnerAgenciesText" },
+              { icon: Route, title: "home.partnerDrivers", description: "home.partnerDriversText" },
+            ] as const).map(({ icon: Icon, title, description }) => <article key={title} className="flex min-w-0 items-start gap-4 rounded-2xl border border-white/15 bg-white/5 p-5">
+              <Icon size={24} aria-hidden="true" className="shrink-0 text-white/80" />
+              <div className="min-w-0"><h3 className="text-lg font-bold">{t(title)}</h3><p className="mt-2 leading-6 text-white/80">{t(description)}</p></div>
+            </article>)}
           </div>
         </div>
       </section>
