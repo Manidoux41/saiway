@@ -16,6 +16,25 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Mobile app branding
+
+The header, favicon, installed Android/iOS app icon and mobile launch screens
+share the SAIWAY mark from `public/icons/saiway-mark.svg`. Raster PNG icons are
+provided for mobile compatibility, including a padded maskable Android icon and
+an opaque 180 px Apple touch icon. Android generates its launch screen from the
+web manifest; iOS uses device-matched portrait/landscape startup PNGs with the
+SAIWAY mark and name. No artificial loading delay or full-page overlay is added.
+
+After editing the source mark or supported Apple device sizes in
+`lib/pwa-assets.mjs`, run `npm run generate:pwa-assets` (uses the existing Sharp
+dependency) and commit the generated icons, startup screens and favicon.
+The service-worker shell cache is versioned to replace old branding without
+caching account pages or API data. Deploy these files together. An already
+installed home-screen shortcut may retain its OS-cached icon: reopen the app,
+and remove/reinstall the shortcut if the operating system does not refresh it.
+Native launch appearance depends on browser/OS support; ordinary browser tabs
+do not display an installed-app splash screen.
+
 ## Homepage and partnership opportunities
 
 The homepage highlights airport arrivals, city trips and sightseeing instead of

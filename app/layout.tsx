@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { Header } from "@/components/layout/header";
@@ -8,6 +8,7 @@ import { AuthProvider } from "@/components/auth/auth-provider";
 import { ServiceWorkerRegister } from "@/components/pwa/service-worker-register";
 import { currentAccount } from "@/lib/access";
 import type { UserRole } from "@/lib/roles";
+import { appleStartupImages } from "@/lib/pwa-assets.mjs";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -21,10 +22,14 @@ export const metadata: Metadata = {
     "Book a private airport transfer from Siem Reap Angkor International Airport to your hotel. Simple booking, trusted drivers and live tracking.",
   manifest: "/manifest.webmanifest",
   icons: {
-    icon: "/icons/icon-192.svg",
-    apple: "/icons/icon-192.svg",
+    icon: [{ url: "/icons/saiway-mark.svg", type: "image/svg+xml" }, { url: "/icons/favicon-32.png", type: "image/png", sizes: "32x32" }],
+    apple: { url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
   },
+  appleWebApp: { capable: true, title: "SAIWAY", statusBarStyle: "default", startupImage: appleStartupImages },
+  other: { "apple-mobile-web-app-capable": "yes" },
 };
+
+export const viewport: Viewport = { themeColor: "#032ea1" };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const account = await currentAccount();

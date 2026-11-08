@@ -1,5 +1,5 @@
-const CACHE_NAME = "saiway-shell-v6";
-const APP_SHELL = ["/icons/icon-192.svg", "/icons/icon-512.svg", "/manifest.webmanifest"];
+const CACHE_NAME = "saiway-shell-v7";
+const APP_SHELL = ["/icons/saiway-mark.svg", "/icons/icon-192.svg", "/icons/icon-512.svg", "/icons/icon-192.png", "/icons/icon-512.png", "/icons/apple-touch-icon.png", "/icons/favicon-32.png", "/manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));
@@ -18,7 +18,7 @@ self.addEventListener("push", (event) => {
       }
       const url = ["/admin", "/driver", "/account"].includes(message.data.url) ? message.data.url : "/account";
       await self.registration.showNotification("SAIWAY", {
-        body: message.body, icon: "/icons/icon-192.svg", badge: "/icons/icon-192.svg",
+        body: message.body, icon: "/icons/icon-192.png", badge: "/icons/icon-192.png",
         tag: message.tag, lang: message.lang, data: { url },
       });
     } catch (error) {

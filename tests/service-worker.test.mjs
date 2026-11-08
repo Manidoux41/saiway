@@ -37,7 +37,7 @@ test('the worker never caches authenticated pages, navigations or RSC payloads',
   });
   handlers.get('install')({ waitUntil: (promise) => { installation = promise; } });
   await installation;
-  assert.deepEqual(installed, ['/icons/icon-192.svg', '/icons/icon-512.svg', '/manifest.webmanifest']);
+  assert.deepEqual(installed, ['/icons/saiway-mark.svg', '/icons/icon-192.svg', '/icons/icon-512.svg', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/apple-touch-icon.png', '/icons/favicon-32.png', '/manifest.webmanifest']);
   for (const path of ['/', '/auth', '/admin', '/driver', '/account', '/booking', '/admin?_rsc=test']) {
     for (const mode of ['navigate', 'cors']) handlers.get('fetch')({
       request: { method: 'GET', mode, url: `http://localhost:3000${path}` },
@@ -52,9 +52,9 @@ test('worker activation removes the old cache containing API responses', async (
   let activation;
   runInNewContext(source, {
     self: { addEventListener: (name, handler) => handlers.set(name, handler), clients: { claim: () => {} } },
-    caches: { keys: async () => ['saiway-shell-v4', 'saiway-shell-v5', 'saiway-shell-v6'], delete: async (key) => { deleted.push(key); } },
+    caches: { keys: async () => ['saiway-shell-v4', 'saiway-shell-v5', 'saiway-shell-v6', 'saiway-shell-v7'], delete: async (key) => { deleted.push(key); } },
   });
   handlers.get('activate')({ waitUntil: (promise) => { activation = promise; } });
   await activation;
-  assert.deepEqual(deleted, ['saiway-shell-v4', 'saiway-shell-v5']);
+  assert.deepEqual(deleted, ['saiway-shell-v4', 'saiway-shell-v5', 'saiway-shell-v6']);
 });
