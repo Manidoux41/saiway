@@ -193,6 +193,8 @@ model DriverProfile {
   emergencyContactPhone String?
   adminNotes   String?
   employmentContracts EmploymentContract[]
+  vehicleExpenses VehicleExpense[]
+  payrolls Payroll[]
   isAvailable  Boolean         @default(true)
   availableSince DateTime      @default(now())
   selectedVehicleId String?
@@ -295,6 +297,8 @@ model Vehicle {
   updatedAt     DateTime            @updatedAt
   contracts     VehicleContract[]
   selectedByDrivers DriverProfile[] @relation("DriverSelectedVehicle")
+  expenses      VehicleExpense[]
+  accountingEntries AccountingEntry[]
 }
 
 model VehicleIconImage {
@@ -336,6 +340,86 @@ model AccountingEntry {
   notes       String?
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt
+  entryDate   DateTime            @default(now())
+  category    AccountingCategory  @default(OTHER)
+  sourceKey   String?             @unique
+  vehicleId   String?
+  vehicle     Vehicle?            @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+
+  @@index([entryDate, type, category])
+}
+
+enum AccountingCategory {
+  TRIP
+  FUEL
+  MAINTENANCE
+  SALARY
+  OTHER
+}
+
+enum VehicleExpenseStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model VehicleExpense {
+  id          String               @id @default(cuid())
+  requestId   String               @unique
+  driverId    String?
+  driver      DriverProfile?       @relation(fields: [driverId], references: [id], onDelete: Restrict)
+  vehicleId   String
+  vehicle     Vehicle              @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  category    AccountingCategory
+  occurredAt  DateTime
+  odometerKm  Decimal              @db.Decimal(12, 1)
+  liters      Decimal?             @db.Decimal(10, 3)
+  amountCents Int
+  currency    String
+  khrPerUsd   Decimal?             @db.Decimal(12, 4)
+  usdCents    Int
+  fullTank    Boolean              @default(false)
+  notes       String?
+  status      VehicleExpenseStatus @default(PENDING)
+  reviewedAt  DateTime?
+  reviewedBy  String?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  @@index([vehicleId, occurredAt])
+  @@index([driverId, status])
+}
+
+enum PayrollStatus {
+  DRAFT
+  FINALIZED
+  PAID
+}
+
+model Payroll {
+  id                 String        @id @default(cuid())
+  driverId           String
+  driver             DriverProfile @relation(fields: [driverId], references: [id], onDelete: Restrict)
+  month              String
+  status             PayrollStatus @default(DRAFT)
+  commissionBps      Int           @default(8000)
+  baseSalaryCents    Int
+  eligibleRevenueCents Int
+  commissionCents    Int
+  bonusCents         Int           @default(0)
+  deductionCents     Int           @default(0)
+  netCents           Int
+  currency           String        @default("USD")
+  adjustmentNotes    String?
+  snapshot           Json
+  scheduledPayAt     DateTime
+  finalizedAt        DateTime?
+  paidAt             DateTime?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  @@unique([driverId, month])
+  @@index([month, status])
 }
 
 model VehicleContract {
@@ -475,6 +559,7 @@ model Payment {
   collectionMethod CollectionMethod?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
+  confirmedAt DateTime?
 
   @@index([providerRef])
 }

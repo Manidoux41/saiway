@@ -1,0 +1,21 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import ts from 'typescript';
+const code = ts.transpileModule(readFileSync(new URL('../lib/vehicle-expense-policy.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
+const { parseAmountInput, convertedUsdCents, parseOccurredAt, odometerOrderConflict } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
+test('fuel amounts retain USD cents or whole riels, precise exchange and chronological odometers', () => {
+  assert.equal(parseAmountInput('25.10', 'USD'), 2510);
+  assert.equal(parseAmountInput('40000', 'KHR'), 40000);
+  assert.equal(convertedUsdCents(40000, 'KHR', '4000'), 1000);
+  assert.equal(convertedUsdCents(2510, 'USD', null), 2510);
+  assert.equal(convertedUsdCents(100, 'KHR', '0'), null);
+  assert.equal(parseAmountInput('2.001', 'USD'), null);
+  assert.equal(parseAmountInput('1e3', 'KHR'), null);
+  assert.equal(parseOccurredAt('2026-02-30T12:00:00+07:00'), null);
+  assert.ok(parseOccurredAt('2024-02-29T12:00:00+07:00'));
+  const rows = [{ occurredAt: new Date('2026-10-01'), odometerKm: '1000' }, { occurredAt: new Date('2026-10-03'), odometerKm: '1200' }];
+  assert.equal(odometerOrderConflict(rows, { occurredAt: new Date('2026-10-02'), odometerKm: '1100' }), false);
+  assert.equal(odometerOrderConflict(rows, { occurredAt: new Date('2026-10-02'), odometerKm: '1300' }), true);
+  assert.equal(odometerOrderConflict([], { occurredAt: new Date('2026-10-02'), odometerKm: '0' }), false);
+});

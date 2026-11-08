@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { authorize } from "@/lib/access";
 import { bookingInclude } from "@/lib/bookings";
+import { recordPaymentRevenue } from "@/lib/payment-accounting";
 import { checkPaywayPayment, paywayConfig, purchaseFields, trustedCheckoutUrl, validPaywayCallback, type PayWayConfig } from "@/lib/payway";
 
 const selection = z.object({ bookingId: z.string().min(1).max(200) }).strict();
@@ -33,8 +34,10 @@ async function reconcile(id: string, config: PayWayConfig) {
     if (!current || current.status === "PAID") return;
     const booking = current.booking;
     if (booking.priceCents !== current.amountCents || booking.currency !== current.currency) throw new PaymentError("Payment requires manual review", 409);
-    const changed = await tx.payment.updateMany({ where: { id, status: { not: "PAID" } }, data: { status: "PAID" } });
+    const confirmedAt = new Date();
+    const changed = await tx.payment.updateMany({ where: { id, status: { not: "PAID" } }, data: { status: "PAID", confirmedAt } });
     if (!changed.count) return;
+    await recordPaymentRevenue(tx, { ...current, status: "PAID", confirmedAt });
     const duplicate = booking.payments.some((item) => item.id !== id && item.status === "PAID");
     const dispatchable = !duplicate && !terminal.includes(booking.status) && booking.pickupAt.getTime() > Date.now();
     if (dispatchable && booking.status === "PENDING_PAYMENT") {
@@ -157,7 +160,8 @@ export async function driverPaymentReceived(request: Request) {
       }
       const collectionMethod = parsed.data.collectionMethod;
       const provider = existing.paymentMethod === "ONLINE" && collectionMethod === "ABA" ? "ABA_QR_MANUAL" : "DRIVER_DIRECT";
-      const payment = await tx.payment.create({ data: { bookingId: existing.id, provider, collectionMethod, providerRef: `driver-${existing.id}`, status: "PAID", amountCents: existing.priceCents, currency: existing.currency } });
+      const payment = await tx.payment.create({ data: { bookingId: existing.id, provider, collectionMethod, providerRef: `driver-${existing.id}`, status: "PAID", amountCents: existing.priceCents, currency: existing.currency, confirmedAt: new Date() } });
+      await recordPaymentRevenue(tx, payment);
       await tx.auditLog.create({ data: { actorId: account.id, entity: "Booking", entityId: existing.id, action: "DRIVER_PAYMENT_CONFIRMED", metadata: { paymentId: payment.id, driverId: existing.driverId, amountCents: existing.priceCents, currency: existing.currency, collectionMethod, provider } } });
       return tx.booking.findUniqueOrThrow({ where: { id: existing.id }, include: bookingInclude });
     });

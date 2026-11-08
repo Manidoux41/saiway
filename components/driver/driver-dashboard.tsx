@@ -22,6 +22,8 @@ import { FareSummary } from "@/components/booking/fare-summary";
 import { circuitSchema } from "@/lib/fare-policy";
 import { coordinateAddress } from "@/lib/booking-location";
 import { DriverAvailability } from "./driver-availability";
+import { VehicleExpenses } from "./vehicle-expenses";
+import { PayrollPanel } from "@/components/admin/payroll-panel";
 
 const TripMap = dynamic(() => import("./trip-map"), { ssr: false, loading: () => <div className="h-[370px] animate-pulse bg-slate-100" /> });
 const SavedRouteMap = dynamic(() => import("@/components/maps/saved-route-map").then((module) => module.SavedRouteMap), { ssr: false });
@@ -314,6 +316,7 @@ export function DriverDashboard() {
       </section>
     </div>
 
+    {!demo && <><VehicleExpenses /><PayrollPanel /></>}
     <DriverLicenseCard />
     <DriverContactQrCard />
     <details className={styles.account}><summary><ShieldCheck size={18} />{t("driver.account")}</summary><ChangePasswordForm /></details>

@@ -36,7 +36,7 @@ test('fleet, accounting and forecast records persist and can be managed', async 
     assert.equal((await ctx.prisma.vehicle.findUnique({ where: { id: vehicleId } })).active, false);
     assert.equal((await request('/api/admin/management', 'DELETE', { entity: 'accounting', id: entryId }, ctx.cookie)).status, 409);
     assert.ok(await ctx.prisma.accountingEntry.findUnique({ where: { id: entryId } }));
-    assert.equal((await request('/api/admin/management', 'PATCH', { entity: 'accounting', id: entryId, data: { amountCents: 1500 } }, ctx.cookie)).status, 200);
+    assert.equal((await request('/api/admin/management', 'PATCH', { entity: 'accounting', id: entryId, data: { amountCents: 1500, expectedUpdatedAt: (await ctx.prisma.accountingEntry.findUniqueOrThrow({ where: { id: entryId } })).updatedAt.toISOString() } }, ctx.cookie)).status, 200);
     assert.equal((await ctx.prisma.accountingEntry.findUnique({ where: { id: entryId } })).amountCents, 1500);
   } finally {
     try {

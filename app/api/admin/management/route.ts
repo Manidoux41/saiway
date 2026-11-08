@@ -18,7 +18,7 @@ const fields = {
   user: z.object({ name, email: z.string().trim().toLowerCase().pipe(z.email()), status: z.enum(["ACTIVE", "SUSPENDED", "INVITED"]), phone: z.string().max(50).nullable().optional(), isAvailable: z.boolean().optional(), licenseNo: z.string().trim().max(100).nullable().optional(), licenseExpiresAt: z.union([z.literal("").transform(() => null), z.string().regex(/^\d{4}-\d{2}-\d{2}$/).transform((value) => new Date(`${value}T00:00:00Z`))]).nullable().optional() }),
   vehicle: z.object({ name, plate: name, seats: z.coerce.number().int().min(1).max(50), active: z.boolean().optional(), iconCategory: z.enum(["TUK_TUK", "PASSAPP", "SEDAN", "SUV", "MINIVAN", "MINIBUS", "VAN", "OTHER"]).optional() }),
   hub: z.object({ name, address: z.string().trim().max(500).nullable().optional(), latitude: z.coerce.number().finite().min(-90).max(90), longitude: z.coerce.number().finite().min(-180).max(180), active: z.boolean().optional() }),
-  accounting: z.object({ type: z.enum(["REVENUE", "EXPENSE", "CREDIT", "PURCHASE"]), label: name, amountCents: cents, currency: z.literal("USD").optional(), notes: z.string().max(2000).optional(), paidAt: date.nullable().optional() }),
+  accounting: z.object({ type: z.enum(["REVENUE", "EXPENSE", "CREDIT", "PURCHASE"]), label: name, amountCents: cents, currency: z.literal("USD").optional(), notes: z.string().max(2000).optional(), paidAt: date.nullable().optional(), entryDate: date.optional(), category: z.enum(["TRIP", "FUEL", "MAINTENANCE", "SALARY", "OTHER"]).optional(), vehicleId: z.string().min(1).nullable().optional(), expectedUpdatedAt: z.iso.datetime().optional() }),
   forecast: z.object({ month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/).transform((value) => new Date(`${value}-01T00:00:00Z`)), expectedRevenueCents: cents, expectedExpenseCents: cents, notes: z.string().max(2000).optional() }),
   pricing: z.object({ name, amountCents: cents, currency: z.literal("USD").optional(), direction: z.enum(["AIRPORT_TO_CITY", "CITY_TO_AIRPORT"]).nullable().optional(), tripType: z.enum(["AIRPORT_TRANSFER", "PRIVATE_TRANSFER", "HOTEL_TRANSFER"]).nullable().optional(), active: z.boolean().optional(), effectiveAt: date }),
   contract: z.object({ vehicleId: name, provider: name, monthlyCents: cents, startsAt: date, endsAt: date.nullable().optional(), status: z.enum(["ACTIVE", "INACTIVE"]) }),
@@ -44,7 +44,7 @@ export async function GET(request: Request) {
       prisma.systemSetting.findMany({ where: { key: { in: ["heroBackground", gpsRetentionSettingKey, farePolicyKey] } } }),
       prisma.payment.findMany({
         where: { status: "PAID", provider: { not: "ABA_PAYWAY_SANDBOX" } },
-        select: { id: true, amountCents: true, currency: true, provider: true, collectionMethod: true, updatedAt: true, booking: { select: { reference: true, status: true, driver: { select: { user: { select: { name: true } } } } } } },
+        select: { id: true, amountCents: true, currency: true, provider: true, collectionMethod: true, confirmedAt: true, updatedAt: true, booking: { select: { reference: true, status: true, vehicleId: true, driver: { select: { user: { select: { name: true } } } } } } },
         orderBy: { updatedAt: "desc" },
       }),
     ]);
@@ -97,7 +97,24 @@ async function mutate(request: Request) {
           const value = updating ? fields.hub.partial().parse(data) : fields.hub.parse(data);
           result = updating ? await tx.hub.update({ where: { id }, data: value }) : await tx.hub.create({ data: fields.hub.parse(data) });
         }
-        if (entity === "accounting") result = updating ? await tx.accountingEntry.update({ where: { id }, data: fields.accounting.partial().parse(data) }) : await tx.accountingEntry.create({ data: fields.accounting.parse(data) });
+        if (entity === "accounting") {
+          const { expectedUpdatedAt, ...value } = (updating ? fields.accounting.partial() : fields.accounting).parse(data);
+          const existing = updating ? await tx.accountingEntry.findUniqueOrThrow({ where: { id } }) : null;
+          if (existing?.sourceKey) throw new DispatchError("Generated financial entries are immutable", 409);
+          if (updating && (!expectedUpdatedAt || existing?.updatedAt.getTime() !== Date.parse(expectedUpdatedAt))) throw new DispatchError("Financial entry changed; refresh and retry", 409);
+          const category = value.category ?? existing?.category;
+          const type = value.type ?? existing?.type;
+          const vehicleId = value.vehicleId === undefined ? existing?.vehicleId : value.vehicleId;
+          if ((category === "FUEL" || category === "MAINTENANCE") && (type !== "EXPENSE" || !vehicleId)) throw new z.ZodError([{ code: "custom", path: ["category"], message: "Vehicle costs require expense type and vehicle" }]);
+          if (vehicleId && !await tx.vehicle.count({ where: { id: vehicleId } })) throw new z.ZodError([{ code: "custom", path: ["vehicleId"], message: "Invalid vehicle" }]);
+          if (existing) result = await tx.accountingEntry.update({ where: { id: existing.id, updatedAt: existing.updatedAt }, data: value });
+          else {
+            const { expectedUpdatedAt: ignoredVersion, ...creating } = fields.accounting.parse(data);
+            void ignoredVersion;
+            result = await tx.accountingEntry.create({ data: creating });
+          }
+          if (existing) await tx.auditLog.create({ data: { actorId: actor.id, entity: "AccountingEntry", entityId: existing.id, action: "CORRECT", metadata: { before: { type: existing.type, category: existing.category, amountCents: existing.amountCents, entryDate: existing.entryDate.toISOString(), notes: existing.notes }, after: JSON.parse(JSON.stringify(value)) } } });
+        }
         if (entity === "forecast") result = updating ? await tx.forecastLine.update({ where: { id }, data: fields.forecast.partial().parse(data) }) : await tx.forecastLine.create({ data: fields.forecast.parse(data) });
         if (entity === "pricing") {
           if (updating && (await tx.pricingRule.findUniqueOrThrow({ where: { id } })).policy !== null) throw new z.ZodError([{ code: "custom", path: ["id"], message: "Tariff history is immutable" }]);

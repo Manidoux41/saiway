@@ -7,6 +7,8 @@ const nextConfig: NextConfig = {
     "/api/admin/contracts/\\[contractId\\]/pdf": ["./assets/fonts/**/*"],
     "/api/admin/drivers/\\[driverId\\]/business-card": ["./assets/fonts/**/*"],
     "/api/admin/business-cards": ["./assets/fonts/**/*"],
+    "/api/admin/payroll/\\[payrollId\\]/pdf": ["./assets/fonts/**/*"],
+    "/api/driver/payroll/\\[payrollId\\]/pdf": ["./assets/fonts/**/*"],
   },
 };
 

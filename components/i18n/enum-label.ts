@@ -4,6 +4,7 @@ const labels: Record<string, TranslationKey> = {
   ADMIN: "auth.admin", DRIVER: "auth.driver", CUSTOMER: "courses.customer",
   ACTIVE: "ui.ACTIVE", INACTIVE: "ui.INACTIVE", SUSPENDED: "ui.SUSPENDED", INVITED: "ui.INVITED",
   REVENUE: "ui.REVENUE", EXPENSE: "ui.EXPENSE", CREDIT: "ui.CREDIT", PURCHASE: "ui.PURCHASE",
+  TRIP: "finance.TRIP", FUEL: "finance.FUEL", MAINTENANCE: "finance.MAINTENANCE", SALARY: "finance.SALARY", OTHER: "finance.OTHER",
   true: "ui.true", false: "ui.false",
   AIRPORT_TO_CITY: "courses.airportToCity", CITY_TO_AIRPORT: "courses.cityToAirport",
   AIRPORT_TRANSFER: "booking.airportTransfer", PRIVATE_TRANSFER: "booking.privateTransfer", HOTEL_TRANSFER: "booking.hotelTransfer",

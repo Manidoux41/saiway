@@ -35,6 +35,91 @@ hotel transfers. Existing booking steps and server-side pricing are preserved.
 
 ## Database and administration
 
+### Monthly accounting, vehicle costs and driver payroll
+
+Financial records use an explicit entry date, category and optional vehicle.
+Admin Fleet & management offers date ordering, month/date-range, category, type,
+vehicle and description filters. Monthly recorded balance and paid balance are
+distinct; credits/financing are not operating earnings and currencies are never
+added together. These totals are not certified profit or tax statements.
+
+Verified real trip payments now create a linked revenue entry in the same
+transaction as confirmation, with a stable `Payment.confirmedAt` date. The
+source key `payment:<paymentId>` prevents duplication. Existing paid records
+without a linked entry remain visible once using their historical update date,
+explicitly labelled as such; the exact historic confirmation date cannot be
+reconstructed. Do not manually enter the same receipts again. Manual entries can
+be corrected through Manage records, with optimistic concurrency and an audit
+of the previous values. Generated financial source entries are immutable.
+
+Fuel declarations record the vehicle, date, odometer, litres, total amount and
+currency. KHR declarations require a captured KHR-per-USD exchange rate; the
+USD accounting amount does not change when a later tariff changes. The driver
+declares, the administrator reviews: a pending or rejected declaration is not an
+accounting expense. Approved fuel and maintenance costs are classified as vehicle
+expenses, with their own unique source. Repeated approval does not book the cost
+again. A fill is not proof of full-to-full fuel consumption; odometer readings
+and partial fills must be interpreted accordingly.
+Drivers use **Fuel log** on their dashboard; administrators enter maintenance
+and approve/reject declarations in **Fleet & management**. A rejection requires
+a reason; approved declarations cannot be overwritten. Incorrect declarations
+must be rejected and resubmitted. The driver journal shows the latest 200 entries;
+the admin journal shows all pending entries and the latest 100 reviewed entries.
+Approved accounting entries remain available in the full dated ledger.
+
+Authenticated vehicle APIs: `GET/POST /api/driver/vehicle-expenses` (own allowed
+vehicle fuel entries), `GET/POST /api/admin/vehicle-expenses` (maintenance), and
+`PATCH /api/admin/vehicle-expenses` with `{ id, action: "APPROVE" | "REJECT",
+reason? }`. POST requires a UUID `requestId`, `vehicleId`, ISO offset
+`occurredAt`, decimal-string `odometerKm`, `amountCents`, `currency`, optional
+`khrPerUsd` and `notes`; fuel additionally requires decimal-string `liters` and
+boolean `fullTank`. **For USD, `amountCents` is cents; for KHR it is whole riels**,
+preserved with the historic conversion rate. Reusing an ID with changed values
+returns 409. Odometers must remain consistent with earlier and later non-rejected
+declarations of the same vehicle.
+
+Payroll rules selected for salaried drivers: monthly contractual salary,
+prorated by calendar days employed, plus **80% commission** on eligible paid
+receipts for trips completed during that full calendar month. Payment must be
+confirmed before closure; unpaid trips and sandbox payments are excluded.
+Month boundaries use Asia/Phnom_Penh. The scheduled payday is the **26th of the
+following month**, not an automatic bank transfer. Bonuses, deductions, taxes
+and contributions are manually identified and approved; no statutory rules are
+invented. Company earnings are not the driver's salary.
+
+Create/recalculate a draft, review it, finalize its immutable source snapshot,
+then separately mark actual payment. Only actual salary payment creates a salary
+expense. PDF generation alone does not pay an employee. Late settlements or
+corrections after closure require administrator review rather than silently
+changing a finalized payslip. Documents use SAIWAY branding; legal and payroll
+compliance still requires a qualified local review.
+The admin payroll panel retains existing draft adjustments when recalculating.
+Finalization checks the reviewed version and current sources: if contracts,
+receipts or employer details changed, recalculate and review the draft again.
+The PDF includes the logo and slogan used in the header, salary proration,
+commission, manual adjustments and trip sources. Only the owning driver can
+download their finalized/paid statements; administrators can also download drafts,
+clearly marked as drafts. Employer information comes from Personnel settings,
+not fabricated registration details.
+
+Authenticated payroll APIs: `GET /api/admin/payroll?month=YYYY-MM`,
+`POST /api/admin/payroll` with `{ driverId, month, bonusCents, deductionCents,
+adjustmentNotes }`, and `PATCH /api/admin/payroll` with either
+`{ id, action: "FINALIZE", expectedUpdatedAt }` or
+`{ id, action: "PAID", paidAt }` (actual ISO date with offset). Adjustment notes
+are mandatory for non-zero bonuses/deductions. `GET /api/driver/payroll` returns
+only the owner's finalized/paid statements. PDF downloads:
+`GET /api/admin/payroll/:id/pdf?language=en|fr|km` and
+`GET /api/driver/payroll/:id/pdf?language=en|fr|km`.
+
+Before deploying these features, back up the intended database and apply
+`20261108050000_finance_vehicle_payroll` with `npx prisma migrate deploy`, then
+deploy the matching generated Prisma client/application. This additive migration
+does not fabricate old fuel logs, salaries, or payment confirmation dates.
+No new paid service, cron job or environment variable is required.
+Applying the database migration does not deploy the new UI or API code:
+redeploy the matching branch on Vercel after applying it.
+
 ### Push notifications
 
 Signed-in customers, drivers and administrators can use the bell in the header

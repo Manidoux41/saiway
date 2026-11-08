@@ -14,6 +14,10 @@ import { gpsRetentionSettingKey } from "@/lib/cron-settings";
 import { farePolicyKey } from "@/lib/fare-policy";
 import { TariffEditor } from "@/components/admin/tariff-editor";
 import { enumLabel } from "@/components/i18n/enum-label";
+import { AccountingLedger } from "@/components/admin/accounting-ledger";
+import { accountingBalance, ledgerRows } from "@/lib/accounting-policy";
+import { VehicleExpenses } from "@/components/driver/vehicle-expenses";
+import { PayrollPanel } from "@/components/admin/payroll-panel";
 
 const VehicleIconPreview = dynamic(() => import("@/components/maps/vehicle-icon-preview").then((module) => module.VehicleIconPreview), { ssr: false, loading: () => <div className="h-[320px] animate-pulse rounded-xl bg-slate-100" /> });
 const vehicleIconCategories = ["TUK_TUK", "PASSAPP", "SEDAN", "SUV", "MINIVAN", "MINIBUS", "VAN", "OTHER"] as const;
@@ -45,7 +49,12 @@ export function ManagementPanel({ data, loading, loadError, onReload }: { data: 
     const form = event.currentTarget;
     const input = new FormData(form);
     const data: Record<string, unknown> = Object.fromEntries(input.entries());
-    if (entity === "accounting") data.amountCents = Math.round(Number(data.amount) * 100);
+    if (entity === "accounting") {
+      data.amountCents = Math.round(Number(data.amount) * 100);
+      data.entryDate = new Date(`${data.entryDate}T00:00:00+07:00`).toISOString();
+      data.paidAt = data.isPaid === "on" ? data.entryDate : null;
+      data.vehicleId = data.vehicleId || null;
+    }
     if (entity === "forecast") {
       data.expectedRevenueCents = Math.round(Number(data.revenue) * 100);
       data.expectedExpenseCents = Math.round(Number(data.expense) * 100);
@@ -66,8 +75,7 @@ export function ManagementPanel({ data, loading, loadError, onReload }: { data: 
   }
 
   if (!data) return <section className="mt-8 rounded-[28px] bg-white p-6 shadow-sm">{t(loadError ? "admin.dataUnavailable" : "admin.loading")}</section>;
-  const revenue = data.entries.filter((item) => item.type === "REVENUE" && item.currency === "USD").reduce((sum, item) => sum + item.amountCents, 0) + data.receipts.filter((item) => item.currency === "USD").reduce((sum, item) => sum + item.amountCents, 0);
-  const expenses = data.entries.filter((item) => item.type !== "REVENUE").reduce((sum, item) => sum + item.amountCents, 0);
+  const { revenue, expense: expenses } = accountingBalance(ledgerRows(data));
   const forecastRevenue = data.forecasts.reduce((sum, item) => sum + item.expectedRevenueCents, 0);
   const forecastExpenses = data.forecasts.reduce((sum, item) => sum + item.expectedExpenseCents, 0);
   const inputClass = "w-full min-w-0 max-w-full rounded-xl border p-3";
@@ -78,6 +86,7 @@ export function ManagementPanel({ data, loading, loadError, onReload }: { data: 
       <a href="#fleet-management" className={buttonClass}>{t("fleet.addVehicle")}</a>
       <a href="#cron-heading" className={buttonClass}>{t("cron.title")}</a>
       <a href="#fare-policy-heading" className={buttonClass}>{t("fare.settings")}</a>
+      <a href="#accounting-ledger" className={buttonClass}>{t("finance.title")}</a>
     </nav>
     {error && <p role="alert" className="rounded-2xl bg-red-50 p-4 text-sm text-[var(--color-error)]">{t(error)}{error === "admin.sessionExpired" && <> <Link href="/auth" className="underline">{t("admin.openSignIn")}</Link></>}</p>}
     {saved && <p role="status" className="text-sm font-semibold text-emerald-700">{t("admin.recordSaved")}</p>}
@@ -127,7 +136,17 @@ export function ManagementPanel({ data, loading, loadError, onReload }: { data: 
             </div>
           </div>)}</div>
         </div>
-        <div className="rounded-[28px] bg-white p-6 shadow-sm"><h2 className="text-xl font-bold">{t("ui.accounting")}</h2><form onSubmit={(event) => create(event, "accounting")} className="mt-4 grid gap-3 sm:grid-cols-3"><select name="type" aria-label={t("records.type")} className={inputClass}>{["REVENUE", "EXPENSE", "CREDIT", "PURCHASE"].map((value) => <option key={value} value={value}>{enumLabel(value, t)}</option>)}</select><input name="label" required placeholder={t("records.description")} className={inputClass} /><input name="amount" required type="number" min="0" step="0.01" placeholder="USD" className={inputClass} /><button className={`${buttonClass} sm:col-span-3`}>{t("ui.addEntry")}</button></form><div className="mt-5 space-y-2">{data.entries.map((item) => <div key={item.id} className="flex justify-between border-t pt-3 text-sm"><span>{enumLabel(item.type, t)} · {item.label}</span><span>{localizedNumber(language, { style: "currency", currency: "USD" }).format(item.amountCents / 100)}</span></div>)}</div></div>
+        <div className="min-w-0 rounded-[28px] bg-white p-6 shadow-sm"><h2 className="text-xl font-bold">{t("finance.add")}</h2><p className="mt-2 text-sm text-slate-500">{t("finance.manualHelp")}</p><form onSubmit={(event) => create(event, "accounting")} className="mt-4 grid gap-3 sm:grid-cols-2">
+          <label>{t("records.type")}<select name="type" className={inputClass}>{["REVENUE", "EXPENSE", "CREDIT", "PURCHASE"].map((value) => <option key={value} value={value}>{enumLabel(value, t)}</option>)}</select></label>
+          <label>{t("finance.category")}<select name="category" className={inputClass}>{(["OTHER", "TRIP", "FUEL", "MAINTENANCE", "SALARY"] as const).map((value) => <option key={value} value={value}>{t(`finance.${value}`)}</option>)}</select></label>
+          <label>{t("records.description")}<input name="label" required maxLength={500} className={inputClass} /></label>
+          <label>{t("finance.amount")} (USD)<input name="amount" required type="number" min="0" max="1000000" step="0.01" className={inputClass} /></label>
+          <label>{t("finance.date")}<input name="entryDate" required type="date" className={inputClass} /></label>
+          <label>{t("records.vehicles")}<select name="vehicleId" className={inputClass}><option value="">{t("records.all")}</option>{data.vehicles.map((vehicle) => <option key={vehicle.id} value={vehicle.id}>{vehicle.name} · {vehicle.plate}</option>)}</select></label>
+          <label>{t("finance.notes")}<input name="notes" maxLength={2000} className={inputClass} /></label>
+          <label className="flex items-center gap-3"><input name="isPaid" type="checkbox" className="h-5 w-5" />{t("finance.isPaid")}</label>
+          <button className={`${buttonClass} sm:col-span-2`}>{t("ui.addEntry")}</button>
+        </form></div>
       </section>
       <DriverLicenses users={data.users} />
       <DriverBusinessCards users={data.users} onChanged={onReload} />
@@ -152,6 +171,9 @@ export function ManagementPanel({ data, loading, loadError, onReload }: { data: 
       <section className="rounded-[28px] bg-white p-6 shadow-sm"><h2 className="text-xl font-bold">{t("ui.forecasts")}</h2><form onSubmit={(event) => create(event, "forecast")} className="mt-4 grid gap-3 md:grid-cols-4"><input name="month" required type="month" aria-label={t("records.month")} className={inputClass} /><input name="revenue" required type="number" min="0" step="0.01" placeholder={t("ui.expectedRevenue")} className={inputClass} /><input name="expense" required type="number" min="0" step="0.01" placeholder={t("ui.expectedExpenses")} className={inputClass} /><button className={buttonClass}>{t("ui.addForecast")}</button></form><div className="mt-5 grid gap-3 md:grid-cols-3">{data.forecasts.map((item) => <div key={item.id} className="rounded-2xl bg-[var(--color-input)] p-4 text-sm"><div>{localizedDate(language, { month: "long", year: "numeric", timeZone: "Asia/Phnom_Penh" }).format(new Date(item.month))}</div><div>+{localizedNumber(language, { style: "currency", currency: "USD" }).format(item.expectedRevenueCents / 100)}</div><div>−{localizedNumber(language, { style: "currency", currency: "USD" }).format(item.expectedExpenseCents / 100)}</div></div>)}</div></section>
       <section className="rounded-[28px] bg-white p-6 shadow-sm"><h2 className="text-xl font-bold">{t("ui.rentals")}</h2><div className="mt-4 grid gap-3 md:grid-cols-3">{data.contracts.map((item) => <div key={item.id} className="rounded-2xl border p-4">{item.vehicle.name} · {item.vehicle.plate}<p>{item.provider} · {localizedNumber(language, { style: "currency", currency: "USD" }).format(item.monthlyCents / 100)} {t("ui.perMonth")} · {enumLabel(item.status, t)}</p></div>)}</div></section>
     </fieldset>
+    <AccountingLedger data={data} />
+    <VehicleExpenses admin onChanged={onReload} />
+    <PayrollPanel admin onChanged={onReload} />
     {previewVehicleId && (() => {
       const vehicle = data.vehicles.find((item) => item.id === previewVehicleId);
       return vehicle ? <div className="fixed inset-0 z-[1200] grid place-items-center overflow-y-auto bg-slate-950/60 p-4" role="dialog" aria-modal="true" aria-label={t("fleet.previewMap")}>

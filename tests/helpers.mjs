@@ -34,6 +34,16 @@ async function setup() {
     assert.ok(login.cookie);
     return { prisma, prefix, email, password, id: user.id, cookie: login.cookie, cleanup: async () => {
       try {
+        const vehicles = await prisma.vehicle.findMany({ where: { plate: { startsWith: prefix } }, select: { id: true } });
+        const payments = await prisma.payment.findMany({ where: { booking: { OR: [{ customer: { email: { startsWith: prefix } } }, { driver: { user: { email: { startsWith: prefix } } } }] } }, select: { id: true } });
+        const payrolls = await prisma.payroll.findMany({ where: { driver: { user: { email: { startsWith: prefix } } } }, select: { id: true } });
+        const expenses = await prisma.vehicleExpense.findMany({ where: { OR: [{ driver: { user: { email: { startsWith: prefix } } } }, { vehicleId: { in: vehicles.map(item => item.id) } }] }, select: { id: true } });
+        await prisma.accountingEntry.deleteMany({ where: { OR: [
+          { vehicleId: { in: vehicles.map(item => item.id) } },
+          { sourceKey: { in: [...payments.map(item => `payment:${item.id}`), ...payrolls.map(item => `payroll:${item.id}`), ...expenses.map(item => `vehicle-expense:${item.id}`)] } },
+        ] } });
+        await prisma.payroll.deleteMany({ where: { id: { in: payrolls.map(item => item.id) } } });
+        await prisma.vehicleExpense.deleteMany({ where: { id: { in: expenses.map(item => item.id) } } });
         await prisma.booking.deleteMany({ where: { OR: [{ customer: { email: { startsWith: prefix } } }, { driver: { user: { email: { startsWith: prefix } } } }] } });
         await prisma.hub.deleteMany({ where: { name: { startsWith: prefix } } });
         await prisma.vehicle.deleteMany({ where: { plate: { startsWith: prefix } } });
