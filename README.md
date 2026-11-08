@@ -26,6 +26,13 @@ drivers, with a map link to the principal Siem Reap hub for a discussion.
 These are opportunities, not claims of signed partnerships or guaranteed terms.
 All new copy is available in English, French and Khmer.
 
+The reservation page uses one unified form instead of separate booking and trip
+details panels. Five illustrated trip-type choices and short descriptions appear
+at the start of the form; circuit/duration options appear for sightseeing.
+Passengers, route, pickup time, fare breakdown and payment remain in the same
+card. The review shows the exact selected transfer type, including private and
+hotel transfers. Existing booking steps and server-side pricing are preserved.
+
 ## Database and administration
 
 ### Push notifications

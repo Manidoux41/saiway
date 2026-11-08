@@ -11,7 +11,15 @@ import { PickupLocation } from "@/components/booking/pickup-location";
 import { fareDetailsSchema, type FareDetails } from "@/lib/fare-policy";
 import { FareSummary } from "@/components/booking/fare-summary";
 import { useAuth } from "@/components/auth/auth-provider";
-import { ArrowRight, Check, CreditCard, MapPin, Plane, ShieldCheck, Wallet } from "lucide-react";
+import { ArrowRight, Check, Compass, CreditCard, Hotel, Plane, Route, ShieldCheck, Users, Wallet } from "lucide-react";
+
+const tripOptions = [
+  { value: "airport-transfer", label: "fare.airport", description: "booking.airportChoice", icon: Plane },
+  { value: "city-transfer", label: "fare.city", description: "booking.cityChoice", icon: Route },
+  { value: "tourist-tour", label: "fare.tour", description: "booking.tourChoice", icon: Compass },
+  { value: "private-transfer", label: "booking.privateTransfer", description: "booking.privateChoice", icon: Users },
+  { value: "hotel-transfer", label: "booking.hotelTransfer", description: "booking.hotelChoice", icon: Hotel },
+] as const;
 
 export default function BookingPage() {
   return <Suspense><BookingForm /></Suspense>;
@@ -29,7 +37,7 @@ function BookingForm() {
   const [direction, setDirection] = useState<"airport-to-city" | "city-to-airport">(params.get("direction") === "city-to-airport" ? "city-to-airport" : "airport-to-city");
   const [pickupDate, setPickupDate] = useState(() => /^\d{4}-\d{2}-\d{2}$/.test(params.get("date") ?? "") ? params.get("date")! : new Date(Date.now() + 86400000).toISOString().slice(0, 10));
   const [pickupTime, setPickupTime] = useState(() => /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(params.get("time") ?? "") ? params.get("time")! : "14:30");
-  const [tripType, setTripType] = useState(() => ["airport-transfer", "hotel-transfer", "city-transfer", "tourist-tour"].includes(params.get("tripType") ?? "") ? params.get("tripType")! : "airport-transfer");
+  const [tripType, setTripType] = useState(() => tripOptions.some((option) => option.value === params.get("tripType")) ? params.get("tripType")! : "airport-transfer");
   const [tourCircuit, setTourCircuit] = useState("SMALL");
   const [tourHours, setTourHours] = useState(8);
   const [paymentMethod, setPaymentMethod] = useState<"ONLINE" | "DRIVER">("DRIVER");
@@ -47,6 +55,7 @@ function BookingForm() {
   const selection = JSON.stringify([apiDirection, apiTripType, fromAddress, toAddress, tourCircuit, tourHours]);
   const quote = quoteState?.selection === selection ? quoteState : null;
   const effectivePaymentMethod = apiTripType === "TOURIST_TOUR" ? "DRIVER" : paymentMethod;
+  const tripLabel = (tripOptions.find((option) => option.value === tripType) ?? tripOptions[0]).label;
   const priceLabel = quote ? `${(quote.priceCents / 100).toFixed(2)} ${quote.currency}` : t(!fromAddress.trim() || !toAddress.trim() ? "fare.chooseRoute" : quoteError === "remote" ? "fare.remoteUnavailable" : quoteError ? "courses.quoteError" : "admin.loading");
   const [passenger, setPassenger] = useState({ name: user?.name ?? "", email: user?.email ?? "", phone: "", luggageCount: 2, specialNeeds: "", flightNumber: "", pickupNotes: "" });
 
@@ -112,7 +121,7 @@ function BookingForm() {
           <Link href="/auth" className="mt-6 inline-flex rounded-full bg-[var(--color-primary)] px-6 py-3 text-sm font-semibold text-white">{t("booking.registerSignIn")}</Link>
         </section>
       ) : (
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="mx-auto max-w-4xl">
         <section className="min-w-0 rounded-[32px] border border-black/5 bg-white p-5 shadow-[0_18px_60px_rgba(23,34,31,0.06)] sm:p-6 md:p-8">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
@@ -122,7 +131,7 @@ function BookingForm() {
             </div>
             <div className="rounded-2xl bg-[var(--color-background)] px-4 py-3 text-right">
               <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{t(apiTripType === "TOURIST_TOUR" ? "fare.provisionalPrice" : "fare.calculatedPrice")}</div>
-              <div className="mt-1 text-2xl font-black text-[var(--color-primary)]">{priceLabel}</div>
+              <div className="mt-1 text-2xl font-black text-[var(--color-primary)]">{submitted ? `${(finalPrice / 100).toFixed(2)} ${finalCurrency}` : priceLabel}</div>
             </div>
           </div>
 
@@ -149,9 +158,28 @@ function BookingForm() {
             <form onSubmit={continueBooking} className="mt-10 space-y-6">
               <fieldset disabled={pending} className="contents">
               {error && <p role="alert" className="text-[var(--color-error)]">{error}</p>}
+              <fieldset className="space-y-3">
+                <legend className="mb-2 text-lg font-bold">{t("booking.tripType")}</legend>
+                <p className="text-sm leading-6 text-slate-500">{t("booking.chooseTransfer")}</p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {tripOptions.map(({ value, label, description, icon: Icon }) => <label key={value} className={`flex min-w-0 cursor-pointer items-start gap-3 rounded-2xl border p-4 ${tripType === value ? "border-[var(--color-primary)] bg-[var(--color-primary)]/5" : "border-slate-200"}`}>
+                    <input type="radio" name="tripType" value={value} checked={tripType === value} onChange={() => setTripType(value)} className="mt-1 h-5 w-5 shrink-0 accent-[var(--color-primary)]" />
+                    <Icon size={20} aria-hidden="true" className="mt-0.5 shrink-0 text-[var(--color-primary)]" />
+                    <span className="min-w-0"><strong className="block text-sm">{t(label)}</strong><span className="mt-1 block text-xs leading-5 text-slate-600">{t(description)}</span></span>
+                  </label>)}
+                </div>
+                {tripType === "tourist-tour" && <div className="grid gap-4 rounded-2xl bg-slate-50 p-4 sm:grid-cols-2">
+                  <label className="text-sm font-semibold">{t("fare.circuit")}<select className="mt-2 w-full rounded-xl border border-slate-200 bg-white p-3" value={tourCircuit} onChange={(event) => setTourCircuit(event.target.value)}><option value="SMALL">{t("fare.small")}</option><option value="GRAND">{t("fare.grand")}</option><option value="REMOTE">{t("fare.remote")}</option></select></label>
+                  <label className="text-sm font-semibold">{t("fare.bookedHours")}<input className="mt-2 w-full rounded-xl border border-slate-200 bg-white p-3" type="number" min="1" max="48" step="0.5" required value={tourHours} onChange={(event) => setTourHours(Number(event.target.value))} /></label>
+                </div>}
+              </fieldset>
               <p className="text-sm text-slate-500">{t("courses.quoteNotice")}</p>
               {step === 0 && (
                 <div className="space-y-5">
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-slate-50 p-4">
+                    <span className="text-sm font-semibold">{t("booking.passengers")}</span>
+                    <div className="flex items-center gap-4"><button type="button" aria-label={t("ui.removePassenger")} disabled={passengers === 1} onClick={() => setPassengers((count) => Math.max(1, count - 1))} className="h-11 w-11 rounded-full border border-slate-300 disabled:opacity-40">−</button><span className="font-bold">{passengers}</span><button type="button" aria-label={t("ui.addPassenger")} disabled={passengers === 8} onClick={() => setPassengers((count) => Math.min(8, count + 1))} className="h-11 w-11 rounded-full border border-slate-300 disabled:opacity-40">+</button></div>
+                  </div>
                   <PickupLocation value={fromAddress} onChange={setFromAddress} />
                   <HotelSearch value={toAddress} onChange={setToAddress} label={t("booking.to")} placeholder={t("booking.destinationPlaceholder")} />
                   <p className="text-xs text-slate-500">{t("places.searchNotice")}</p>
@@ -220,7 +248,7 @@ function BookingForm() {
                   <div className="flex flex-wrap justify-between gap-4"><span>{t("booking.route")}</span><strong className="min-w-0 break-words text-right text-[var(--color-text)]">{fromAddress} → {toAddress}</strong></div>
                   <div className="mt-4 flex justify-between gap-4"><span>{t("booking.pickup")}</span><strong className="text-[var(--color-text)]">{pickupDate} · {pickupTime}</strong></div>
                   <div className="mt-4 flex justify-between gap-4"><span>{t("booking.passengers")}</span><strong className="text-[var(--color-text)]">{passengers}</strong></div>
-                  <div className="mt-4 flex justify-between gap-4"><span>{t("booking.tripType")}</span><strong className="text-[var(--color-text)]">{tripType === "airport-transfer" ? t("fare.airport") : tripType === "tourist-tour" ? t("fare.tour") : t("fare.city")}</strong></div>
+                  <div className="mt-4 flex justify-between gap-4"><span>{t("booking.tripType")}</span><strong className="text-[var(--color-text)]">{t(tripLabel)}</strong></div>
                   <div className="mt-4 flex justify-between gap-4"><span>{t("booking.contactDetails")}</span><strong className="text-right text-[var(--color-text)]">{t("booking.passengerProvided")}</strong></div>
                   <div className="mt-4 flex justify-between gap-4 border-t border-black/10 pt-4"><span>{t("ui.total")}</span><strong className="text-xl text-[var(--color-primary)]">{priceLabel}</strong></div>
                 </div><fieldset className="space-y-3"><legend className="mb-3 text-lg font-bold">{t("payment.method")}</legend>
@@ -233,6 +261,11 @@ function BookingForm() {
                 </fieldset></div>
               )}
 
+              <div className="rounded-2xl bg-slate-50 p-4">
+                <FareSummary details={quote?.fareDetails} />
+                <p className="mt-3 text-xs leading-6 text-slate-500">{t("courses.vehiclePending")}</p>
+                {tripType === "airport-transfer" && <p className="mt-2 text-xs leading-6 text-slate-500">{t("booking.waiting")}</p>}
+              </div>
               <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-6">
                 <button type="button" onClick={() => setStep((currentStep) => Math.max(0, currentStep - 1))} disabled={step === 0 || pending} className="rounded-full px-4 py-3 text-sm font-semibold text-slate-500 disabled:invisible">{t("booking.back")}</button>
                 <Button type="submit" disabled={pending || step === steps.length - 1 && !quote}>{pending ? t("admin.saving") : step === steps.length - 1 ? t("booking.requestTransfer") : t("booking.continue")}</Button>
@@ -242,24 +275,6 @@ function BookingForm() {
           )}
         </section>
 
-        <aside className="h-fit rounded-[28px] bg-[var(--color-primary-dark)] p-6 text-white shadow-xl lg:sticky lg:top-24">
-          <fieldset disabled={pending || submitted} className="contents">
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-white/70">{t("booking.tripDetails")}</p>
-          <div className="mt-5 rounded-2xl border border-white/15 bg-white/5 p-5"><p className="text-xs text-white/70">{t(apiTripType === "TOURIST_TOUR" ? "fare.provisionalPrice" : "fare.calculatedPrice")}</p><p className="mt-2 text-4xl font-black tracking-tight">{submitted ? `${(finalPrice / 100).toFixed(2)} ${finalCurrency}` : priceLabel}</p></div>
-          <div className="mt-6 space-y-4 text-sm">
-            <div className="border-b border-white/10 pb-4"><div className="flex items-center gap-2 text-white/60"><MapPin size={14} />{t("booking.from")}</div><div className="mt-1 font-semibold">{fromAddress || t("booking.cityAddress")}</div></div>
-            <div className="border-b border-white/10 pb-4"><div className="text-white/60">{t("booking.to")}</div><div className="mt-1 font-semibold">{toAddress || t("booking.cityAddress")}</div></div>
-            <div className="border-b border-white/10 pb-4"><div className="text-white/60">{t("booking.tripType")}</div><select value={tripType} onChange={(event) => setTripType(event.target.value)} className="mt-1 w-full rounded-xl border border-white/20 bg-white/10 px-3 py-2 font-semibold text-white outline-none"><option value="airport-transfer" className="text-[var(--color-text)]">{t("fare.airport")}</option><option value="city-transfer" className="text-[var(--color-text)]">{t("fare.city")}</option><option value="tourist-tour" className="text-[var(--color-text)]">{t("fare.tour")}</option><option value="private-transfer" className="text-[var(--color-text)]">{t("booking.privateTransfer")}</option><option value="hotel-transfer" className="text-[var(--color-text)]">{t("booking.hotelTransfer")}</option></select><div className="mt-2 text-sm text-white/70">{t("courses.vehiclePending")}</div></div>
-            {tripType === "tourist-tour" && <div className="space-y-2">
-              <label className="block">{t("fare.circuit")}<select className="mt-1 w-full rounded-xl p-2 text-slate-900" value={tourCircuit} onChange={(event) => setTourCircuit(event.target.value)}><option value="SMALL">{t("fare.small")}</option><option value="GRAND">{t("fare.grand")}</option><option value="REMOTE">{t("fare.remote")}</option></select></label>
-              <label className="block">{t("fare.bookedHours")}<input className="mt-1 w-full rounded-xl p-2 text-slate-900" type="number" min="1" max="48" step="0.5" value={tourHours} onChange={(event) => setTourHours(Number(event.target.value))} /></label>
-            </div>}
-            <FareSummary details={quote?.fareDetails} />
-            <div><div className="text-white/60">{t("booking.passengers")}</div><div className="mt-2 flex items-center justify-between"><span className="font-semibold">{t("booking.adults")}</span><div className="flex items-center gap-3"><button type="button" aria-label={t("ui.removePassenger")} onClick={() => setPassengers((count) => Math.max(1, count - 1))} className="h-8 w-8 rounded-full border border-white/30">−</button><span>{passengers}</span><button type="button" aria-label={t("ui.addPassenger")} onClick={() => setPassengers((count) => Math.min(8, count + 1))} className="h-8 w-8 rounded-full border border-white/30">+</button></div></div></div>
-          </div>
-          <div className="mt-8 rounded-2xl bg-white/10 p-4 text-sm text-white/80">{t("booking.waiting")}</div>
-          </fieldset>
-        </aside>
       </div>
       )}
     </div>
