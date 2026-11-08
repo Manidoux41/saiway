@@ -35,6 +35,29 @@ and remove/reinstall the shortcut if the operating system does not refresh it.
 Native launch appearance depends on browser/OS support; ordinary browser tabs
 do not display an installed-app splash screen.
 
+## PostgreSQL connections on Vercel Hobby
+
+The application reuses one Prisma client per running process in development and
+production. Its PostgreSQL adapter allows at most two connections per process,
+releases idle connections after five seconds, recycles connections after one
+minute, and fails connection acquisition after five seconds rather than hanging.
+This is a per-instance limit, not a global limit across Vercel functions.
+
+Configure the existing `PRISMA_DATABASE_URL` in Vercel **Production** with the
+provider's pooled runtime connection URL for the same database (for example,
+Supabase's transaction pooler). Keep `DATABASE_URL` appropriate for Prisma
+migrations. Do not invent a hostname, password or port: copy the provider's exact
+connection settings. Redeploy after changing environment values.
+
+Prisma `P2037` / PostgreSQL `53300` means the database user's connection limit
+has been reached. The homepage reads its background from the database, so this
+can appear as a Next.js server error even for visitors without an account.
+Do not clear authentication or disable database checks to hide it. After deploying
+the bounded-pool fix, inspect provider connection usage and Vercel runtime logs if
+it persists. Old deployments and other clients may still occupy connections;
+do not terminate unknown sessions. A provider pooler avoids multiplying direct
+connections across serverless instances without requiring Vercel Pro.
+
 ## Homepage and partnership opportunities
 
 The homepage highlights airport arrivals, city trips and sightseeing instead of
