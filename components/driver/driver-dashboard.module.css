@@ -1,4 +1,4 @@
-.dashboard { max-width: 1320px; margin: 0 auto; padding: 32px 28px 56px; color: var(--color-text); }
+.dashboard { max-width: 1480px; margin: 0 auto; padding: 32px 28px 56px; color: var(--color-text); }
 .dashboard button, .dashboard a, .dashboard input, .dashboard select { -webkit-tap-highlight-color: transparent; }
 .dashboard button { cursor: pointer; }
 .dashboard button:disabled { cursor: wait; opacity: .55; }

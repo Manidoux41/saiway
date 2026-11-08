@@ -18,6 +18,7 @@ import { AccountingLedger } from "@/components/admin/accounting-ledger";
 import { accountingBalance, ledgerRows } from "@/lib/accounting-policy";
 import { VehicleExpenses } from "@/components/driver/vehicle-expenses";
 import { PayrollPanel } from "@/components/admin/payroll-panel";
+import { DashboardMenu, DashboardSection } from "@/components/layout/dashboard-menu";
 
 const VehicleIconPreview = dynamic(() => import("@/components/maps/vehicle-icon-preview").then((module) => module.VehicleIconPreview), { ssr: false, loading: () => <div className="h-[320px] animate-pulse rounded-xl bg-slate-100" /> });
 const vehicleIconCategories = ["TUK_TUK", "PASSAPP", "SEDAN", "SUV", "MINIVAN", "MINIBUS", "VAN", "OTHER"] as const;
@@ -25,6 +26,15 @@ const vehicleCategoryLabels = {
   TUK_TUK: "fleet.category.TUK_TUK", PASSAPP: "fleet.category.PASSAPP", SEDAN: "fleet.category.SEDAN", SUV: "fleet.category.SUV",
   MINIVAN: "fleet.category.MINIVAN", MINIBUS: "fleet.category.MINIBUS", VAN: "fleet.category.VAN", OTHER: "fleet.category.OTHER",
 } as const;
+
+export function ManagementMenu() {
+  const { t } = useLanguage();
+  return <DashboardMenu groups={[
+    { title: t("dashboard.fleet"), items: [{ title: t("fleet.management"), target: "admin-vehicles-section" }, { title: t("fleet.hubs"), target: "admin-hubs-section" }, { title: t("ui.rentals"), target: "admin-rentals-section" }, { title: t("dashboard.driverDocuments"), target: "admin-driver-documents-section" }] },
+    { title: t("dashboard.finance"), items: [{ title: t("dashboard.summary"), target: "admin-summary-section" }, { title: t("finance.title"), target: "admin-ledger-section" }, { title: t("finance.add"), target: "admin-entry-section" }, { title: t("payment.ledger"), target: "admin-receipts-section" }, { title: t("fuel.adminTitle"), target: "admin-expenses-section" }, { title: t("payroll.title"), target: "admin-payroll-section" }, { title: t("ui.forecasts"), target: "admin-forecasts-section" }, { title: t("dashboard.records"), target: "admin-records-section" }] },
+    { title: t("dashboard.settings"), items: [{ title: t("fare.settings"), target: "admin-fare-section" }, { title: t("cron.title"), target: "admin-cron-section" }, { title: t("ui.accounts"), target: "admin-users-section" }] },
+  ]} />;
+}
 
 export function ManagementPanel({ data, loading, loadError, onReload }: { data: ManagementData | null; loading: boolean; loadError: ReturnType<typeof adminErrorKey> | null; onReload: () => void }) {
   const { t, language } = useLanguage();
@@ -82,28 +92,23 @@ export function ManagementPanel({ data, loading, loadError, onReload }: { data: 
   const buttonClass = "rounded-full bg-[var(--color-primary)] p-3 text-sm font-semibold text-white";
 
   return <div className="mt-8 space-y-8">
-    <nav aria-label={t("dispatch.management")} className="flex flex-wrap gap-3">
-      <a href="#fleet-management" className={buttonClass}>{t("fleet.addVehicle")}</a>
-      <a href="#cron-heading" className={buttonClass}>{t("cron.title")}</a>
-      <a href="#fare-policy-heading" className={buttonClass}>{t("fare.settings")}</a>
-      <a href="#accounting-ledger" className={buttonClass}>{t("finance.title")}</a>
-    </nav>
     {error && <p role="alert" className="rounded-2xl bg-red-50 p-4 text-sm text-[var(--color-error)]">{t(error)}{error === "admin.sessionExpired" && <> <Link href="/auth" className="underline">{t("admin.openSignIn")}</Link></>}</p>}
     {saved && <p role="status" className="text-sm font-semibold text-emerald-700">{t("admin.recordSaved")}</p>}
     <fieldset disabled={pending || loading || Boolean(loadError)} className="contents">
-      <section className="rounded-[28px] bg-white p-6 shadow-sm">
+      <DashboardSection id="admin-fare-section" title={t("fare.settings")}><section className="rounded-[28px] bg-white p-6 shadow-sm">
         <h2 id="fare-policy-heading" className="text-xl font-bold">{t("fare.settings")}</h2>
         <p className="mt-2 text-sm text-slate-500">{t("fare.policyNotice")}</p>
         <TariffEditor key={JSON.stringify(data.farePolicy)} policy={data.farePolicy} history={data.tariffHistory} onSave={(value, effectiveAt) => void mutate("POST", { entity: "setting", data: { key: farePolicyKey, value, ...(effectiveAt ? { effectiveAt } : {}) } })} />
-      </section>
-      <section className="grid gap-4 md:grid-cols-4">{([{ label: "ui.actualRevenue", value: revenue }, { label: "ui.actualExpenses", value: expenses }, { label: "ui.forecastRevenue", value: forecastRevenue }, { label: "ui.forecastBalance", value: forecastRevenue - forecastExpenses }] as const).map(({ label, value }) => <div key={label} className="rounded-3xl bg-white p-5 shadow-sm"><div className="text-sm text-slate-500">{t(label)}</div><div className="mt-3 text-2xl font-black">{localizedNumber(language, { style: "currency", currency: "USD" }).format(value / 100)}</div></div>)}</section>
-      <section className="rounded-[28px] bg-white p-6 shadow-sm">
+      </section></DashboardSection>
+      <DashboardSection id="admin-summary-section" title={t("dashboard.summary")}><section className="grid gap-4 md:grid-cols-4">{([{ label: "ui.actualRevenue", value: revenue }, { label: "ui.actualExpenses", value: expenses }, { label: "ui.forecastRevenue", value: forecastRevenue }, { label: "ui.forecastBalance", value: forecastRevenue - forecastExpenses }] as const).map(({ label, value }) => <div key={label} className="rounded-3xl bg-white p-5 shadow-sm"><div className="text-sm text-slate-500">{t(label)}</div><div className="mt-3 text-2xl font-black">{localizedNumber(language, { style: "currency", currency: "USD" }).format(value / 100)}</div></div>)}</section></DashboardSection>
+      <DashboardSection id="admin-receipts-section" title={t("payment.ledger")}><section className="rounded-[28px] bg-white p-6 shadow-sm">
         <h2 className="text-xl font-bold">{t("payment.ledger")}</h2><p className="mt-2 text-sm text-slate-500">{t("payment.ledgerNotice")}</p>
         <div className="mt-4 flex flex-wrap gap-3">{[...new Set(data.receipts.map((item) => item.currency))].map((currency) => <strong key={currency} className="rounded-2xl bg-emerald-50 p-3 text-emerald-800">{localizedNumber(language, { style: "currency", currency }).format(data.receipts.filter((item) => item.currency === currency).reduce((sum, item) => sum + item.amountCents, 0) / 100)}</strong>)}</div>
         <div className="mt-4 overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr><th>{t("customer.abaReference")}</th><th>{t("payment.receivedVia")}</th><th>{t("admin.driver")}</th><th>{t("booking.date")}</th><th>{t("customer.abaAmount")}</th></tr></thead><tbody>{data.receipts.map((receipt) => <tr key={receipt.id} className="border-t"><td className="py-3">{receipt.booking.reference}<small className="block text-slate-500">{enumLabel(receipt.provider, t)} · {enumLabel(receipt.booking.status, t)}</small></td><td>{receipt.collectionMethod ? t(`payment.${receipt.collectionMethod}`) : receipt.provider === "ABA_PAYWAY" ? t("payment.ABA") : t("payment.legacyMethod")}</td><td>{receipt.booking.driver?.user.name ?? "—"}</td><td>{localizedDate(language, { dateStyle: "short", timeStyle: "short", timeZone: "Asia/Phnom_Penh" }).format(new Date(receipt.updatedAt))}</td><td>{localizedNumber(language, { style: "currency", currency: receipt.currency }).format(receipt.amountCents / 100)}</td></tr>)}</tbody></table>{!data.receipts.length && <p className="py-4 text-slate-500">{t("payment.noReceipts")}</p>}</div>
       </section>
-      <section className="rounded-[28px] bg-white p-6 shadow-sm"><h2 className="text-xl font-bold">{t("ui.accounts")}</h2><div className="mt-4 overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr><th>{t("records.name")}</th><th>{t("records.email")}</th><th>{t("ui.role")}</th><th>{t("records.status")}</th><th /></tr></thead><tbody>{data.users.map((item) => <tr key={item.id} className="border-t"><td className="py-3">{item.name}</td><td>{item.email}</td><td>{enumLabel(item.role, t)}</td><td>{enumLabel(item.status, t)}</td><td>{item.status !== "SUSPENDED" && item.id !== user?.id && <button type="button" onClick={() => { if (window.confirm(t("courses.confirmArchive"))) void mutate("DELETE", { entity: "user", id: item.id }); }} className="text-[var(--color-error)]">{t("ui.suspend")}</button>}</td></tr>)}</tbody></table></div></section>
-      <section className="rounded-[28px] bg-white p-6 shadow-sm" aria-labelledby="cron-heading">
+      </DashboardSection>
+      <DashboardSection id="admin-users-section" title={t("ui.accounts")}><section className="rounded-[28px] bg-white p-6 shadow-sm"><h2 className="text-xl font-bold">{t("ui.accounts")}</h2><div className="mt-4 overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr><th>{t("records.name")}</th><th>{t("records.email")}</th><th>{t("ui.role")}</th><th>{t("records.status")}</th><th /></tr></thead><tbody>{data.users.map((item) => <tr key={item.id} className="border-t"><td className="py-3">{item.name}</td><td>{item.email}</td><td>{enumLabel(item.role, t)}</td><td>{enumLabel(item.status, t)}</td><td>{item.status !== "SUSPENDED" && item.id !== user?.id && <button type="button" onClick={() => { if (window.confirm(t("courses.confirmArchive"))) void mutate("DELETE", { entity: "user", id: item.id }); }} className="text-[var(--color-error)]">{t("ui.suspend")}</button>}</td></tr>)}</tbody></table></div></section></DashboardSection>
+      <DashboardSection id="admin-cron-section" title={t("cron.title")}><section className="rounded-[28px] bg-white p-6 shadow-sm" aria-labelledby="cron-heading">
         <h2 id="cron-heading" className="text-xl font-bold">{t("cron.title")}</h2>
         <p className="mt-2 text-sm text-slate-600">{t("cron.description")}</p>
         <p className="mt-2 text-sm text-slate-500">{t("cron.schedule")}</p>
@@ -113,8 +118,8 @@ export function ManagementPanel({ data, loading, loadError, onReload }: { data: 
           <input type="checkbox" role="switch" checked={data.cron.gpsRetentionEnabled} disabled={pending || loading || Boolean(loadError)} onChange={(event) => void mutate("POST", { entity: "setting", data: { key: gpsRetentionSettingKey, value: event.target.checked } })} className="h-5 w-5 accent-[var(--color-primary)]" />
           {t("cron.gpsRetention")} · {t(data.cron.gpsRetentionEnabled ? "cron.enabled" : "cron.disabled")}
         </label>
-      </section>
-      <section className="grid gap-8 lg:grid-cols-2">
+      </section></DashboardSection>
+      <DashboardSection id="admin-vehicles-section" title={t("fleet.management")}>
         <div id="fleet-management" className="scroll-mt-6 rounded-[28px] bg-white p-6 shadow-sm"><h2 className="text-xl font-bold">{t("fleet.management")}</h2>
           <p className="mt-2 text-sm text-slate-500">{t("fleet.addVehicleHelp")}</p>
           <form onSubmit={(event) => create(event, "vehicle")} className="mt-4 grid gap-3 sm:grid-cols-3">
@@ -136,7 +141,8 @@ export function ManagementPanel({ data, loading, loadError, onReload }: { data: 
             </div>
           </div>)}</div>
         </div>
-        <div className="min-w-0 rounded-[28px] bg-white p-6 shadow-sm"><h2 className="text-xl font-bold">{t("finance.add")}</h2><p className="mt-2 text-sm text-slate-500">{t("finance.manualHelp")}</p><form onSubmit={(event) => create(event, "accounting")} className="mt-4 grid gap-3 sm:grid-cols-2">
+      </DashboardSection>
+      <DashboardSection id="admin-entry-section" title={t("finance.add")}><div className="min-w-0 rounded-[28px] bg-white p-6 shadow-sm"><h2 className="text-xl font-bold">{t("finance.add")}</h2><p className="mt-2 text-sm text-slate-500">{t("finance.manualHelp")}</p><form onSubmit={(event) => create(event, "accounting")} className="mt-4 grid gap-3 sm:grid-cols-2">
           <label>{t("records.type")}<select name="type" className={inputClass}>{["REVENUE", "EXPENSE", "CREDIT", "PURCHASE"].map((value) => <option key={value} value={value}>{enumLabel(value, t)}</option>)}</select></label>
           <label>{t("finance.category")}<select name="category" className={inputClass}>{(["OTHER", "TRIP", "FUEL", "MAINTENANCE", "SALARY"] as const).map((value) => <option key={value} value={value}>{t(`finance.${value}`)}</option>)}</select></label>
           <label>{t("records.description")}<input name="label" required maxLength={500} className={inputClass} /></label>
@@ -147,10 +153,9 @@ export function ManagementPanel({ data, loading, loadError, onReload }: { data: 
           <label className="flex items-center gap-3"><input name="isPaid" type="checkbox" className="h-5 w-5" />{t("finance.isPaid")}</label>
           <button className={`${buttonClass} sm:col-span-2`}>{t("ui.addEntry")}</button>
         </form></div>
-      </section>
-      <DriverLicenses users={data.users} />
-      <DriverBusinessCards users={data.users} onChanged={onReload} />
-      <section className="rounded-[28px] bg-white p-6 shadow-sm">
+      </DashboardSection>
+      <DashboardSection id="admin-driver-documents-section" title={t("dashboard.driverDocuments")}><DriverLicenses users={data.users} /><DriverBusinessCards users={data.users} onChanged={onReload} /></DashboardSection>
+      <DashboardSection id="admin-hubs-section" title={t("fleet.hubs")}><section className="rounded-[28px] bg-white p-6 shadow-sm">
         <h2 className="text-xl font-bold">{t("fleet.hubs")}</h2>
         <p className="mt-2 text-sm text-slate-500">{t("fleet.hubsHelp")}</p>
         <form onSubmit={(event) => create(event, "hub")} className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
@@ -167,13 +172,13 @@ export function ManagementPanel({ data, loading, loadError, onReload }: { data: 
           <input name="longitude" required type="number" min="-180" max="180" step="any" defaultValue={hub.longitude} className={inputClass} />
           <div className="flex flex-wrap gap-2"><button type="submit" className={buttonClass}>{t("dispatch.save")}</button>{hub.active && <button type="button" className="text-[var(--color-error)]" onClick={() => void mutate("DELETE", { entity: "hub", id: hub.id })}>{t("fleet.disableHub")}</button>}</div>
         </form>)}</div>
-      </section>
-      <section className="rounded-[28px] bg-white p-6 shadow-sm"><h2 className="text-xl font-bold">{t("ui.forecasts")}</h2><form onSubmit={(event) => create(event, "forecast")} className="mt-4 grid gap-3 md:grid-cols-4"><input name="month" required type="month" aria-label={t("records.month")} className={inputClass} /><input name="revenue" required type="number" min="0" step="0.01" placeholder={t("ui.expectedRevenue")} className={inputClass} /><input name="expense" required type="number" min="0" step="0.01" placeholder={t("ui.expectedExpenses")} className={inputClass} /><button className={buttonClass}>{t("ui.addForecast")}</button></form><div className="mt-5 grid gap-3 md:grid-cols-3">{data.forecasts.map((item) => <div key={item.id} className="rounded-2xl bg-[var(--color-input)] p-4 text-sm"><div>{localizedDate(language, { month: "long", year: "numeric", timeZone: "Asia/Phnom_Penh" }).format(new Date(item.month))}</div><div>+{localizedNumber(language, { style: "currency", currency: "USD" }).format(item.expectedRevenueCents / 100)}</div><div>−{localizedNumber(language, { style: "currency", currency: "USD" }).format(item.expectedExpenseCents / 100)}</div></div>)}</div></section>
-      <section className="rounded-[28px] bg-white p-6 shadow-sm"><h2 className="text-xl font-bold">{t("ui.rentals")}</h2><div className="mt-4 grid gap-3 md:grid-cols-3">{data.contracts.map((item) => <div key={item.id} className="rounded-2xl border p-4">{item.vehicle.name} · {item.vehicle.plate}<p>{item.provider} · {localizedNumber(language, { style: "currency", currency: "USD" }).format(item.monthlyCents / 100)} {t("ui.perMonth")} · {enumLabel(item.status, t)}</p></div>)}</div></section>
+      </section></DashboardSection>
+      <DashboardSection id="admin-forecasts-section" title={t("ui.forecasts")}><section className="rounded-[28px] bg-white p-6 shadow-sm"><h2 className="text-xl font-bold">{t("ui.forecasts")}</h2><form onSubmit={(event) => create(event, "forecast")} className="mt-4 grid gap-3 md:grid-cols-4"><input name="month" required type="month" aria-label={t("records.month")} className={inputClass} /><input name="revenue" required type="number" min="0" step="0.01" placeholder={t("ui.expectedRevenue")} className={inputClass} /><input name="expense" required type="number" min="0" step="0.01" placeholder={t("ui.expectedExpenses")} className={inputClass} /><button className={buttonClass}>{t("ui.addForecast")}</button></form><div className="mt-5 grid gap-3 md:grid-cols-3">{data.forecasts.map((item) => <div key={item.id} className="rounded-2xl bg-[var(--color-input)] p-4 text-sm"><div>{localizedDate(language, { month: "long", year: "numeric", timeZone: "Asia/Phnom_Penh" }).format(new Date(item.month))}</div><div>+{localizedNumber(language, { style: "currency", currency: "USD" }).format(item.expectedRevenueCents / 100)}</div><div>−{localizedNumber(language, { style: "currency", currency: "USD" }).format(item.expectedExpenseCents / 100)}</div></div>)}</div></section></DashboardSection>
+      <DashboardSection id="admin-rentals-section" title={t("ui.rentals")}><section className="rounded-[28px] bg-white p-6 shadow-sm"><h2 className="text-xl font-bold">{t("ui.rentals")}</h2><div className="mt-4 grid gap-3 md:grid-cols-3">{data.contracts.map((item) => <div key={item.id} className="rounded-2xl border p-4">{item.vehicle.name} · {item.vehicle.plate}<p>{item.provider} · {localizedNumber(language, { style: "currency", currency: "USD" }).format(item.monthlyCents / 100)} {t("ui.perMonth")} · {enumLabel(item.status, t)}</p></div>)}</div></section></DashboardSection>
     </fieldset>
-    <AccountingLedger data={data} />
-    <VehicleExpenses admin onChanged={onReload} />
-    <PayrollPanel admin onChanged={onReload} />
+    <DashboardSection id="admin-ledger-section" title={t("finance.title")}><AccountingLedger data={data} /></DashboardSection>
+    <DashboardSection id="admin-expenses-section" title={t("fuel.adminTitle")}><VehicleExpenses admin onChanged={onReload} /></DashboardSection>
+    <DashboardSection id="admin-payroll-section" title={t("payroll.title")}><PayrollPanel admin onChanged={onReload} /></DashboardSection>
     {previewVehicleId && (() => {
       const vehicle = data.vehicles.find((item) => item.id === previewVehicleId);
       return vehicle ? <div className="fixed inset-0 z-[1200] grid place-items-center overflow-y-auto bg-slate-950/60 p-4" role="dialog" aria-modal="true" aria-label={t("fleet.previewMap")}>

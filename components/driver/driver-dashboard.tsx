@@ -24,6 +24,7 @@ import { coordinateAddress } from "@/lib/booking-location";
 import { DriverAvailability } from "./driver-availability";
 import { VehicleExpenses } from "./vehicle-expenses";
 import { PayrollPanel } from "@/components/admin/payroll-panel";
+import { DashboardMenu, DashboardSection, DashboardWorkspace } from "@/components/layout/dashboard-menu";
 
 const TripMap = dynamic(() => import("./trip-map"), { ssr: false, loading: () => <div className="h-[370px] animate-pulse bg-slate-100" /> });
 const SavedRouteMap = dynamic(() => import("@/components/maps/saved-route-map").then((module) => module.SavedRouteMap), { ssr: false });
@@ -164,6 +165,11 @@ export function DriverDashboard() {
       <button type="button" className={styles.iconButton} title={t("driver.refresh")} aria-label={t("driver.refresh")} disabled={loading || pending} onClick={refresh}><RefreshCw size={19} className={loading ? "animate-spin" : ""} /></button>
     </header>
 
+    <DashboardWorkspace menu={<DashboardMenu groups={[
+      { title: t("dashboard.activity"), items: [...(!demo ? [{ title: t("driver.availabilityTitle"), target: "driver-availability-section" }] : []), { title: t("driver.planning"), target: "driver-planning-section" }, { title: t("auto.new"), target: "driver-walkup-section" }] },
+      ...(!demo ? [{ title: t("dashboard.finance"), items: [{ title: t("fuel.title"), target: "driver-fuel-section" }, { title: t("payroll.title"), target: "driver-payroll-section" }] }] : []),
+      { title: t("dashboard.documents"), items: [{ title: t("dashboard.driverDocuments"), target: "driver-documents-section" }, { title: t("driver.account"), target: "driver-account-section" }] },
+    ]} />}>
     <div className={styles.sourceBar}>
       <div className={styles.segment} role="group" aria-label={t("courses.driverTitle")}>
         <button type="button" aria-pressed={!demo} disabled={pending} onClick={() => switchMode("real")}><BriefcaseBusiness size={16} />{t("driver.real")}<span>{courses.length}</span></button>
@@ -175,9 +181,9 @@ export function DriverDashboard() {
     {demo && <p className={styles.demoNotice}><FlaskConical size={18} aria-hidden="true" />{t("driver.demoNotice")}</p>}
     {error && <p role="alert" className={styles.error}>{error}</p>}
     {message && <p role="status" className={styles.success}><Check size={16} />{message}</p>}
-    {!demo && <DriverAvailability value={driverAvailability} inService={courses.some((course) => ["DRIVER_EN_ROUTE", "DRIVER_ARRIVED", "TRIP_STARTED"].includes(course.status))} disabled={loading || pending || !loaded}
-      onPending={setPending} onSaved={(value) => { setDriverAvailability(value); sharing.retry(); refresh(); }} />}
-    <WalkupTrip location={currentPoint} gpsPhase={sharing.phase} retryGps={sharing.retry} disabled={demo || loading || pending || courses.some((course) => ["DRIVER_EN_ROUTE", "DRIVER_ARRIVED", "TRIP_STARTED"].includes(course.status))} onStarted={() => { setMode("real"); setTab("today"); refresh(); }} />
+    <div id="driver-availability-section" className="scroll-mt-32">{!demo && <DriverAvailability value={driverAvailability} inService={courses.some((course) => ["DRIVER_EN_ROUTE", "DRIVER_ARRIVED", "TRIP_STARTED"].includes(course.status))} disabled={loading || pending || !loaded}
+      onPending={setPending} onSaved={(value) => { setDriverAvailability(value); sharing.retry(); refresh(); }} />}</div>
+    <DashboardSection id="driver-walkup-section" title={t("auto.new")}><WalkupTrip location={currentPoint} gpsPhase={sharing.phase} retryGps={sharing.retry} disabled={demo || loading || pending || courses.some((course) => ["DRIVER_EN_ROUTE", "DRIVER_ARRIVED", "TRIP_STARTED"].includes(course.status))} onStarted={() => { setMode("real"); setTab("today"); refresh(); }} /></DashboardSection>
     {selected && <FareSummary details={selected.fareDetails} />}
     {selected?.status === "TRIP_STARTED" && selected.fareDetails?.mode === "TOUR" && <label className="my-3 block text-sm">{t("fare.circuitAtFinish")}
       <select value={tourCircuits[selected.id] ?? ""} onChange={(event) => {
@@ -222,7 +228,7 @@ export function DriverDashboard() {
       <span className={styles.nextRoute}><span>{next.fromAddress}</span><ArrowRight size={16} /><span>{next.toAddress}</span></span><ChevronRight size={20} className="shrink-0" />
     </button>}
 
-    <div className={styles.workspace}>
+    <div id="driver-planning-section" className={`${styles.workspace} scroll-mt-32`}>
       <section className={styles.planning} aria-busy={loading}>
         <div className={styles.sectionTitle}><h2>{t("driver.planning")}</h2><span>{visible.length}</span></div>
         <div className={styles.tabs} role="tablist" aria-label={t("driver.planning")}>
@@ -316,9 +322,9 @@ export function DriverDashboard() {
       </section>
     </div>
 
-    {!demo && <><VehicleExpenses /><PayrollPanel /></>}
-    <DriverLicenseCard />
-    <DriverContactQrCard />
-    <details className={styles.account}><summary><ShieldCheck size={18} />{t("driver.account")}</summary><ChangePasswordForm /></details>
+    {!demo && <><DashboardSection id="driver-fuel-section" title={t("fuel.title")}><VehicleExpenses /></DashboardSection><DashboardSection id="driver-payroll-section" title={t("payroll.title")}><PayrollPanel /></DashboardSection></>}
+    <DashboardSection id="driver-documents-section" title={t("dashboard.driverDocuments")}><DriverLicenseCard /><DriverContactQrCard /></DashboardSection>
+    <details id="driver-account-section" className={`${styles.account} scroll-mt-32`}><summary><ShieldCheck size={18} />{t("driver.account")}</summary><ChangePasswordForm /></details>
+    </DashboardWorkspace>
   </div>;
 }

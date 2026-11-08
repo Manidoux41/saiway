@@ -77,6 +77,29 @@ hotel transfers. Existing booking steps and server-side pricing are preserved.
 
 ## Database and administration
 
+### Organized administrator and driver workspaces
+
+Both workspaces have a sticky left sidebar on wide screens and a compact
+expandable menu on mobile/tablet. Administration keeps its four main destinations
+(dispatch, accounts, management, security). Management now groups navigation into Vehicles & locations,
+Accounting & payroll, and Settings & tools. Each tool has a labelled collapsible
+section instead of all forms/tables being expanded on one long page.
+The record correction editor is included in this navigation.
+
+The driver workspace groups shortcuts into Trips & availability, Accounting &
+payroll, and Documents & account. Availability, live GPS status and assigned-trip
+planning/actions remain visible. Autonomous trip creation, fuel, payslips and
+personal documents can be expanded only when needed. Demo mode hides live
+finance shortcuts and keeps its existing mutation restrictions.
+
+Menus and sections use keyboard-accessible native disclosures; selecting a
+submenu opens the target section and moves focus to it. Closing a section does
+not unmount forms or stop trip polling/location sharing. Admin account and
+management tools load on first visit and then stay mounted while switching main
+destinations to retain draft input and filters.
+No API permissions, dispatch, payment or accounting rules are changed.
+Labels are available in English, French and Khmer.
+
 ### Monthly accounting, vehicle costs and driver payroll
 
 Financial records use an explicit entry date, category and optional vehicle.
