@@ -1,8 +1,10 @@
 import { z } from "zod";
 import { contactQrImageSchema } from "@/lib/driver-contact-qr-client";
 import { farePolicySchema } from "@/lib/fare-policy";
+import { contactSettingsSchema } from "@/lib/contact-settings";
 
 export const managementSchema = z.object({
+  contact: contactSettingsSchema,
   cron: z.object({ gpsRetentionEnabled: z.boolean(), configured: z.boolean() }),
   farePolicy: farePolicySchema,
   tariffHistory: z.array(z.object({ id: z.string(), effectiveAt: z.string(), createdAt: z.string(), policy: farePolicySchema })).optional(),

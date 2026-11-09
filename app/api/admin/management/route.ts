@@ -8,6 +8,8 @@ import { activeFarePolicy } from "@/lib/fare-store";
 import { DispatchError, dispatchTransaction } from "@/lib/driver-dispatch";
 import { enqueueAvailabilityPush } from "@/lib/push-events";
 import { schedulePushDelivery } from "@/lib/push-delivery";
+import { contactSettingKey, contactSettingsSchema } from "@/lib/contact-settings";
+import { publicContact } from "@/lib/public-contact";
 
 export const runtime = "nodejs";
 
@@ -23,6 +25,7 @@ const fields = {
   pricing: z.object({ name, amountCents: cents, currency: z.literal("USD").optional(), direction: z.enum(["AIRPORT_TO_CITY", "CITY_TO_AIRPORT"]).nullable().optional(), tripType: z.enum(["AIRPORT_TRANSFER", "PRIVATE_TRANSFER", "HOTEL_TRANSFER"]).nullable().optional(), active: z.boolean().optional(), effectiveAt: date }),
   contract: z.object({ vehicleId: name, provider: name, monthlyCents: cents, startsAt: date, endsAt: date.nullable().optional(), status: z.enum(["ACTIVE", "INACTIVE"]) }),
   setting: z.discriminatedUnion("key", [
+    z.object({ key: z.literal(contactSettingKey), value: contactSettingsSchema.transform((value) => JSON.stringify(value)) }).strict(),
     z.object({ key: z.literal("heroBackground"), value: z.url().refine((value) => value.startsWith("https://"), "HTTPS image required") }).strict(),
     z.object({ key: z.literal(gpsRetentionSettingKey), value: z.boolean().transform(String) }).strict(),
     z.object({ key: z.literal(farePolicyKey), value: farePolicySchema.transform((value) => JSON.stringify(value)), effectiveAt: z.iso.datetime({ offset: true }).optional() }).strict(),
@@ -41,7 +44,7 @@ export async function GET(request: Request) {
       prisma.forecastLine.findMany({ orderBy: { month: "asc" } }),
       prisma.vehicleContract.findMany({ include: { vehicle: { select: { name: true, plate: true } } }, orderBy: { startsAt: "desc" } }),
       prisma.pricingRule.findMany({ where: { policy: { equals: Prisma.DbNull } }, orderBy: { effectiveAt: "desc" } }),
-      prisma.systemSetting.findMany({ where: { key: { in: ["heroBackground", gpsRetentionSettingKey, farePolicyKey] } } }),
+      prisma.systemSetting.findMany({ where: { key: { in: ["heroBackground", gpsRetentionSettingKey, farePolicyKey, contactSettingKey] } } }),
       prisma.payment.findMany({
         where: { status: "PAID", provider: { not: "ABA_PAYWAY_SANDBOX" } },
         select: { id: true, amountCents: true, currency: true, provider: true, collectionMethod: true, confirmedAt: true, updatedAt: true, booking: { select: { reference: true, status: true, vehicleId: true, driver: { select: { user: { select: { name: true } } } } } } },
@@ -49,8 +52,9 @@ export async function GET(request: Request) {
       }),
     ]);
     const retentionEnabled = gpsRetentionEnabled(settings.find((setting) => setting.key === gpsRetentionSettingKey)?.value);
+    const contact = await publicContact();
     const [active, tariffHistory] = await Promise.all([activeFarePolicy(), prisma.pricingRule.findMany({ where: { policy: { not: Prisma.DbNull } }, orderBy: [{ effectiveAt: "desc" }, { createdAt: "desc" }], take: 100, select: { id: true, effectiveAt: true, createdAt: true, policy: true } })]);
-    return Response.json({ users, vehicles, hubs: hubs.map((hub) => ({ ...hub, latitude: Number(hub.latitude), longitude: Number(hub.longitude) })), entries, forecasts, contracts, pricing, settings, receipts, farePolicy: active.policy, tariffHistory, cron: { gpsRetentionEnabled: retentionEnabled, configured: Boolean(process.env.CRON_SECRET) } }, { headers: { "Cache-Control": "no-store" } });
+    return Response.json({ contact: { email: contact.email, driverId: contact.driver?.id ?? null }, users, vehicles, hubs: hubs.map((hub) => ({ ...hub, latitude: Number(hub.latitude), longitude: Number(hub.longitude) })), entries, forecasts, contracts, pricing, settings, receipts, farePolicy: active.policy, tariffHistory, cron: { gpsRetentionEnabled: retentionEnabled, configured: Boolean(process.env.CRON_SECRET) } }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) { return failure(error); }
 }
 
@@ -133,6 +137,10 @@ async function mutate(request: Request) {
         }
         if (entity === "setting") {
           const value = fields.setting.parse(data);
+          if (value.key === contactSettingKey) {
+            const contact = contactSettingsSchema.parse(JSON.parse(value.value));
+            if (contact.driverId && !await tx.driverProfile.count({ where: { id: contact.driverId, user: { status: "ACTIVE" } } })) throw new z.ZodError([{ code: "custom", path: ["driverId"], message: "Select an active driver" }]);
+          }
           if (value.key === farePolicyKey) {
             const effectiveAt = "effectiveAt" in value && value.effectiveAt ? new Date(value.effectiveAt) : new Date();
             if (!await tx.pricingRule.count({ where: { policy: { not: Prisma.DbNull } } })) {

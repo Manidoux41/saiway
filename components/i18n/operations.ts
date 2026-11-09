@@ -12,6 +12,7 @@ import { financeCopy } from "@/components/i18n/finance-copy";
 import { vehicleExpenseCopy } from "@/components/i18n/vehicle-expense-copy";
 import { payrollCopy } from "@/components/i18n/payroll-copy";
 import { dashboardCopy } from "@/components/i18n/dashboard-copy";
+import { contactCopy } from "@/components/i18n/contact-copy";
 
 const en = {
   ...driverCopy.en,
@@ -28,6 +29,7 @@ const en = {
   ...vehicleExpenseCopy.en,
   ...payrollCopy.en,
   ...dashboardCopy.en,
+  ...contactCopy.en,
   "live.timeout": "GPS request timed out. Retry or enter the departure manually.",
   "password.title": "Change my password", "password.help": "Enter your current password and a different new password (8 to 128 characters). Existing sessions remain signed in.",
   "password.current": "Current password", "password.new": "New password", "password.confirm": "Confirm new password", "password.save": "Change password",
@@ -75,6 +77,7 @@ const fr: typeof en = {
   ...vehicleExpenseCopy.fr,
   ...payrollCopy.fr,
   ...dashboardCopy.fr,
+  ...contactCopy.fr,
   "live.timeout": "Délai GPS dépassé. Réessayez ou saisissez le départ manuellement.",
   "password.title": "Changer mon mot de passe", "password.help": "Saisissez votre mot de passe actuel et un nouveau mot de passe différent (8 à 128 caractères). Les sessions existantes restent connectées.",
   "password.current": "Mot de passe actuel", "password.new": "Nouveau mot de passe", "password.confirm": "Confirmer le nouveau mot de passe", "password.save": "Modifier le mot de passe",
@@ -122,6 +125,7 @@ const km: typeof en = {
   ...vehicleExpenseCopy.km,
   ...payrollCopy.km,
   ...dashboardCopy.km,
+  ...contactCopy.km,
   "live.timeout": "អស់ពេលរង់ចាំ GPS។ សូមសាកល្បងម្ដងទៀត ឬបញ្ចូលទីតាំងចេញដំណើរដោយដៃ។",
   "password.title": "ប្ដូរពាក្យសម្ងាត់របស់ខ្ញុំ", "password.help": "បញ្ចូលពាក្យសម្ងាត់បច្ចុប្បន្ន និងពាក្យសម្ងាត់ថ្មីដែលខុសគ្នា (8 ដល់ 128 តួអក្សរ)។ សម័យដែលបានចូលរួចនៅតែដំណើរការ។",
   "password.current": "ពាក្យសម្ងាត់បច្ចុប្បន្ន", "password.new": "ពាក្យសម្ងាត់ថ្មី", "password.confirm": "បញ្ជាក់ពាក្យសម្ងាត់ថ្មី", "password.save": "ប្ដូរពាក្យសម្ងាត់",

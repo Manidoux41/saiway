@@ -19,6 +19,7 @@ import { accountingBalance, ledgerRows } from "@/lib/accounting-policy";
 import { VehicleExpenses } from "@/components/driver/vehicle-expenses";
 import { PayrollPanel } from "@/components/admin/payroll-panel";
 import { DashboardMenu, DashboardSection } from "@/components/layout/dashboard-menu";
+import { contactSettingKey } from "@/lib/contact-settings";
 
 const VehicleIconPreview = dynamic(() => import("@/components/maps/vehicle-icon-preview").then((module) => module.VehicleIconPreview), { ssr: false, loading: () => <div className="h-[320px] animate-pulse rounded-xl bg-slate-100" /> });
 const vehicleIconCategories = ["TUK_TUK", "PASSAPP", "SEDAN", "SUV", "MINIVAN", "MINIBUS", "VAN", "OTHER"] as const;
@@ -32,7 +33,7 @@ export function ManagementMenu() {
   return <DashboardMenu groups={[
     { title: t("dashboard.fleet"), items: [{ title: t("fleet.management"), target: "admin-vehicles-section" }, { title: t("fleet.hubs"), target: "admin-hubs-section" }, { title: t("ui.rentals"), target: "admin-rentals-section" }, { title: t("dashboard.driverDocuments"), target: "admin-driver-documents-section" }] },
     { title: t("dashboard.finance"), items: [{ title: t("dashboard.summary"), target: "admin-summary-section" }, { title: t("finance.title"), target: "admin-ledger-section" }, { title: t("finance.add"), target: "admin-entry-section" }, { title: t("payment.ledger"), target: "admin-receipts-section" }, { title: t("fuel.adminTitle"), target: "admin-expenses-section" }, { title: t("payroll.title"), target: "admin-payroll-section" }, { title: t("ui.forecasts"), target: "admin-forecasts-section" }, { title: t("dashboard.records"), target: "admin-records-section" }] },
-    { title: t("dashboard.settings"), items: [{ title: t("fare.settings"), target: "admin-fare-section" }, { title: t("cron.title"), target: "admin-cron-section" }, { title: t("ui.accounts"), target: "admin-users-section" }] },
+    { title: t("dashboard.settings"), items: [{ title: t("contact.settings"), target: "admin-contact-section" }, { title: t("fare.settings"), target: "admin-fare-section" }, { title: t("cron.title"), target: "admin-cron-section" }, { title: t("ui.accounts"), target: "admin-users-section" }] },
   ]} />;
 }
 
@@ -95,6 +96,18 @@ export function ManagementPanel({ data, loading, loadError, onReload }: { data: 
     {error && <p role="alert" className="rounded-2xl bg-red-50 p-4 text-sm text-[var(--color-error)]">{t(error)}{error === "admin.sessionExpired" && <> <Link href="/auth" className="underline">{t("admin.openSignIn")}</Link></>}</p>}
     {saved && <p role="status" className="text-sm font-semibold text-emerald-700">{t("admin.recordSaved")}</p>}
     <fieldset disabled={pending || loading || Boolean(loadError)} className="contents">
+      <DashboardSection id="admin-contact-section" title={t("contact.settings")}>
+        <p className="text-sm text-slate-600">{t("contact.settingsHelp")}</p>
+        <form key={JSON.stringify(data.contact)} className="mt-4 grid min-w-0 gap-4 sm:grid-cols-2" onSubmit={(event) => {
+          event.preventDefault();
+          const values = new FormData(event.currentTarget);
+          void mutate("POST", { entity: "setting", data: { key: contactSettingKey, value: { email: values.get("email"), driverId: values.get("driverId") || null } } });
+        }}>
+          <label className="grid min-w-0 gap-2 text-sm">{t("contact.email")}<input type="email" name="email" required defaultValue={data.contact.email} className={inputClass} /></label>
+          <label className="grid min-w-0 gap-2 text-sm">{t("contact.selectDriver")}<select name="driverId" defaultValue={data.contact.driverId ?? ""} className={inputClass}><option value="">{t("contact.none")}</option>{data.users.filter((account) => account.driver && account.status === "ACTIVE").map((account) => <option key={account.id} value={account.driver?.id}>{account.name}</option>)}</select></label>
+          <button type="submit" className={`${buttonClass} sm:col-span-2`}>{t("courses.save")}</button>
+        </form>
+      </DashboardSection>
       <DashboardSection id="admin-fare-section" title={t("fare.settings")}><section className="rounded-[28px] bg-white p-6 shadow-sm">
         <h2 id="fare-policy-heading" className="text-xl font-bold">{t("fare.settings")}</h2>
         <p className="mt-2 text-sm text-slate-500">{t("fare.policyNotice")}</p>

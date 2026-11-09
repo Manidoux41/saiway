@@ -79,6 +79,16 @@ hotel transfers. Existing booking steps and server-side pricing are preserved.
 
 ### Organized administrator and driver workspaces
 
+The public `/contact` page shows the uploaded WhatsApp and Telegram QR codes of
+Rean Sokun by default, plus the contact email. Administrators can change the
+email and selected active driver (or choose email only) in Fleet & management →
+Settings & tools → Public contact page. Settings use the existing `SystemSetting`
+store; no migration is needed. Saving this setting publishes only the selected
+driver's contact QR images, not their private licence or account information.
+`GET /api/contact/qr/WHATSAPP` and `/api/contact/qr/TELEGRAM` serve those images
+without authentication or caching; other drivers' existing QR endpoints remain
+restricted. Missing QR images are explicitly reported with email as an alternative.
+
 Both workspaces have a sticky left sidebar on wide screens and a compact
 expandable menu on mobile/tablet. Administration keeps its four main destinations
 (dispatch, accounts, management, security). Management now groups navigation into Vehicles & locations,
