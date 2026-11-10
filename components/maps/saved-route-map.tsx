@@ -25,7 +25,7 @@ export function SavedRouteMap({ route, position, vehicle }: { route: SavedRoute;
     const line = L.polyline(saved.coordinates.map(([lon, lat]) => [lat, lon]), { color: "#F58220", weight: 5 }).addTo(map);
     L.circleMarker([saved.from.latitude, saved.from.longitude], { radius: 8, color: "#032ea1", fillOpacity: 1 }).addTo(map).bindTooltip(t("booking.from"));
     L.circleMarker([saved.to.latitude, saved.to.longitude], { radius: 8, color: "#F58220", fillOpacity: 1 }).addTo(map).bindTooltip(t("booking.to"));
-    map.fitBounds(line.getBounds().extend([saved.from.latitude, saved.from.longitude]).extend([saved.to.latitude, saved.to.longitude]), { padding: [25, 25], maxZoom: 15 });
+    map.fitBounds(line.getBounds().extend([saved.from.latitude, saved.from.longitude]).extend([saved.to.latitude, saved.to.longitude]), { padding: [25, 25], maxZoom: 15, animate: false });
     const observer = new ResizeObserver(() => map.invalidateSize());
     observer.observe(container.current);
     return () => { observer.disconnect(); marker.current = null; mapRef.current = null; map.remove(); };

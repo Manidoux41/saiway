@@ -136,24 +136,30 @@ export async function adminFleetLocations(request: Request) {
       }),
       prisma.hub.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true, address: true, latitude: true, longitude: true } }),
     ]);
-    const driversWithoutActiveVehicle = drivers.filter((driver) => !driver.bookings[0] && (
-      driver.returningToHub || Boolean(driver.locations[0] && driver.locations[0].recordedAt >= freshSince)
-    ));
-    const lastVehicles = new Map(await Promise.all(driversWithoutActiveVehicle.map(async (driver) => {
-      const completed = await prisma.booking.findFirst({
-        where: { driverId: driver.id, status: "TRIP_COMPLETED", vehicleId: { not: null } },
-        orderBy: { updatedAt: "desc" },
-        select: { vehicle: { select: { id: true, name: true, plate: true, iconCategory: true } } },
-      });
-      return [driver.id, completed?.vehicle ?? null] as const;
-    })));
+    const completedTrips = await prisma.booking.findMany({
+      where: { driverId: { in: drivers.map((driver) => driver.id) }, status: "TRIP_COMPLETED" },
+      orderBy: [{ completedAt: { sort: "desc", nulls: "last" } }, { updatedAt: "desc" }, { id: "desc" }],
+      distinct: ["driverId"],
+      select: { driverId: true, reference: true, completedAt: true, updatedAt: true, vehicle: { select: { id: true, name: true, plate: true, iconCategory: true } } },
+    });
+    const lastTrips = new Map(completedTrips.map((trip) => [trip.driverId, trip]));
+    const vehicleFallbackIds = drivers.filter((driver) => !driver.selectedVehicle && !driver.bookings[0]?.vehicle && lastTrips.has(driver.id) && !lastTrips.get(driver.id)?.vehicle).map((driver) => driver.id);
+    const vehicleTrips = vehicleFallbackIds.length ? await prisma.booking.findMany({
+      where: { driverId: { in: vehicleFallbackIds }, status: "TRIP_COMPLETED", vehicleId: { not: null } },
+      orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+      distinct: ["driverId"],
+      select: { driverId: true, vehicle: { select: { id: true, name: true, plate: true, iconCategory: true } } },
+    }) : [];
+    const fallbackVehicles = new Map(vehicleTrips.map((trip) => [trip.driverId, trip.vehicle]));
 
     return json({
       updatedAt: now,
       hubs: hubs.map((hub) => ({ ...hub, latitude: Number(hub.latitude), longitude: Number(hub.longitude) })),
       drivers: drivers.map((driver) => {
         const latest = driver.locations[0];
-        const location = latest && latest.recordedAt >= freshSince && (driver.isAvailable || driver.returningToHub || driver.bookings.length > 0) ? {
+        const lastTrip = lastTrips.get(driver.id);
+        const onDuty = driver.isAvailable || driver.returningToHub || driver.bookings.length > 0;
+        const location = latest && onDuty ? {
           latitude: Number(latest.latitude),
           longitude: Number(latest.longitude),
           accuracy: latest.accuracy === null ? null : Number(latest.accuracy),
@@ -162,17 +168,19 @@ export async function adminFleetLocations(request: Request) {
         } : null;
         const booking = driver.bookings[0] ?? null;
         const status = booking?.status === "TRIP_STARTED" ? "ON_TRIP"
+          : booking?.status === "DRIVER_ARRIVED" ? "WAITING_CLIENT"
           : booking && trackingStatuses.includes(booking.status) ? "TO_PICKUP"
             : booking ? "ASSIGNED"
               : driver.returningToHub ? "RETURNING_TO_HUB" : driver.isAvailable ? "AVAILABLE" : "UNAVAILABLE";
-        const nearestHub = !booking && status === "RETURNING_TO_HUB" && location
+        const stale = onDuty && (!latest || latest.recordedAt < freshSince);
+        const nearestHub = !booking && status === "RETURNING_TO_HUB" && location && !stale
           ? hubs.reduce<typeof hubs[number] | null>((nearest, hub) => {
               if (!nearest) return hub;
               return metersBetween(location, { latitude: Number(hub.latitude), longitude: Number(hub.longitude) }) < metersBetween(location, { latitude: Number(nearest.latitude), longitude: Number(nearest.longitude) }) ? hub : nearest;
             }, null)
             : null;
         const saved = booking?.routeDetails ? routeDetailsSchema.parse(booking.routeDetails) : null;
-        const target = booking
+        const target = booking && !stale
           ? { address: saved ? coordinateAddress(status === "ON_TRIP" ? saved.to : saved.from) : status === "ON_TRIP" ? booking.toAddress : booking.fromAddress, hub: null }
           : nearestHub
             ? { address: null, hub: { id: nearestHub.id, name: nearestHub.name, address: nearestHub.address, latitude: Number(nearestHub.latitude), longitude: Number(nearestHub.longitude) } }
@@ -183,9 +191,10 @@ export async function adminFleetLocations(request: Request) {
           status,
           location,
           booking: booking ? { id: booking.id, reference: booking.reference, status: booking.status } : null,
-          vehicle: booking?.vehicle ?? driver.selectedVehicle ?? lastVehicles.get(driver.id) ?? null,
+          lastCompletedTrip: !booking && lastTrip ? { reference: lastTrip.reference, completedAt: lastTrip.completedAt } : null,
+          vehicle: booking?.vehicle ?? driver.selectedVehicle ?? lastTrip?.vehicle ?? fallbackVehicles.get(driver.id) ?? null,
           target,
-          stale: Boolean(latest && !location),
+          stale,
         };
       }),
     });

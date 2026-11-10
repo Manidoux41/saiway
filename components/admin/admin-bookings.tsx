@@ -4,7 +4,7 @@ import { localizedDate, localizedNumber } from "@/lib/locale-format";
 import { useRef, useState, type FormEvent } from "react";
 import dynamic from "next/dynamic";
 import { z } from "zod";
-import { ArrowRight, CalendarDays, Check, ClipboardCheck, Clock3, Database, Mail, MapPin, Navigation, Pencil, Plus, RefreshCw, Save, Search, Trash2, UserRoundCheck, Users, X } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowRight, CalendarDays, Check, ClipboardCheck, Clock3, Database, Mail, MapPin, Navigation, Pencil, Plus, RefreshCw, Save, Search, Trash2, UserRoundCheck, Users, X } from "lucide-react";
 import { courseSchema, type Course } from "@/components/booking/course-dashboard";
 import { useBookings } from "@/components/booking/use-bookings";
 import { useLanguage } from "@/components/i18n/language-provider";
@@ -81,7 +81,8 @@ export function AdminBookings({ management, disabled }: { management: Management
   const { t, language } = useLanguage();
   const [pending, setPending] = useState(false);
   const mutationLock = useRef(false);
-  const { courses, setCourses, loading, loaded, error, refresh, lastUpdated } = useBookings("/api/admin/bookings", pending);
+  const [archived, setArchived] = useState(false);
+  const { courses, setCourses, loading, loaded, error, refresh, lastUpdated } = useBookings("/api/admin/bookings", pending, archived);
   const [mutationError, setMutationError] = useState("");
   const [message, setMessage] = useState("");
   const [view, setView] = useState<View>("all");
@@ -129,8 +130,15 @@ export function AdminBookings({ management, disabled }: { management: Management
         return;
       }
       const result = z.object({ booking: courseSchema }).parse(await response.json());
-      setCourses((current) => [...current.filter((course) => course.id !== result.booking.id), result.booking].sort((first, second) => Date.parse(first.pickupAt) - Date.parse(second.pickupAt)));
+      const archiveAction = body.action === "ARCHIVE" || body.action === "RESTORE";
+      setCourses((current) => [...current.filter((course) => course.id !== result.booking.id), ...(!archiveAction ? [result.booking] : [])].sort((first, second) => Date.parse(first.pickupAt) - Date.parse(second.pickupAt)));
       setSelectedId(result.booking.id); setEditor(null); setMessage(t("dispatch.saved"));
+      if (archiveAction) {
+        setSelectedId(null);
+        setMessage(t(body.action === "ARCHIVE" ? "archive.saved" : "archive.restored"));
+        return;
+      }
+      if (method === "POST") setArchived(false);
       clearFilters(); setView(method === "DELETE" ? "history" : "all");
     } catch { setMutationError(t("dispatch.failed")); }
     finally { mutationLock.current = false; setPending(false); }
@@ -141,17 +149,19 @@ export function AdminBookings({ management, disabled }: { management: Management
     <div className={styles.toolbar}><div><p className={styles.database}><Database size={15} />{t("dispatch.database")}</p><p className={styles.muted}>{lastUpdated ? `${t("dispatch.synced")} ${time(lastUpdated, { hour: "2-digit", minute: "2-digit", second: "2-digit" })}` : t("admin.loading")}</p></div><div className={styles.toolbarActions}><button type="button" className={styles.iconButton} disabled={pending || loading} onClick={refresh} title={t("driver.refresh")} aria-label={t("driver.refresh")}><RefreshCw size={18} className={loading ? "animate-spin" : ""} /></button><button type="button" className={styles.primaryButton} disabled={!management || blocked} onClick={() => openEditor("new")}><Plus size={18} />{t("dispatch.new")}</button></div></div>
     {(error || mutationError) && <p role="alert" className={styles.error}>{error || mutationError}</p>}
     {message && <p role="status" className={styles.success}><Check size={17} />{message}</p>}
-    <section className={styles.metrics} aria-label={t("dispatch.operations")}>
+    {!archived && <section className={styles.metrics} aria-label={t("dispatch.operations")}>
       {[
         { key: "today", label: t("dispatch.today"), count: courses.filter((course) => driverDay(course.pickupAt) === driverDay(new Date()) && !["CANCELLED", "REFUNDED", "NO_SHOW"].includes(course.status)).length, icon: CalendarDays, onClick: () => { setView("all"); setDate(driverDay(new Date())); } },
         { key: "toValidate", label: t("dispatch.toValidate"), count: courses.filter((course) => matchesView(course, "toValidate")).length, icon: ClipboardCheck, onClick: () => { setView("toValidate"); setDate(""); } },
         { key: "toAssign", label: t("dispatch.toAssign"), count: courses.filter((course) => matchesView(course, "toAssign")).length, icon: UserRoundCheck, onClick: () => { setView("toAssign"); setDate(""); } },
         { key: "ongoing", label: t("dispatch.ongoing"), count: courses.filter((course) => matchesView(course, "ongoing")).length, icon: Navigation, onClick: () => { setView("ongoing"); setDate(""); } },
       ].map(({ key, label, count, icon: Icon, onClick }) => <button type="button" key={key} onClick={() => { onClick(); setQuery(""); setDriverId(""); }}><span><Icon size={17} />{label}</span><strong>{loaded ? count : "…"}</strong><ArrowRight size={16} /></button>)}
-    </section>
+    </section>}
     <div ref={editSection} className={styles.editorAnchor}>{editor && management && <BookingForm key={editor === "new" ? "new" : editor.id} course={editor === "new" ? null : editor} management={management} courses={courses} pending={pending || disabled || Boolean(error)} onSave={(body) => void mutate(editor === "new" ? "POST" : "PATCH", body)} onClose={() => setEditor(null)} />}</div>
     <div className={styles.workspace}>
       <section className={styles.schedule} aria-busy={loading}>
+        <button type="button" className={styles.secondaryButton} disabled={pending} aria-pressed={archived} onClick={() => { setArchived((value) => !value); clearFilters(); setEditor(null); setSelectedId(null); setMessage(""); setMutationError(""); refresh(); }}><Archive size={17} />{t(archived ? "archive.back" : "archive.show")}</button>
+        {archived && <p className={styles.footnote}>{t("archive.notice")}</p>}
         <div className={styles.sectionHeading}><h2>{t("courses.adminTitle")}</h2><span className={styles.muted}>{visible.length} {t("dispatch.results")}</span></div>
         <div className={styles.views} role="group" aria-label={t("courses.adminTitle")}>{views.map((value) => <button key={value} type="button" aria-pressed={view === value} onClick={() => setView(value)}>{t(`dispatch.${value}`)}</button>)}</div>
         <div className={styles.filters}><label className={styles.search}><Search size={17} /><input type="search" aria-label={t("dispatch.search")} placeholder={t("dispatch.search")} value={query} onChange={(event) => setQuery(event.target.value)} /></label><select aria-label={t("dispatch.allDrivers")} value={driverId} onChange={(event) => setDriverId(event.target.value)}><option value="">{t("dispatch.allDrivers")}</option>{management?.users.filter((user) => user.role === "DRIVER" && user.driver).map((user) => <option key={user.id} value={user.driver!.id}>{user.name}</option>)}</select><input type="date" aria-label={t("dispatch.allDates")} value={date} onChange={(event) => setDate(event.target.value)} /><button type="button" className={styles.iconButton} onClick={clearFilters} title={t("dispatch.clear")} aria-label={t("dispatch.clear")}><X size={16} /></button></div>
@@ -183,7 +193,7 @@ export function AdminBookings({ management, disabled }: { management: Management
           {selected.driverObservations && <div className={styles.notes}><h4>{t("auto.observations")}</h4><p>{selected.driverObservations}</p></div>}
           {selected.finalLatitude != null && selected.finalLongitude != null && <p className="p-3 text-xs">GPS ({t("auto.completed")}): {selected.finalLatitude}, {selected.finalLongitude}</p>}
           {selected.statusHistory?.length ? <details className="m-3 rounded-xl border p-3"><summary className="cursor-pointer font-semibold">{t("auto.history")}</summary><ol className="space-y-3 pt-3">{selected.statusHistory.map((event, index) => <li key={index} className="break-words text-sm"><strong>{time(event.createdAt)} · {statusLabel(event.status)}</strong><p>{bookingHistoryNote(event.note, t, (cents) => localizedNumber(language, { style: "currency", currency: "USD" }).format(cents / 100))}</p></li>)}</ol></details> : null}
-          {!selected.payments?.some((payment) => ["PAID", "PROCESSING"].includes(payment.status)) && <form key={`${selected.id}-${selected.priceCents}`} className="m-3 space-y-3 rounded-xl border p-3" onSubmit={(event) => { event.preventDefault(); const form = new FormData(event.currentTarget); void mutate("PATCH", { id: selected.id, finalPriceCents: Math.round(Number(form.get("finalPrice")) * 100), priceReason: String(form.get("priceReason")) }); }}>
+          {!archived && !selected.payments?.some((payment) => ["PAID", "PROCESSING"].includes(payment.status)) && <form key={`${selected.id}-${selected.priceCents}`} className="m-3 space-y-3 rounded-xl border p-3" onSubmit={(event) => { event.preventDefault(); const form = new FormData(event.currentTarget); void mutate("PATCH", { id: selected.id, finalPriceCents: Math.round(Number(form.get("finalPrice")) * 100), priceReason: String(form.get("priceReason")) }); }}>
             <label className="block text-sm">{t("auto.final")} (USD)<input required name="finalPrice" type="number" min="0" max={selected.fareDetails?.mode === "AIRPORT" || selected.tripType === "AIRPORT_TRANSFER" ? 30 : 100000} step="0.01" defaultValue={selected.priceCents / 100} className="mt-1 w-full rounded-xl border p-3" disabled={blocked} /></label>
             <label className="block text-sm">{t("auto.reason")}<textarea required name="priceReason" minLength={3} maxLength={2000} className="mt-1 w-full rounded-xl border p-3" disabled={blocked} /></label>
             <button type="submit" className={styles.secondaryButton} disabled={blocked}>{t("auto.correct")}</button>
@@ -194,11 +204,13 @@ export function AdminBookings({ management, disabled }: { management: Management
             {!closed(selected) && selected.originType !== "DRIVER" && <button type="button" className={styles.secondaryButton} disabled={!management || blocked} onClick={() => openEditor(selected)}>{selected.driverId ? <Pencil size={16} /> : <UserRoundCheck size={16} />}{t(selected.driverId ? "dispatch.edit" : "dispatch.assign")}</button>}
             {selected.customer.email && <a className={styles.iconButton} href={`mailto:${selected.customer.email}`} aria-label={t("driver.email")} title={t("driver.email")}><Mail size={17} /></a>}
             {!closed(selected) && <button type="button" className={styles.dangerButton} disabled={blocked} aria-label={t("courses.cancel")} title={t("courses.cancel")} onClick={() => { if (window.confirm(t("courses.confirmCancel"))) void mutate("DELETE", { id: selected.id, status: "CANCELLED" }); }}><Trash2 size={17} /></button>}
+            <button type="button" className={styles.secondaryButton} disabled={blocked || !archived && ongoing.includes(selected.status)} onClick={() => { if (window.confirm(t(archived ? "archive.confirmRestore" : closed(selected) ? "archive.confirm" : "archive.confirmCancel"))) void mutate("PATCH", { id: selected.id, action: archived ? "RESTORE" : "ARCHIVE" }); }}>{archived ? <ArchiveRestore size={17} /> : <Archive size={17} />}{t(archived ? "archive.restore" : "archive.remove")}</button>
           </div>
+          {!archived && ongoing.includes(selected.status) && <p className={styles.footnote}>{t("archive.ongoing")}</p>}
           <p className={styles.footnote}>{t("dispatch.paymentNote")}</p><p className={styles.footnote}>{t("driver.mapPrivacy")}</p>
         </> : <div className={styles.emptyInspector}><Clock3 size={30} /><p>{t("dispatch.select")}</p></div>}
       </section>
     </div>
-    <section className={styles.driverSchedule}><h2>{t("dispatch.driverLoad")}</h2><div>{management?.users.filter((user) => user.role === "DRIVER" && user.driver && user.status === "ACTIVE").map((user) => { const assigned = courses.filter((course) => course.driverId === user.driver!.id && !closed(course)); return <button key={user.id} type="button" aria-pressed={driverId === user.driver!.id} onClick={() => { setDriverId(user.driver!.id); setView("all"); setDate(""); setQuery(""); }}><span className={styles.availability} data-available={user.driver!.isAvailable} /><strong>{user.name}</strong><span>{assigned.length} {t("dispatch.assignedTrips")}</span></button>; })}</div></section>
+    {!archived && <section className={styles.driverSchedule}><h2>{t("dispatch.driverLoad")}</h2><div>{management?.users.filter((user) => user.role === "DRIVER" && user.driver && user.status === "ACTIVE").map((user) => { const assigned = courses.filter((course) => course.driverId === user.driver!.id && !closed(course)); return <button key={user.id} type="button" aria-pressed={driverId === user.driver!.id} onClick={() => { setDriverId(user.driver!.id); setView("all"); setDate(""); setQuery(""); }}><span className={styles.availability} data-available={user.driver!.isAvailable} /><strong>{user.name}</strong><span>{assigned.length} {t("dispatch.assignedTrips")}</span></button>; })}</div></section>}
   </div>;
 }

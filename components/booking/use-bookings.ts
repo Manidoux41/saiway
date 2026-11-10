@@ -8,7 +8,7 @@ import { driverAvailabilitySchema, type DriverAvailabilityState } from "@/lib/dr
 
 const bookingsSchema = z.object({ bookings: z.array(courseSchema), driverAvailability: driverAvailabilitySchema.optional() });
 
-export function useBookings(endpoint: "/api/admin/bookings" | "/api/driver/bookings" | "/api/bookings", paused = false) {
+export function useBookings(endpoint: "/api/admin/bookings" | "/api/driver/bookings" | "/api/bookings", paused = false, archived = false) {
   const { t } = useLanguage();
   const [courses, setCourses] = useState<Course[]>([]);
   const [driverAvailability, setDriverAvailability] = useState<DriverAvailabilityState | null>(null);
@@ -32,12 +32,13 @@ export function useBookings(endpoint: "/api/admin/bookings" | "/api/driver/booki
   useEffect(() => {
     if (paused) return;
     const controller = new AbortController();
+    const url = endpoint === "/api/admin/bookings" && archived ? `${endpoint}?archived=true` : endpoint;
     inFlight.current = true;
     async function load() {
       let failureKey: "courses.loadUnavailable" | "courses.sessionExpired" | "courses.invalidResponse" = "courses.loadUnavailable";
       const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(30_000)]);
       try {
-        const response = await fetch(endpoint, { cache: "no-store", signal });
+        const response = await fetch(url, { cache: "no-store", signal });
         if (response.status === 401 || response.status === 403) failureKey = "courses.sessionExpired";
         if (!response.ok) throw new Error("Bookings unavailable");
         failureKey = "courses.invalidResponse";
@@ -53,7 +54,7 @@ export function useBookings(endpoint: "/api/admin/bookings" | "/api/driver/booki
     }
     void load();
     return () => { controller.abort(); inFlight.current = false; };
-  }, [endpoint, revision, paused, t]);
+  }, [endpoint, revision, paused, t, archived]);
 
-  return { courses, setCourses, loaded, loading, error, setError, refresh, lastUpdated, driverAvailability, setDriverAvailability };
+  return { courses: endpoint === "/api/admin/bookings" ? courses.filter((course) => Boolean(course.adminArchivedAt) === archived) : courses, setCourses, loaded, loading, error, setError, refresh, lastUpdated, driverAvailability, setDriverAvailability };
 }

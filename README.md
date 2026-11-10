@@ -1,20 +1,177 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+<div align="center">
+
+<img src="./public/icons/saiway-mark.svg" width="88" height="88" alt="Logo SAIWAY">
+
+# SAIWAY
+
+**Your easy way to Siem Reap**
+
+🔵 Réservations · 🟢 Chauffeurs & GPS · 🟠 Comptabilité · 🔴 Administration
+
+**Transferts privés, trajets urbains et découvertes touristiques à Siem Reap.**
+
+🇬🇧 English · 🇫🇷 Français · 🇰🇭 ខ្មែរ
+
+</div>
+
+---
+
+## 🧭 Sommaire
+
+- [Fonctionnalités intégrées](#-fonctionnalités-intégrées)
+- [Parcours et espaces](#-parcours-et-espaces)
+- [Style, accessibilité et chargement](#-style-accessibilité-et-chargement)
+- [Suivi GPS : possibilités et limites](#-suivi-gps--possibilités-et-limites)
+- [Démarrer le projet](#getting-started)
+- [Installation mobile et identité visuelle](#mobile-app-branding)
+- [Base de données et administration](#database-and-administration)
+- [Documentation technique détaillée](#-documentation-technique)
+
+## 🌈 Fonctionnalités intégrées
+
+Ce catalogue décrit ce qui est implémenté, pas une promesse de disponibilité
+des services tiers. Certaines fonctions nécessitent une configuration, des
+autorisations ou des migrations dans l’environnement déployé.
+
+| Espace | Fonctionnalités |
+|---|---|
+| 🔵 **Accueil & réservation** | Formulaire unifié ; transfert aéroport, trajet urbain, transfert privé, hôtel et circuit touristique ; départ GPS/carte ou adresse, suggestions de lieux, destination, passagers, bagages, vol, date/heure et besoins particuliers. |
+| 💰 **Tarification** | Devis calculé côté serveur, politique tarifaire versionnée, zones et circuits, distance/temps et suppléments selon les règles configurées ; détail du prix et confirmation des ajustements. |
+| 👤 **Compte client** | Inscription et connexion, profil, réservations personnelles, prochaines courses, historique, annulation selon les règles applicables, choix du paiement et suivi du chauffeur affecté. |
+| 🟢 **Disponibilité & attribution** | Interrupteur disponible/indisponible, véhicule actif sélectionné, statut en service ; attribution automatique d’une nouvelle réservation au chauffeur éligible le plus proche avec GPS fiable, puis ancienneté de disponibilité ; contrôle des places et conflits d’horaires. Attribution manuelle si aucun candidat ne convient. |
+| 🚘 **Espace chauffeur** | Planning, recherche/filtres, acceptation et progression de la course, trajet vers le client, arrivée, départ, fin de course, observations et encaissement. Mode démonstration distinct des données réelles. |
+| 🧳 **Courses autonomes** | Départ d’une course sans réservation préalable, passager de passage, type de trajet/circuit, itinéraire et points GPS, estimation puis tarif final ; confirmation explicite si le GPS ne suffit pas pour calculer la distance. |
+| 🗺️ **Flotte & GPS** | Carte Leaflet, positions et véhicules, statuts opérationnels, hubs, itinéraires et estimation d’arrivée, plein écran ; un seul flux GPS chauffeur alimente la supervision et le suivi client autorisé. |
+| 📍 **Reprise du suivi** | Nouvelle acquisition GPS au retour au premier plan, à la restauration de page et au retour du réseau ; nouvelles tentatives après échec ; horodatage réel conservé ; positions périmées explicitement signalées. |
+| 💳 **Paiements** | Paiement en ligne ABA PayWay/KHQR selon configuration ou paiement au chauffeur ; méthode réelle espèces/carte/ABA/autre saisie après la course ; QR ABA affiché dans le parcours concerné ; contrôle de confirmation, rapprochement et prévention des doublons. |
+| 🧾 **Factures & PDF** | Facture client après confirmation d’un paiement réel, contrats de travail et bulletins de paie ; en-tête SAIWAY avec logo et slogan, contrôles d’accès et versions de documents adaptées au parcours. |
+| 🟠 **Comptabilité** | Recettes issues des paiements validés, écritures datées, filtres par mois/période/type/catégorie/véhicule/description, soldes enregistrés et encaissés distincts ; corrections manuelles auditées, sources financières automatiques protégées. |
+| ⛽ **Carburant & entretien** | Saisie chauffeur du véhicule, kilométrage, litres, plein complet/partiel, montant, devise et date ; maintenance côté administration ; approbation/rejet motivé et inscription en dépense seulement après validation. |
+| 👥 **Paie & personnel** | Salaire contractuel et prorata, commission configurée par les règles de paie existantes, primes/retenues motivées ; brouillon, recalcul, validation, PDF et paiement effectif distincts. Coordonnées employeur administrables. |
+| 🪪 **Documents & cartes de visite** | Profil chauffeur, photos et permis recto/verso, contrats ; cartes de visite avec logo, photo et téléphone de réservation, QR WhatsApp/Telegram chargés par le chauffeur, génération et impression depuis l’administration. |
+| 🔔 **Notifications push** | Activation volontaire par appareil, désactivation et test ; événements de réservation, affectation et progression pris en charge par une file persistante avec tentatives de livraison. Destinataires limités aux personnes concernées. |
+| 🔴 **Gestion administrateur** | Comptes et rôles, statut actif/suspendu, véhicules et icônes de carte, hubs, tarifs, réglages, finances, documents et historique d’audit ; menus latéraux et sous-menus dépliants. |
+| 🗃️ **Archivage des courses** | Retrait réversible des listes administrateur, y compris courses terminées ; annulation atomique des courses non commencées ; protection des courses en service ; restauration sans réactivation, finances et historique conservés. |
+| 📝 **Blog touristique** | Création/modification/suppression d’articles, brouillons et publication, langue de rédaction FR/EN/KM, photos/légendes/remplacement, liaison privée à une course terminée ; jusqu’à trois articles publiés à la une sur l’accueil. |
+| ✉️ **Contact & partenariats** | Page contact avec QR WhatsApp/Telegram du chauffeur de contact sélectionné et email administrable ; invitations aux hôtels, agences et chauffeurs partenaires, sans fausses statistiques ni partenariats inventés. |
+| 📱 **Installation mobile** | PWA, manifeste, service worker, icônes Android/iOS, favicon et écrans de lancement utilisant la marque du header ; mise à jour des ressources statiques sans cache des données privées/API. |
+| 🌍 **Langues & ergonomie** | Interface en anglais, français et khmer, dates/nombres localisés, horaires métier au Cambodge, navigation responsive, formulaires conservés dans les rubriques repliées et interactions accessibles au clavier. |
+| 🎨 **Décor & interactions** | Paysage vectoriel local inspiré de Siem Reap, arrière-plan de marque sur l’application, parallaxe CSS progressif sur grand écran compatible, cartes interactives au survol et focus visibles ; respect de la réduction des animations. |
+| ⚙️ **Exploitation** | Prisma/PostgreSQL, pool borné de connexions, API avec permissions, contrôle des versions concurrentes et transactions métier ; tâches planifiées authentifiées pour livraison push et rétention GPS, activables/configurables selon leur documentation. |
+
+## 🛣️ Parcours et espaces
+
+| Destination | Accès et usage |
+|---|---|
+| `/` | Accueil, réservation rapide, prestations, articles à la une et partenariats. |
+| `/booking` | Réservation et revue du trajet/prix ; connexion nécessaire pour enregistrer une réservation personnelle. |
+| `/auth` | Inscription client et connexion ; le rôle provient du compte, jamais d’un choix libre donnant des droits. |
+| `/account` | Réservations, paiements et profil du client connecté. |
+| `/booking/track` | Suivi de la course du client autorisé. |
+| `/driver` | Espace chauffeur : disponibilité, GPS, courses, carburant, paie et documents. |
+| `/admin` | Répartition, comptes, flotte/gestion, blog/photos et sécurité ; API réservées aux administrateurs actifs. |
+| `/blog` et `/blog/<postId>` | Journal public et articles publiés ; les brouillons/photos privées ne sont pas publics. |
+| `/contact` | Contacts de réservation configurés par l’administration. |
+| `/about`, `/help`, `/install` | Présentation, aide et installation mobile. |
+| `/terms`, `/privacy`, `/cancellation-policy` | Conditions, confidentialité et politique d’annulation. |
+
+> 🟢 **Paiement validé ≠ course attribuée.** L’affectation ou la fin d’une course
+> ne prouvent jamais un paiement. Un PDF généré ne prouve pas non plus le
+> versement d’un salaire.
+>
+> 🟠 **Services à configurer.** Le paiement en ligne dépend du compte marchand
+> et des paramètres ABA ; les push dépendent du consentement, de VAPID et de
+> leur exécution planifiée ; la cartographie dépend de fournisseurs adaptés à
+> la charge et aux exigences de confidentialité.
+>
+> 🔴 **Pas de promesse GPS en arrière-plan.** Une PWA fermée ou suspendue ne
+> peut pas garantir l’envoi de positions. Une application native avec les
+> permissions appropriées est nécessaire pour ce besoin.
+
+## 🎨 Style, accessibilité et chargement
+
+- Couleurs de marque : 🔵 bleu `#032EA1`, 🔴 rouge `#E00025`, surfaces claires
+  et accents de paysage inspirés de Siem Reap.
+- Décor vectoriel local par défaut : aucun téléchargement de grande photo
+  externe pour ce décor. Une image d’accueil explicitement configurée en
+  administration reste prioritaire.
+- Parallaxe sans écouteur JavaScript de défilement, sur grand écran uniquement
+  si les animations pilotées par le scroll sont supportées. Décor statique sur
+  les autres navigateurs, sur mobile et avec `prefers-reduced-motion`.
+- Navigation clavier avec focus visibles ; aucune animation ne bloque un
+  formulaire ou ne retarde artificiellement l’accès au contenu.
+- Chargement à la demande des outils administrateur secondaires, sans perdre
+  leurs formulaires après première ouverture. Les cartes conservent leurs
+  chargements différés.
+- Requêtes indépendantes de l’accueil exécutées en parallèle ; squelette léger
+  pendant les navigations de réservation. Les données privées restent fraîches :
+  aucun cache partagé de comptes, paiements ou positions.
+- La rapidité réelle dépend également du réseau, de la base et des fournisseurs
+  cartographiques. Aucun score Lighthouse ni pourcentage de gain n’est inventé.
+
+## 📍 Suivi GPS : possibilités et limites
+
+Le chauffeur autorise la localisation et garde sa webapp ouverte lorsqu’il est
+disponible, affecté à une course ou en retour au hub. Le maintien de l’écran allumé
+est demandé si le navigateur le permet, sans en garantir l’acceptation.
+
+La webapp réacquiert un point **frais** à son retour au premier plan, lors d’un
+événement de restauration de page ou après reconnexion. Un échec initial est
+réessayé automatiquement ; une permission refusée reste à rétablir par le
+chauffeur. Un point ancien n’est jamais re-daté pour simuler un signal GPS neuf.
+Les requêtes et abonnements du suivi sont nettoyés au changement de session.
+
+Dans l’administration :
+
+- statuts distincts **Disponible**, **Indisponible**, **Course attribuée**,
+  **En route vers le client**, **En attente du client**, **Client à bord** et
+  **Retour au hub** ;
+- dernière course terminée et heure de fin (si renseignée) affichées séparément du statut de
+  disponibilité actuel ;
+- heure réelle de la dernière mesure GPS ; après deux minutes, le point est
+  signalé périmé, atténué et exclu du nombre de positions récentes ;
+- les points périmés en service restent visibles comme **dernière position
+  connue**, sans estimation d’itinéraire présentée comme actuelle ;
+- aucune position n’est exposée dans la flotte lorsqu’un chauffeur n’est plus
+  disponible, n’a pas de course active et n’est pas en retour au hub ;
+- le suivi client reste limité à sa réservation autorisée et s’arrête à sa fin.
+
+Les limites iOS/Android ne sont pas contournées par un service worker, un ping ou
+une notification push. L’indication de fraîcheur est une mesure de la réception
+GPS, pas une preuve que l’application est ouverte ou fermée.
 
 ## Getting Started
 
-First, run the development server:
+Projet [Next.js](https://nextjs.org), React, TypeScript et Prisma/PostgreSQL.
+Avec les dépendances installées et l’environnement configuré :
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Ouvrir [http://localhost:3000](http://localhost:3000), ou le port choisi avec
+`npm run dev -- --port 3001`.
+
+```bash
+npx prisma generate
+npx tsc --noEmit
+npm run lint
+npm run build
+```
+
+`npm test` inclut des tests d’intégration qui écrivent dans une base : utiliser
+une **base de validation isolée**, un serveur de test et les deux variables
+`DATABASE_URL` et `PRISMA_DATABASE_URL` pointant sur cette base. Ne jamais lancer
+ces tests contre les données d’exploitation. `VALIDATION_URL` désigne le serveur
+de validation. Les migrations sont à appliquer séparément après sauvegarde et
+vérification de la base ciblée.
+
+## 📚 Documentation technique
+
+La référence ci-dessous conserve les contrats API, règles métier, variables,
+limites et procédures détaillées. Les sections historiques de migration
+décrivent ce qu’il faut appliquer à chaque environnement, pas une autorisation
+de rejouer des migrations ou de remettre une base à zéro.
 
 ## Mobile app branding
 
@@ -77,6 +234,47 @@ hotel transfers. Existing booking steps and server-side pricing are preserved.
 
 ## Database and administration
 
+### Tourism journal and homepage articles
+
+Public `/blog` lists published articles; `/blog/<postId>` shows their text and
+photo gallery. Articles retain their original French, English or Khmer language
+for every visitor. Public pages never include linked reservation/customer data.
+The header and footer link to the journal. Only published articles marked
+**Feature on the homepage** appear on the homepage (latest three).
+
+Administration → **Blog & photos** creates drafts, edits/publishes/unpublishes
+articles, links a completed trip internally (including archived completed trips),
+and deletes articles without changing the related trip or financial records.
+Photos can be uploaded, replaced, captioned and deleted. The first uploaded photo
+is used as the cover. Uploads accept JPEG/PNG/WebP up to 5 MB; Sharp validates and
+resizes to 2000 px, converts to WebP and removes metadata including GPS.
+Only publish photos and passenger stories with permission.
+
+Admin APIs: `GET/POST /api/admin/blog`, `PATCH/DELETE /api/admin/blog/<postId>`,
+`POST /api/admin/blog/<postId>/photos`,
+`PUT/PATCH/DELETE /api/admin/blog/<postId>/photos/<photoId>`.
+Article edits/deletion require `expectedUpdatedAt` to prevent stale overwrites.
+Draft images require an admin session and `?preview=true` on
+`GET /api/blog/photos/<photoId>`; published images are public, uncached and become
+unavailable immediately when the post is unpublished/deleted.
+Mutations are audited. Apply migration `20261110010000_tourism_blog` before deployment.
+
+### Removing trips from the administrator list
+
+Admins can use **Remove from list** on unassigned, assigned-but-not-started,
+cancelled or completed trips. This archives the trip rather than deleting it.
+Non-terminal trips are cancelled atomically before archiving; trips in service
+must first be explicitly cancelled or completed. Payments, invoices, accounting,
+payroll sources and customer/driver history are retained. The **Archived trips**
+view supports the existing filters and **Restore to list**; restoration does not
+change the trip status or reassign the driver. Archive/restore actions are audited.
+
+API: admin-only `PATCH /api/admin/bookings` with `{ id, action: "ARCHIVE" }`
+or `{ id, action: "RESTORE" }`. Default admin GET excludes archived trips;
+`GET /api/admin/bookings?archived=true` lists archives. The existing DELETE
+cancellation contract is unchanged. Apply migration
+`20261110000000_booking_admin_archive` before deploying this version.
+
 ### Organized administrator and driver workspaces
 
 The public `/contact` page shows the uploaded WhatsApp and Telegram QR codes of
@@ -90,8 +288,8 @@ without authentication or caching; other drivers' existing QR endpoints remain
 restricted. Missing QR images are explicitly reported with email as an alternative.
 
 Both workspaces have a sticky left sidebar on wide screens and a compact
-expandable menu on mobile/tablet. Administration keeps its four main destinations
-(dispatch, accounts, management, security). Management now groups navigation into Vehicles & locations,
+expandable menu on mobile/tablet. Administration has five main destinations
+(dispatch, accounts, management, blog & photos, security). Management groups navigation into Vehicles & locations,
 Accounting & payroll, and Settings & tools. Each tool has a labelled collapsible
 section instead of all forms/tables being expanded on one long page.
 The record correction editor is included in this navigation.
@@ -864,7 +1062,12 @@ geocoding services can be substituted without changing the map components.
 
 The administrator dispatch dashboard includes a persistent fleet map, a driver
 and status list, hub markers, selectable vehicle markers, and a full-screen view.
-Positions refresh every five seconds. The driver dashboard's GPS button opens a
+Positions refresh every five seconds while the admin page is visible. On-duty
+positions older than two minutes remain visible only as dated stale positions;
+they are dimmed and excluded from live counts and route estimates. Off-duty
+positions are hidden. The list distinguishes waiting for the customer from
+heading to pickup and shows the latest completed trip separately from availability.
+The driver dashboard's GPS button opens a
 full-screen map; the driver sends one GPS stream while on duty, which feeds the
 admin map and the authorized customer's booking view. Customers can follow only
 their own assigned booking; their map refreshes every four seconds and stops
@@ -891,7 +1094,7 @@ fleet response, not when loading has failed.
 
 | Endpoint | Access | Purpose |
 |----------|--------|---------|
-| `GET /api/admin/fleet-locations` | Admin | Active drivers, recent positions, assigned vehicles, routes' targets, and hubs |
+| `GET /api/admin/fleet-locations` | Admin | Active drivers, dated on-duty positions, freshness, status, last completed trip, vehicles, fresh route targets, and hubs |
 | `GET, PUT /api/driver/location` | Driver | Read sharing state/hubs; submit the driver's single GPS stream |
 | `GET /api/bookings/{id}/location` | Owning customer/driver or admin | Read an authorized booking's live location and active-trip history |
 | `/api/admin/management` | Admin | Create/edit/deactivate hubs and set vehicle icon categories |

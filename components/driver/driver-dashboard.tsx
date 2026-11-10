@@ -86,7 +86,8 @@ export function DriverDashboard() {
   const money = (cents: number, currency: string) => localizedNumber(language, { style: "currency", currency }).format(cents / 100);
   const label = (value: string) => t(statusKeys[value as keyof typeof statusKeys] ?? "courses.pending");
   const locationStatus: FleetDriver["status"] = liveTrip?.status === "TRIP_STARTED" ? "ON_TRIP"
-    : liveTrip && ["DRIVER_EN_ROUTE", "DRIVER_ARRIVED"].includes(liveTrip.status) ? "TO_PICKUP"
+    : liveTrip?.status === "DRIVER_ARRIVED" ? "WAITING_CLIENT"
+    : liveTrip?.status === "DRIVER_EN_ROUTE" ? "TO_PICKUP"
       : liveTrip ? "ASSIGNED"
         : sharing.returningToHub ? "RETURNING_TO_HUB" : driverAvailability?.isAvailable === false ? "UNAVAILABLE" : "AVAILABLE";
   const nearestHub = sharing.point && sharing.hubs.length ? sharing.hubs.reduce((nearest, hub) => {
@@ -97,13 +98,13 @@ export function DriverDashboard() {
     id: user?.id ?? "driver",
     name: user?.name ?? t("live.driver"),
     status: locationStatus,
-    location: { ...sharing.point, recordedAt: sharing.lastSent?.toISOString() ?? new Date().toISOString() },
+    location: { ...sharing.point, recordedAt: sharing.point.capturedAt ?? sharing.lastSent?.toISOString() ?? new Date(0).toISOString() },
     booking: liveTrip ? { id: liveTrip.id, reference: liveTrip.reference, status: liveTrip.status } : null,
     vehicle: liveTrip?.vehicle ? { ...liveTrip.vehicle, iconCategory: liveTrip.vehicle.iconCategory } : sharing.vehicle,
     target: liveTrip
       ? { address: liveTrip.routeDetails ? coordinateAddress(liveTrip.status === "TRIP_STARTED" ? liveTrip.routeDetails.to : liveTrip.routeDetails.from) : liveTrip.status === "TRIP_STARTED" ? liveTrip.toAddress : liveTrip.fromAddress, hub: null }
       : sharing.returningToHub && nearestHub ? { address: null, hub: nearestHub } : null,
-    stale: false,
+    stale: !sharing.point.capturedAt || now.getTime() - Date.parse(sharing.point.capturedAt) > 60_000 || sharing.phase !== "sharing",
   }] : [];
 
   function switchMode(value: "real" | "demo") {

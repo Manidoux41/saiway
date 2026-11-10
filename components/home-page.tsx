@@ -5,8 +5,10 @@ import { ArrowUpRight, Building2, Compass, Handshake, MapPin, Plane, Route } fro
 import { BookingWidget } from "@/components/booking/booking-widget";
 import { useLanguage } from "@/components/i18n/language-provider";
 import { defaultHeroBackground } from "@/lib/site";
+import { FeaturedBlog } from "@/components/blog/blog-public";
+import type { BlogCardData } from "@/lib/blog-client";
 
-export default function HomePage({ background = defaultHeroBackground }: { background?: string }) {
+export default function HomePage({ background = defaultHeroBackground, featuredPosts = [], featuredError = false }: { background?: string; featuredPosts?: BlogCardData[]; featuredError?: boolean }) {
   const { t } = useLanguage();
   const heroBackground = background;
   const trustItems = [t("home.fixedPrice"), t("home.professionalDriver"), t("home.doorToDoor"), t("home.flightDetails"), t("home.liveTracking"), t("home.securePayment")];
@@ -17,13 +19,14 @@ export default function HomePage({ background = defaultHeroBackground }: { backg
   ] as const;
 
   return (
-    <main className="min-h-screen bg-[var(--color-background)] text-[var(--color-text)]">
-      <section className="relative overflow-hidden bg-cover" style={{ backgroundImage: `linear-gradient(90deg, rgba(3, 31, 115, 0.9) 0%, rgba(3, 46, 161, 0.72) 42%, rgba(3, 46, 161, 0.35) 100%), url("${heroBackground}")`, backgroundPosition: "center 18%" }}>
+    <div className="min-h-screen text-[var(--color-text)]">
+      <section className="saiway-hero relative overflow-hidden bg-[var(--color-primary-dark)]">
+        <div aria-hidden="true" className="saiway-hero-landscape" style={{ backgroundImage: `linear-gradient(90deg, rgba(3, 31, 115, 0.85) 0%, rgba(3, 46, 161, 0.55) 42%, rgba(3, 46, 161, 0.15) 100%), url("${heroBackground}")` }} />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.14),_transparent_60%)]" />
         <div className="relative mx-auto max-w-7xl px-4 pb-16 pt-10 sm:px-6 lg:px-8">
           <div className="mb-10 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
             <div className="max-w-2xl">
-              <p className="mb-4 inline-flex rounded-full border border-[var(--color-primary)]/15 bg-[var(--color-primary)]/5 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-primary)]">
+              <p className="mb-4 inline-flex rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-white">
                 {t("home.eyebrow")}
               </p>
               <h1 className="text-4xl font-black tracking-[-0.05em] text-white sm:text-5xl lg:text-6xl">
@@ -51,7 +54,7 @@ export default function HomePage({ background = defaultHeroBackground }: { backg
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
         <div className="grid gap-6 md:grid-cols-3">
           {experiences.map(({ icon: Icon, title, description }) => (
-            <article key={title} className="min-w-0 rounded-3xl border border-black/5 bg-white p-6 shadow-sm">
+            <article key={title} className="saiway-experience min-w-0 rounded-3xl border border-black/5 bg-white p-6 shadow-sm">
               <span className="inline-flex rounded-2xl bg-[var(--color-primary)]/5 p-3 text-[var(--color-primary)]"><Icon size={24} aria-hidden="true" /></span>
               <h2 className="mt-5 text-xl font-bold">{t(title)}</h2>
               <p className="mt-3 leading-7 text-slate-600">{t(description)}</p>
@@ -96,6 +99,8 @@ export default function HomePage({ background = defaultHeroBackground }: { backg
         </div>
       </section>
 
+      <FeaturedBlog posts={featuredPosts} error={featuredError} />
+
       <section aria-labelledby="partnerships-title" className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="grid gap-8 rounded-[30px] bg-[var(--color-primary-dark)] p-6 text-white sm:p-8 lg:grid-cols-2 lg:p-10">
           <div className="min-w-0">
@@ -134,6 +139,6 @@ export default function HomePage({ background = defaultHeroBackground }: { backg
           </div>
         </div>
       </section>
-    </main>
+    </div>
   );
 }

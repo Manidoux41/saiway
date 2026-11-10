@@ -34,6 +34,7 @@ const customerCreate = details.extend({ paymentMethod: z.enum(["ONLINE", "DRIVER
 const adminEdit = details.partial().extend({ id: text, pickupAt: z.iso.datetime({ offset: true }).optional(), driverId: nullableId, vehicleId: nullableId, priceCents: z.number().int().nonnegative().max(100000000).optional() });
 const adminConfirm = z.object({ id: text, status: z.literal("CONFIRMED") }).strict();
 const priceCorrection = z.object({ id: text, finalPriceCents: z.number().int().nonnegative().max(10000000), priceReason: z.string().trim().min(3).max(2000) }).strict();
+const archiveCommand = z.object({ id: text, action: z.enum(["ARCHIVE", "RESTORE"]) }).strict();
 const adminPatch = z.union([adminEdit.strict(), adminConfirm, priceCorrection]);
 const command = z.object({ id: text, status: z.enum(BookingStatus), confirmEstimatedDistance: z.boolean().optional(), tourCircuit: circuitSchema.optional(), observations: z.string().trim().max(2000).optional(), finalPoint: locationPointSchema.optional() }).strict();
 const passengerFields = z.object({ customerEmail: z.email().optional(), passengerName: z.string().trim().max(200).optional(), contactPhone: z.string().trim().max(50).optional(), passengers: z.number().int().min(1).max(50) });
@@ -116,11 +117,38 @@ export async function bookingRequest(request: Request, role: SessionRole) {
         const vehicles = await prisma.vehicle.findMany({ where: { active: true }, select: { id: true, name: true, plate: true, seats: true } });
         return Response.json({ vehicles }, { headers: { "Cache-Control": "no-store" } });
       }
-      const bookings = await prisma.booking.findMany({ where: scope, include: bookingInclude, orderBy: { pickupAt: "asc" } });
+      const bookings = await prisma.booking.findMany({ where: { ...scope, ...(role === "ADMIN" ? { adminArchivedAt: new URL(request.url).searchParams.get("archived") === "true" ? { not: null } : null } : {}) }, include: bookingInclude, orderBy: { pickupAt: "asc" } });
       const driverAvailability = role === "DRIVER" ? await prisma.driverProfile.findUniqueOrThrow({ where: { userId: account.id }, select: { isAvailable: true, availableSince: true, selectedVehicleId: true } }) : undefined;
       return Response.json({ bookings, driverAvailability }, { headers: { "Cache-Control": "no-store" } });
     }
     const body: unknown = await request.json();
+    const archive = archiveCommand.safeParse(body);
+    if (role === "ADMIN" && request.method === "PATCH" && archive.success) {
+      const booking = await dispatchTransaction(async (tx) => {
+        const existing = await tx.booking.findUnique({ where: { id: archive.data.id } });
+        if (!existing) throw new BookingError("Booking not found", 404);
+        const restoring = archive.data.action === "RESTORE";
+        if (restoring ? !existing.adminArchivedAt : Boolean(existing.adminArchivedAt)) throw new BookingError("Booking changed; reload and retry", 409);
+        if (!restoring && inServiceStatuses.includes(existing.status)) throw new BookingError("Cancel the ongoing trip before archiving", 409);
+        const cancelling = !restoring && !terminal.includes(existing.status);
+        const result = await tx.booking.update({
+          where: { id: existing.id, updatedAt: existing.updatedAt },
+          data: {
+            adminArchivedAt: restoring ? null : new Date(),
+            ...(cancelling ? { status: "CANCELLED", statusHistory: { create: { status: "CANCELLED", note: "ADMIN update" } } } : {}),
+          },
+          include: bookingInclude,
+        });
+        await tx.auditLog.create({ data: {
+          actorId: account.id, entity: "Booking", entityId: existing.id, action: archive.data.action,
+          metadata: { previousStatus: existing.status, status: result.status, cancelled: cancelling },
+        } });
+        if (cancelling) await enqueueBookingPush(tx, result, existing);
+        return result;
+      });
+      schedulePushDelivery();
+      return Response.json({ booking });
+    }
     if (request.method === "POST") {
       if (role === "DRIVER") {
         const preview = z.object({ action: z.literal("preview"), selection: autonomousSelection }).strict().safeParse(body);
@@ -221,6 +249,7 @@ export async function bookingRequest(request: Request, role: SessionRole) {
       if (!parsed.success) throw new BookingError("Invalid booking update");
       const existing = await tx.booking.findFirst({ where: { ...scope, id: parsed.data.id }, include: { payments: { select: { status: true } } } });
       if (!existing) throw new BookingError("Booking not found", 404);
+      if (role === "ADMIN" && existing.adminArchivedAt) throw new BookingError("Restore the archived booking before editing", 409);
       if (role === "ADMIN" && "finalPriceCents" in parsed.data) {
         const correction = priceCorrection.parse(body);
         if (existing.payments.some((payment) => ["PAID", "PROCESSING"].includes(payment.status))) throw new BookingError("A paid or processing fare cannot be changed", 409);

@@ -23,7 +23,7 @@ export const brandColors = {
 };
 
 export const defaultHeroBackground =
-  "https://upload.wikimedia.org/wikipedia/commons/4/41/Angkor_Wat.jpg";
+  "/backgrounds/siem-reap.svg";
 
 export const defaultHeroBackgroundCredit =
-  "Angkor Wat.jpg by Bjørn Christian Tørrissen, Wikimedia Commons, CC BY-SA 4.0";
+  "SAIWAY original vector landscape inspired by Siem Reap";

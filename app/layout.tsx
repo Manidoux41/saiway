@@ -40,6 +40,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         <LanguageProvider>
           <AuthProvider initialUser={initialUser}>
             <ServiceWorkerRegister />
+            <div className="saiway-atmosphere" aria-hidden="true" />
             <div className="flex min-h-screen flex-col">
               <Header />
               <main className="flex-1">{children}</main>

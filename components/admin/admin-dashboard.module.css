@@ -48,6 +48,7 @@
 .fleetDriver small { color: #64748b; font-size: 10px; overflow-wrap: anywhere; }
 .fleetDot { width: 10px; height: 10px; flex: 0 0 10px; margin-top: 4px; border-radius: 50%; background: #8b95a7; }
 .fleetDot[data-status="TO_PICKUP"] { background: #d6a000; }
+.fleetDot[data-status="WAITING_CLIENT"] { background: #032ea1; }
 .fleetDot[data-status="ON_TRIP"] { background: #f58220; }
 .fleetDot[data-status="RETURNING_TO_HUB"] { background: #2e9d50; }
 .fleetEmpty, .fleetNotice { padding: 12px; color: #64748b; font-size: 12px; }

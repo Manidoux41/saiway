@@ -8,13 +8,14 @@ import { mapTileAttribution, mapTileUrl, locateMapAddress, routeMapPoints, vehic
 import { useLanguage, type Language } from "@/components/i18n/language-provider";
 
 export type FleetHub = { id: string; name: string; address: string | null; latitude: number; longitude: number };
-export type FleetDriverStatus = "AVAILABLE" | "UNAVAILABLE" | "ASSIGNED" | "TO_PICKUP" | "ON_TRIP" | "RETURNING_TO_HUB";
+export type FleetDriverStatus = "AVAILABLE" | "UNAVAILABLE" | "ASSIGNED" | "TO_PICKUP" | "WAITING_CLIENT" | "ON_TRIP" | "RETURNING_TO_HUB";
 export type FleetDriver = {
   id: string;
   name: string;
   status: FleetDriverStatus;
   location: (MapPoint & { heading: number | null; accuracy: number | null; recordedAt: string }) | null;
   booking: { id: string; reference: string; status: string } | null;
+  lastCompletedTrip?: { reference: string; completedAt: string | null } | null;
   vehicle: { id: string; name: string; plate: string; iconCategory: "TUK_TUK" | "PASSAPP" | "SEDAN" | "SUV" | "MINIVAN" | "MINIBUS" | "VAN" | "OTHER" } | null;
   target: { address: string | null; hub: FleetHub | null } | null;
   stale: boolean;
@@ -31,6 +32,7 @@ const statusLabels = {
   UNAVAILABLE: "driver.unavailable",
   ASSIGNED: "fleet.assigned",
   TO_PICKUP: "fleet.toPickup",
+  WAITING_CLIENT: "fleet.waitingClient",
   ON_TRIP: "fleet.onTrip",
   RETURNING_TO_HUB: "fleet.returning",
 } as const satisfies Record<FleetDriverStatus, string>;
@@ -114,6 +116,11 @@ export function FleetMap({ drivers, hubs, selectedId, onSelect, height = "480px"
         marker = L.marker(point, { icon, zIndexOffset: 1000, keyboard: true }).addTo(map);
         marker.on("click", () => onSelect?.(driver.id));
         markers.current.set(driver.id, marker);
+      } else if (driver.stale) {
+        const previousFrame = animations.current.get(driver.id);
+        if (previousFrame) cancelAnimationFrame(previousFrame);
+        animations.current.delete(driver.id);
+        marker.setLatLng(point).setIcon(icon);
       } else {
         const start = marker.getLatLng();
         const began = performance.now();
@@ -128,15 +135,18 @@ export function FleetMap({ drivers, hubs, selectedId, onSelect, height = "480px"
         animations.current.set(driver.id, requestAnimationFrame(animate));
         marker.setIcon(icon);
       }
-      marker.bindTooltip(textNode(`${driver.name}${driver.vehicle ? ` · ${driver.vehicle.name}` : ""}`), { direction: "top" });
+      marker.setOpacity(driver.stale ? 0.45 : 1);
+      marker.bindTooltip(textNode(`${driver.name} · ${t(driver.stale ? "fleet.stale" : statusLabels[driver.status])}${driver.vehicle ? ` · ${driver.vehicle.name}` : ""}`), { direction: "top" });
       marker.bindPopup(textNode([
         driver.name,
         t(statusLabels[driver.status]),
+        `${t("fleet.lastPosition")}: ${localizedDate(language, { dateStyle: "short", timeStyle: "medium" }).format(new Date(driver.location.recordedAt))}`,
+        driver.stale ? t("fleet.stale") : "",
         driver.vehicle ? `${driver.vehicle.name} · ${driver.vehicle.plate}` : "",
         driver.booking?.reference ?? "",
       ].filter(Boolean).join(" · ")));
     });
-  }, [drivers, onSelect, t]);
+  }, [drivers, onSelect, t, language]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -157,7 +167,7 @@ export function FleetMap({ drivers, hubs, selectedId, onSelect, height = "480px"
       const metrics: Record<string, { distance: number; eta: string }> = {};
       await Promise.all(driversRef.current.map(async (driver) => {
         const location = driver.location;
-        if (!location || !driver.target) return;
+        if (!location || driver.stale || !driver.target) return;
         const color = routeColors[driver.status];
         if (!color) return;
         try {
@@ -188,7 +198,7 @@ export function FleetMap({ drivers, hubs, selectedId, onSelect, height = "480px"
   }, [language]);
 
   const routeDriver = drivers.find((driver) => driver.id === selectedId) ?? (drivers.length === 1 ? drivers[0] : null);
-  const selectedRoute = routeDriver ? routeMetrics[routeDriver.id] : null;
+  const selectedRoute = routeDriver && !routeDriver.stale ? routeMetrics[routeDriver.id] : null;
   return <div className="relative w-full" style={{ height }}>
     <div ref={container} className="h-full w-full bg-slate-100" role="region" aria-label={t("fleet.map")} />
     {selectedRoute && <p className="absolute left-3 top-3 z-[500] rounded bg-white/95 p-2 text-sm shadow" aria-live="polite">

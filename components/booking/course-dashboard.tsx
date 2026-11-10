@@ -22,6 +22,7 @@ export const courseSchema = z.object({
   passengerName: z.string().nullable().optional(), originType: z.string().optional(), pricingStatus: z.string().optional(),
   routeDetails: routeDetailsSchema.nullable().optional(), estimatedPriceCents: z.number().nullable().optional(),
   startedAt: z.string().nullable().optional(), completedAt: z.string().nullable().optional(),
+  adminArchivedAt: z.string().nullable().optional(),
   actualDurationSeconds: z.number().nullable().optional(), driverObservations: z.string().nullable().optional(),
   finalLatitude: z.coerce.number().nullable().optional(), finalLongitude: z.coerce.number().nullable().optional(),
   statusHistory: z.array(z.object({ status: z.string(), note: z.string().nullable(), createdAt: z.string() })).optional(),

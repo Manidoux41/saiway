@@ -30,6 +30,86 @@ body {
   background: var(--color-background);
   color: var(--color-text);
   font-family: var(--font-sans), Arial, sans-serif;
+  isolation: isolate;
+}
+
+.saiway-atmosphere {
+  position: fixed;
+  inset: -8vh 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 5% 12%, #032ea112, transparent 48%),
+    radial-gradient(ellipse at 95% 70%, #249d8612, transparent 42%),
+    linear-gradient(150deg, #f3f6fc 25%, #f5faf9 65%, #fff7ed);
+}
+
+.saiway-hero-landscape {
+  position: absolute;
+  inset: -8% 0;
+  background-size: cover;
+  background-position: center;
+  pointer-events: none;
+}
+
+:where(button, a, input, select, textarea, summary):focus-visible {
+  outline: 3px solid #4779d5;
+  outline-offset: 3px;
+}
+
+:where(button, a, summary) {
+  -webkit-tap-highlight-color: #032ea11a;
+}
+
+:where(input, textarea, select) {
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+:where(input, textarea, select):focus-visible {
+  box-shadow: 0 0 0 4px #032ea10d;
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .saiway-experience {
+    transition: translate 200ms ease, box-shadow 200ms ease;
+  }
+  .saiway-experience:hover {
+    translate: 0 -4px;
+    box-shadow: 0 12px 30px #032ea112;
+  }
+  :where(button, a, summary):not(:disabled) {
+    transition: background-color 160ms ease, color 160ms ease, box-shadow 160ms ease;
+  }
+}
+
+@supports (animation-timeline: scroll()) {
+  @media (min-width: 1024px) and (prefers-reduced-motion: no-preference) {
+    .saiway-atmosphere {
+      animation: saiway-drift linear both;
+      animation-timeline: scroll(root block);
+    }
+    .saiway-hero-landscape {
+      animation: saiway-landscape linear both;
+      animation-timeline: scroll(root block);
+      animation-range: 0px 100vh;
+    }
+  }
+}
+
+@keyframes saiway-drift {
+  from { transform: translateY(-2vh); }
+  to { transform: translateY(4vh); }
+}
+
+@keyframes saiway-landscape {
+  from { transform: translateY(0); }
+  to { transform: translateY(12%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .animate-pulse, .animate-spin { animation: none !important; }
+  .saiway-vehicle-marker { transition: none; }
 }
 
 * {
@@ -85,6 +165,7 @@ fieldset {
 }
 
 @media print {
+  .saiway-atmosphere { display: none; }
   @page {
     size: A4;
     margin: 10mm;

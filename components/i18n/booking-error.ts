@@ -1,6 +1,8 @@
 import type { TranslationKey } from "@/components/i18n/language-provider";
 
 const errors: Record<string, TranslationKey> = {
+  "Cancel the ongoing trip before archiving": "archive.ongoing",
+  "Restore the archived booking before editing": "archive.edit",
   "Invalid trip quote; calculate a new route": "ui.quoteExpired",
   "Trip quote expired; calculate a new route": "ui.quoteExpired",
   "Vehicle category changed; calculate a new quote": "ui.quoteExpired",

@@ -68,16 +68,64 @@ test('one GPS stream feeds the admin fleet and only its own customer booking', a
     for (const status of ['DRIVER_ARRIVED', 'TRIP_STARTED', 'TRIP_COMPLETED']) {
       const progress = await request('/api/driver/bookings', 'PATCH', { id: bookings[0].data.booking.id, status }, drivers[0].cookie);
       assert.equal(progress.status, 200);
+      if (status !== 'TRIP_COMPLETED') {
+        const snapshot = await request('/api/admin/fleet-locations', 'GET', undefined, ctx.cookie);
+        assert.equal(snapshot.data.drivers.find(driver => driver.id === driverProfiles[0].id).status, status === 'DRIVER_ARRIVED' ? 'WAITING_CLIENT' : 'ON_TRIP');
+      }
     }
     const returningFleet = await request('/api/admin/fleet-locations', 'GET', undefined, ctx.cookie);
     const returningDriver = returningFleet.data.drivers.find((driver) => driver.id === driverProfiles[0].id);
     assert.equal(returningDriver.status, 'RETURNING_TO_HUB');
     assert.equal(returningDriver.target.hub.id, hub.data.item.id);
     assert.equal(returningDriver.vehicle.iconCategory, 'TUK_TUK');
+    assert.equal(returningDriver.lastCompletedTrip.reference, bookings[0].data.booking.reference);
     const driverState = await request('/api/driver/location', 'GET', undefined, drivers[0].cookie);
     assert.equal(driverState.data.vehicle.iconCategory, 'TUK_TUK');
     const closedTrip = await request(`/api/bookings/${bookings[0].data.booking.id}/location`, 'GET', undefined, customers[0].cookie);
     assert.equal(closedTrip.data.tracking, false);
     assert.equal(closedTrip.data.location, null);
+
+    const withoutVehicle = await request('/api/bookings', 'POST', {
+      fromAddress: 'SAI Airport', toAddress: 'Legacy fleet hotel', direction: 'AIRPORT_TO_CITY',
+      tripType: 'PRIVATE_TRANSFER', pickupAt: new Date(Date.now() + 3_600_000).toISOString(),
+      passengers: 1, paymentMethod: 'DRIVER',
+    }, customers[0].cookie);
+    assert.equal(withoutVehicle.status, 201);
+    await ctx.prisma.booking.update({ where: { id: withoutVehicle.data.booking.id }, data: { driverId: driverProfiles[0].id, vehicleId: null, status: 'TRIP_COMPLETED', completedAt: new Date() } });
+    const lastVehicle = (await request('/api/admin/fleet-locations', 'GET', undefined, ctx.cookie)).data.drivers.find(driver => driver.id === driverProfiles[0].id);
+    assert.equal(lastVehicle.lastCompletedTrip.reference, withoutVehicle.data.booking.reference);
+    assert.equal(lastVehicle.vehicle.id, vehicles[0].data.item.id);
+    await ctx.prisma.booking.updateMany({ where: { driverId: driverProfiles[0].id }, data: { completedAt: null } });
+    const legacy = (await request('/api/admin/fleet-locations', 'GET', undefined, ctx.cookie)).data.drivers.find(driver => driver.id === driverProfiles[0].id);
+    assert.equal(legacy.lastCompletedTrip.completedAt, null);
+  } finally { await ctx.cleanup(); }
+});
+
+test('admin retains dated stale positions on duty without exposing off-duty GPS or inventing a live route', async () => {
+  const ctx = await setup();
+  try {
+    const account = await createAccount(ctx, 'DRIVER', 'freshness-driver');
+    const driver = await ctx.prisma.driverProfile.update({ where: { userId: account.id }, data: { isAvailable: true } });
+    const missing = await request('/api/admin/fleet-locations', 'GET', undefined, ctx.cookie);
+    assert.equal(missing.data.drivers.find(item => item.id === driver.id).stale, true);
+    const capturedAt = new Date(Date.now() - 3 * 60000);
+    await ctx.prisma.driverLocation.create({ data: { driverId: driver.id, latitude: 13.36, longitude: 103.85, recordedAt: capturedAt } });
+    const stale = (await request('/api/admin/fleet-locations', 'GET', undefined, ctx.cookie)).data.drivers.find(item => item.id === driver.id);
+    assert.equal(stale.status, 'AVAILABLE');
+    assert.equal(stale.stale, true);
+    assert.equal(stale.location.recordedAt, capturedAt.toISOString());
+    assert.equal(stale.target, null);
+    assert.equal((await request('/api/driver/location', 'PUT', { latitude: 13.36, longitude: 103.85, capturedAt: capturedAt.toISOString() }, account.cookie)).status, 400);
+    const freshAt = new Date().toISOString();
+    assert.equal((await request('/api/driver/location', 'PUT', { latitude: 13.37, longitude: 103.86, capturedAt: freshAt }, account.cookie)).status, 200);
+    const fresh = (await request('/api/admin/fleet-locations', 'GET', undefined, ctx.cookie)).data.drivers.find(item => item.id === driver.id);
+    assert.equal(fresh.stale, false);
+    assert.equal(fresh.location.recordedAt, freshAt);
+    await ctx.prisma.driverProfile.update({ where: { id: driver.id }, data: { isAvailable: false } });
+    const offDuty = (await request('/api/admin/fleet-locations', 'GET', undefined, ctx.cookie)).data.drivers.find(item => item.id === driver.id);
+    assert.equal(offDuty.status, 'UNAVAILABLE');
+    assert.equal(offDuty.location, null);
+    assert.equal(offDuty.stale, false);
+    assert.equal((await request('/api/driver/location', 'PUT', { latitude: 13.37, longitude: 103.86 }, account.cookie)).status, 409);
   } finally { await ctx.cleanup(); }
 });

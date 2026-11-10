@@ -458,6 +458,7 @@ model Booking {
   pricingStatus  String          @default("AUTOMATIC")
   startedAt      DateTime?
   completedAt    DateTime?
+  adminArchivedAt DateTime?
   actualDurationSeconds Int?
   driverObservations String?
   finalLatitude  Decimal?        @db.Decimal(10, 7)
@@ -489,6 +490,7 @@ model Booking {
   statusHistory  BookingStatusHistory[]
   payments       Payment[]
   messages       DriverMessage[]
+  blogPosts      BlogPost[]
 
   @@index([originType, pickupAt])
   @@index([driverId, pickupAt, dispatchEndsAt])
@@ -581,4 +583,36 @@ model SystemSetting {
   key       String   @id
   value     String
   updatedAt DateTime @updatedAt
+}
+
+model BlogPost {
+  id          String   @id @default(cuid())
+  title       String
+  excerpt     String
+  content     String
+  language    String   @default("fr")
+  published   Boolean  @default(false)
+  featured    Boolean  @default(false)
+  publishedAt DateTime?
+  bookingId   String?
+  booking     Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  photos      BlogPhoto[]
+
+  @@index([published, featured, publishedAt])
+}
+
+model BlogPhoto {
+  id        String   @id @default(cuid())
+  postId    String
+  post      BlogPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  caption   String
+  mimeType  String
+  data      Bytes
+  sizeBytes Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([postId, createdAt])
 }

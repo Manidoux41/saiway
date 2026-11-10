@@ -1,36 +1,40 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useLanguage } from "@/components/i18n/language-provider";
 import { useAuth } from "@/components/auth/auth-provider";
 import { useState } from "react";
-import { BriefcaseBusiness, CarFront, RefreshCw, ShieldCheck, Users } from "lucide-react";
-import { ManagementMenu, ManagementPanel } from "@/components/admin/management-panel";
-import { AccountCreationForm } from "@/components/admin/account-creation-form";
+import { BookOpen, BriefcaseBusiness, CarFront, RefreshCw, ShieldCheck, Users } from "lucide-react";
 import { useAdminManagement } from "@/components/admin/use-admin-management";
 import { AdminBookings } from "@/components/admin/admin-bookings";
 import { FleetSupervision } from "@/components/admin/fleet-supervision";
-import { RecordEditor } from "@/components/admin/record-editor";
-import { AccountProfile } from "@/components/admin/account-profile-editor";
-import { EmployerSettingsForm } from "@/components/admin/employer-settings-form";
 import { ChangePasswordForm } from "@/components/auth/change-password-form";
 import styles from "@/components/admin/admin-dashboard.module.css";
 import { DashboardMenu, DashboardSection, DashboardWorkspace } from "@/components/layout/dashboard-menu";
+
+const BlogPanel = dynamic(() => import("@/components/admin/blog-panel").then((module) => module.BlogPanel));
+const ManagementMenu = dynamic(() => import("@/components/admin/management-panel").then((module) => module.ManagementMenu));
+const ManagementPanel = dynamic(() => import("@/components/admin/management-panel").then((module) => module.ManagementPanel));
+const AccountCreationForm = dynamic(() => import("@/components/admin/account-creation-form").then((module) => module.AccountCreationForm));
+const RecordEditor = dynamic(() => import("@/components/admin/record-editor").then((module) => module.RecordEditor));
+const AccountProfile = dynamic(() => import("@/components/admin/account-profile-editor").then((module) => module.AccountProfile));
+const EmployerSettingsForm = dynamic(() => import("@/components/admin/employer-settings-form").then((module) => module.EmployerSettingsForm));
 
 export default function AdminPage() {
   const { t } = useLanguage();
   const { user } = useAuth();
   const { data, error, loading, refresh } = useAdminManagement(user?.role === "admin" ? user.id : undefined);
-  const [section, setSection] = useState<"operations" | "accounts" | "management" | "security">("operations");
-  const [visited, setVisited] = useState({ accounts: false, management: false });
+  const [section, setSection] = useState<"operations" | "accounts" | "management" | "security" | "blog">("operations");
+  const [visited, setVisited] = useState({ accounts: false, management: false, blog: false });
   const [accountRole, setAccountRole] = useState<"CUSTOMER" | "DRIVER" | "ADMIN">("CUSTOMER");
   const [profileId, setProfileId] = useState<string | null>(null);
   const [employerVersion, setEmployerVersion] = useState(0);
-  const sections = [{ key: "operations", icon: BriefcaseBusiness }, { key: "accounts", icon: Users }, { key: "management", icon: CarFront }, { key: "security", icon: ShieldCheck }] as const;
+  const sections = [{ key: "operations", icon: BriefcaseBusiness }, { key: "accounts", icon: Users }, { key: "management", icon: CarFront }, { key: "blog", icon: BookOpen }, { key: "security", icon: ShieldCheck }] as const;
   return <div className={styles.page}>
     <header className={styles.heading}><div><span className={styles.eyebrow}>SAIWAY / {t("nav.adminDashboard")}</span><h1>{t("dispatch.title")}</h1><p>{t("driver.localTime")}</p></div><button type="button" className={styles.iconButton} disabled={loading} onClick={refresh} title={t("admin.retry")} aria-label={t("admin.retry")}><RefreshCw size={19} /></button></header>
     <DashboardWorkspace menu={<>
-      <nav className="grid gap-2" aria-label={t("nav.adminDashboard")}>{sections.map(({ key, icon: Icon }) => <button key={key} type="button" aria-pressed={section === key} className={`flex min-h-12 items-center gap-3 rounded-xl p-3 text-left text-sm font-semibold ${section === key ? "bg-[var(--color-primary)] text-white" : "text-slate-600 hover:bg-slate-50"}`} onClick={() => { setSection(key); if (key === "accounts" || key === "management") setVisited((current) => ({ ...current, [key]: true })); }}><Icon size={17} aria-hidden="true" />{t(`dispatch.${key}`)}</button>)}</nav>
+      <nav className="grid gap-2" aria-label={t("nav.adminDashboard")}>{sections.map(({ key, icon: Icon }) => <button key={key} type="button" aria-pressed={section === key} className={`flex min-h-12 items-center gap-3 rounded-xl p-3 text-left text-sm font-semibold ${section === key ? "bg-[var(--color-primary)] text-white" : "text-slate-600 hover:bg-slate-50"}`} onClick={() => { setSection(key); if (key === "accounts" || key === "management" || key === "blog") setVisited((current) => ({ ...current, [key]: true })); }}><Icon size={17} aria-hidden="true" />{t(key === "blog" ? "blog.admin" : `dispatch.${key}`)}</button>)}</nav>
       {section === "management" && data && <ManagementMenu />}
       {section === "accounts" && <DashboardMenu groups={[{ title: t("dispatch.accounts"), items: [
         { title: t("dashboard.createAccount"), target: "admin-create-account-section" },
@@ -54,6 +58,7 @@ export default function AdminPage() {
     </div>}
     {visited.management && <div hidden={section !== "management"}><ManagementPanel data={data} loading={loading} loadError={error} onReload={refresh} />{data && <DashboardSection id="admin-records-section" title={t("dashboard.records")}><RecordEditor data={data} disabled={loading || Boolean(error)} refresh={refresh} /></DashboardSection>}</div>}
     {section === "security" && <section className={styles.security}><h2>{t("dispatch.security")}</h2><ChangePasswordForm /></section>}
+    {visited.blog && <div hidden={section !== "blog"}><BlogPanel /></div>}
     </DashboardWorkspace>
   </div>;
 }

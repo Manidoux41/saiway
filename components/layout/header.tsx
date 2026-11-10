@@ -35,6 +35,7 @@ export function Header() {
         <nav className="hidden items-center gap-8 text-sm font-medium text-slate-700 md:flex">
           {customerNavigation && <><Link href="/" className="transition hover:text-[var(--color-primary)]">{t("nav.book")}</Link><Link href="/booking/track" className="transition hover:text-[var(--color-primary)]">{t("nav.track")}</Link></>}
           <Link href="/about" className="transition hover:text-[var(--color-primary)]">{t("nav.about")}</Link>
+          <Link href="/blog" className="transition hover:text-[var(--color-primary)]">{t("blog.nav")}</Link>
           <Link href="/help" className="transition hover:text-[var(--color-primary)]">{t("nav.help")}</Link>
         </nav>
 

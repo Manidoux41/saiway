@@ -39,7 +39,7 @@ export default function TripMap({ course, demo }: { course: Course; demo: boolea
           tooltip.textContent = label;
           L.circleMarker(point, { radius: 9, color: "#fff", weight: 3, fillColor: color, fillOpacity: 1 }).addTo(map).bindTooltip(tooltip);
         }
-        map.fitBounds(L.latLngBounds([from, to]), { padding: [35, 35], maxZoom: 14 });
+        map.fitBounds(L.latLngBounds([from, to]), { padding: [35, 35], maxZoom: 14, animate: false });
         try {
           const route = await routeMapPoints({ latitude: from[0], longitude: from[1] }, { latitude: to[0], longitude: to[1] }, signal);
           if (controller.signal.aborted) return;
@@ -47,7 +47,7 @@ export default function TripMap({ course, demo }: { course: Course; demo: boolea
             : ["DRIVER_ASSIGNED", "DRIVER_ACCEPTED", "DRIVER_EN_ROUTE", "DRIVER_ARRIVED"].includes(course.status) ? "#D6A000" : "#808080";
           const line = L.polyline(route.points, { color: routeColor, weight: 5, opacity: 0.85 }).addTo(map);
           line.bringToBack();
-          map.fitBounds(line.getBounds(), { padding: [35, 35] });
+          map.fitBounds(line.getBounds(), { padding: [35, 35], animate: false });
           setState({ phase: "ready", distance: route.distance, duration: route.duration });
         } catch {
           if (!controller.signal.aborted) setState({ phase: "routeUnavailable" });
