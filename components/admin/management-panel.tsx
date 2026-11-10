@@ -22,6 +22,8 @@ import { DashboardMenu, DashboardSection } from "@/components/layout/dashboard-m
 import { contactSettingKey } from "@/lib/contact-settings";
 import { FinanceRecordForm } from "@/components/admin/finance-record-form";
 import { FinancePlanning } from "@/components/admin/finance-planning";
+import { useListSort } from "@/components/admin/list-sort";
+import { sortDate } from "@/lib/list-sort";
 
 const VehicleIconPreview = dynamic(() => import("@/components/maps/vehicle-icon-preview").then((module) => module.VehicleIconPreview), { ssr: false, loading: () => <div className="h-[320px] animate-pulse rounded-xl bg-slate-100" /> });
 const vehicleIconCategories = ["TUK_TUK", "PASSAPP", "SEDAN", "SUV", "MINIVAN", "MINIBUS", "VAN", "OTHER"] as const;
@@ -46,6 +48,35 @@ export function ManagementPanel({ data, loading, loadError, onReload }: { data: 
   const [error, setError] = useState<ReturnType<typeof adminErrorKey> | null>(null);
   const [saved, setSaved] = useState(false);
   const [previewVehicleId, setPreviewVehicleId] = useState<string | null>(null);
+  const vehicles = useListSort(data?.vehicles ?? [], [
+    { key: "created", label: t("sorting.created"), value: (item) => sortDate(item.createdAt) },
+    { key: "name", label: t("records.name"), value: (item) => item.name },
+    { key: "plate", label: t("records.plate"), value: (item) => item.plate },
+    { key: "category", label: t("finance.category"), value: (item) => t(vehicleCategoryLabels[item.iconCategory]) },
+    { key: "seats", label: t("records.seats"), value: (item) => item.seats },
+    { key: "status", label: t("records.status"), value: (item) => t(item.active ? "fleet.activeVehicle" : "fleet.inactiveVehicle") },
+  ], { key: "created", direction: "desc" });
+  const accounts = useListSort(data?.users ?? [], [
+    { key: "created", label: t("sorting.created"), value: (item) => sortDate(item.createdAt) },
+    { key: "name", label: t("records.name"), value: (item) => item.name },
+    { key: "email", label: t("records.email"), value: (item) => item.email },
+    { key: "role", label: t("ui.role"), value: (item) => enumLabel(item.role, t) },
+    { key: "status", label: t("records.status"), value: (item) => enumLabel(item.status, t) },
+  ], { key: "created", direction: "desc" });
+  const hubs = useListSort(data?.hubs ?? [], [
+    { key: "name", label: t("records.name"), value: (item) => item.name },
+    { key: "created", label: t("sorting.created"), value: (item) => sortDate(item.createdAt) },
+    { key: "address", label: t("fleet.hubAddress"), value: (item) => item.address },
+    { key: "status", label: t("records.status"), value: (item) => enumLabel(String(item.active), t) },
+  ], { key: "name", direction: "asc" });
+  const receipts = useListSort(data?.receipts ?? [], [
+    { key: "date", label: t("sorting.date"), value: (item) => sortDate(item.updatedAt) },
+    { key: "reference", label: t("customer.abaReference"), value: (item) => item.booking.reference },
+    { key: "method", label: t("payment.receivedVia"), value: (item) => item.collectionMethod ? t(`payment.${item.collectionMethod}`) : item.provider === "ABA_PAYWAY" ? t("payment.ABA") : t("payment.legacyMethod") },
+    { key: "driver", label: t("admin.driver"), value: (item) => item.booking.driver?.user.name },
+    { key: "currency", label: "USD / KHR", value: (item) => item.currency },
+    { key: "amount", label: t("finance.amount"), value: (item) => item.amountCents },
+  ], { key: "date", direction: "desc" });
 
   async function mutate(method: "POST" | "PATCH" | "DELETE", body: Record<string, unknown>, form?: HTMLFormElement) {
     if (pending) return;
@@ -108,11 +139,12 @@ export function ManagementPanel({ data, loading, loadError, onReload }: { data: 
       <DashboardSection id="admin-summary-section" title={t("dashboard.summary")}><section className="grid gap-4 md:grid-cols-4">{([{ label: "ui.actualRevenue", value: revenue }, { label: "ui.actualExpenses", value: expenses }, { label: "ui.forecastRevenue", value: forecastRevenue }, { label: "ui.forecastBalance", value: forecastRevenue - forecastExpenses }] as const).map(({ label, value }) => <div key={label} className="rounded-3xl bg-white p-5 shadow-sm"><div className="text-sm text-slate-500">{t(label)}</div><div className="mt-3 text-2xl font-black">{localizedNumber(language, { style: "currency", currency: "USD" }).format(value / 100)}</div></div>)}</section></DashboardSection>
       <DashboardSection id="admin-receipts-section" title={t("payment.ledger")}><section className="rounded-[28px] bg-white p-6 shadow-sm">
         <h2 className="text-xl font-bold">{t("payment.ledger")}</h2><p className="mt-2 text-sm text-slate-500">{t("payment.ledgerNotice")}</p>
+        {receipts.controls}
         <div className="mt-4 flex flex-wrap gap-3">{[...new Set(data.receipts.map((item) => item.currency))].map((currency) => <strong key={currency} className="rounded-2xl bg-emerald-50 p-3 text-emerald-800">{localizedNumber(language, { style: "currency", currency }).format(data.receipts.filter((item) => item.currency === currency).reduce((sum, item) => sum + item.amountCents, 0) / 100)}</strong>)}</div>
-        <div className="mt-4 overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr><th>{t("customer.abaReference")}</th><th>{t("payment.receivedVia")}</th><th>{t("admin.driver")}</th><th>{t("booking.date")}</th><th>{t("customer.abaAmount")}</th></tr></thead><tbody>{data.receipts.map((receipt) => <tr key={receipt.id} className="border-t"><td className="py-3">{receipt.booking.reference}<small className="block text-slate-500">{enumLabel(receipt.provider, t)} · {enumLabel(receipt.booking.status, t)}</small></td><td>{receipt.collectionMethod ? t(`payment.${receipt.collectionMethod}`) : receipt.provider === "ABA_PAYWAY" ? t("payment.ABA") : t("payment.legacyMethod")}</td><td>{receipt.booking.driver?.user.name ?? "—"}</td><td>{localizedDate(language, { dateStyle: "short", timeStyle: "short", timeZone: "Asia/Phnom_Penh" }).format(new Date(receipt.updatedAt))}</td><td>{localizedNumber(language, { style: "currency", currency: receipt.currency }).format(receipt.amountCents / 100)}</td></tr>)}</tbody></table>{!data.receipts.length && <p className="py-4 text-slate-500">{t("payment.noReceipts")}</p>}</div>
+        <div className="mt-4 overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr><th>{t("customer.abaReference")}</th><th>{t("payment.receivedVia")}</th><th>{t("admin.driver")}</th><th>{t("booking.date")}</th><th>{t("customer.abaAmount")}</th></tr></thead><tbody>{receipts.items.map((receipt) => <tr key={receipt.id} className="border-t"><td className="py-3">{receipt.booking.reference}<small className="block text-slate-500">{enumLabel(receipt.provider, t)} · {enumLabel(receipt.booking.status, t)}</small></td><td>{receipt.collectionMethod ? t(`payment.${receipt.collectionMethod}`) : receipt.provider === "ABA_PAYWAY" ? t("payment.ABA") : t("payment.legacyMethod")}</td><td>{receipt.booking.driver?.user.name ?? "—"}</td><td>{localizedDate(language, { dateStyle: "short", timeStyle: "short", timeZone: "Asia/Phnom_Penh" }).format(new Date(receipt.updatedAt))}</td><td>{localizedNumber(language, { style: "currency", currency: receipt.currency }).format(receipt.amountCents / 100)}</td></tr>)}</tbody></table>{!data.receipts.length && <p className="py-4 text-slate-500">{t("payment.noReceipts")}</p>}</div>
       </section>
       </DashboardSection>
-      <DashboardSection id="admin-users-section" title={t("ui.accounts")}><section className="rounded-[28px] bg-white p-6 shadow-sm"><h2 className="text-xl font-bold">{t("ui.accounts")}</h2><div className="mt-4 overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr><th>{t("records.name")}</th><th>{t("records.email")}</th><th>{t("ui.role")}</th><th>{t("records.status")}</th><th /></tr></thead><tbody>{data.users.map((item) => <tr key={item.id} className="border-t"><td className="py-3">{item.name}</td><td>{item.email}</td><td>{enumLabel(item.role, t)}</td><td>{enumLabel(item.status, t)}</td><td>{item.status !== "SUSPENDED" && item.id !== user?.id && <button type="button" onClick={() => { if (window.confirm(t("courses.confirmArchive"))) void mutate("DELETE", { entity: "user", id: item.id }); }} className="text-[var(--color-error)]">{t("ui.suspend")}</button>}</td></tr>)}</tbody></table></div></section></DashboardSection>
+      <DashboardSection id="admin-users-section" title={t("ui.accounts")}><section className="rounded-[28px] bg-white p-6 shadow-sm"><h2 className="text-xl font-bold">{t("ui.accounts")}</h2>{accounts.controls}<div className="mt-4 overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr><th>{t("records.name")}</th><th>{t("records.email")}</th><th>{t("ui.role")}</th><th>{t("records.status")}</th><th /></tr></thead><tbody>{accounts.items.map((item) => <tr key={item.id} className="border-t"><td className="py-3">{item.name}</td><td>{item.email}</td><td>{enumLabel(item.role, t)}</td><td>{enumLabel(item.status, t)}</td><td>{item.status !== "SUSPENDED" && item.id !== user?.id && <button type="button" onClick={() => { if (window.confirm(t("courses.confirmArchive"))) void mutate("DELETE", { entity: "user", id: item.id }); }} className="text-[var(--color-error)]">{t("ui.suspend")}</button>}</td></tr>)}</tbody></table></div></section></DashboardSection>
       <DashboardSection id="admin-cron-section" title={t("cron.title")}><section className="rounded-[28px] bg-white p-6 shadow-sm" aria-labelledby="cron-heading">
         <h2 id="cron-heading" className="text-xl font-bold">{t("cron.title")}</h2>
         <p className="mt-2 text-sm text-slate-600">{t("cron.description")}</p>
@@ -135,7 +167,8 @@ export function ManagementPanel({ data, loading, loadError, onReload }: { data: 
             <button type="submit" className={`${buttonClass} sm:col-span-3`}>{t("fleet.addVehicle")}</button>
           </form>
           {!data.vehicles.length && <p className="mt-4 text-sm text-slate-500">{t("fleet.empty")}</p>}
-          <div className="mt-5 space-y-3">{data.vehicles.map((item) => <div key={item.id} className="grid min-w-0 gap-2 border-t pt-3 text-sm">
+          {vehicles.controls}
+          <div className="mt-5 space-y-3">{vehicles.items.map((item) => <div key={item.id} className="grid min-w-0 gap-2 border-t pt-3 text-sm">
             <span className="break-words">{item.name} · {item.plate} · {item.seats} {t("fleet.seats")} · {t(item.active ? "fleet.activeVehicle" : "fleet.inactiveVehicle")}</span>
             <div className="flex flex-wrap items-center gap-2">
               <select aria-label={`${t("fleet.iconCategory")} · ${item.name}`} className={inputClass} value={item.iconCategory} disabled={pending} onChange={(event) => void mutate("PATCH", { entity: "vehicle", id: item.id, data: { iconCategory: event.target.value } })}>{vehicleIconCategories.map((category) => <option key={category} value={category}>{t(vehicleCategoryLabels[category])}</option>)}</select>
@@ -160,7 +193,8 @@ export function ManagementPanel({ data, loading, loadError, onReload }: { data: 
           <input name="longitude" required type="number" min="-180" max="180" step="any" placeholder={t("fleet.longitude")} className={inputClass} />
           <button className={buttonClass}>{t("fleet.addHub")}</button>
         </form>
-        <div className="mt-5 space-y-3">{data.hubs.map((hub) => <form key={hub.id} onSubmit={(event) => create(event, "hub", hub.id)} className="grid gap-2 border-t pt-3 sm:grid-cols-2 xl:grid-cols-5">
+        {hubs.controls}
+        <div className="mt-5 space-y-3">{hubs.items.map((hub) => <form key={hub.id} onSubmit={(event) => create(event, "hub", hub.id)} className="grid gap-2 border-t pt-3 sm:grid-cols-2 xl:grid-cols-5">
           <input name="name" required maxLength={500} defaultValue={hub.name} className={inputClass} />
           <input name="address" maxLength={500} defaultValue={hub.address ?? ""} placeholder={t("fleet.hubAddress")} className={inputClass} />
           <input name="latitude" required type="number" min="-90" max="90" step="any" defaultValue={hub.latitude} className={inputClass} />

@@ -2,16 +2,18 @@ import { authorize } from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import { blogInputSchema } from "@/lib/blog-client";
 import { blogAdminInclude, blogFailure } from "@/lib/blog";
+import { blogListOrder, blogListQuerySchema } from "@/lib/blog-list-query";
 
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
   try {
     if (!await authorize(request, "ADMIN")) return Response.json({ error: "Administrator access required" }, { status: 403 });
-    const page = Number(new URL(request.url).searchParams.get("page") ?? "1");
-    if (!Number.isSafeInteger(page) || page < 1 || page > 100000) return Response.json({ error: "Invalid page" }, { status: 400 });
+    const query = blogListQuerySchema.safeParse(Object.fromEntries(new URL(request.url).searchParams));
+    if (!query.success) return Response.json({ error: "Invalid listing query" }, { status: 400 });
+    const { page } = query.data;
     const [posts, trips] = await Promise.all([
-      prisma.blogPost.findMany({ include: blogAdminInclude, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 20, skip: (page - 1) * 20 }),
+      prisma.blogPost.findMany({ include: blogAdminInclude, orderBy: blogListOrder(query.data), take: 20, skip: (page - 1) * 20 }),
       prisma.booking.findMany({ where: { status: "TRIP_COMPLETED" }, select: { id: true, reference: true }, orderBy: { pickupAt: "desc" } }),
     ]);
     return Response.json({ posts, trips }, { headers: { "Cache-Control": "no-store" } });

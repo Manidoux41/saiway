@@ -5,18 +5,32 @@ import { useState } from "react";
 import { ExternalLink, IdCard } from "lucide-react";
 import { useLanguage } from "@/components/i18n/language-provider";
 import type { ManagementData } from "@/lib/admin-client";
+import { useListSort } from "@/components/admin/list-sort";
+import { sortDate } from "@/lib/list-sort";
 
 const sides = ["FRONT", "BACK"] as const;
 
 export function DriverLicenses({ users }: { users: ManagementData["users"] }) {
   const { t, language } = useLanguage();
   const [now] = useState(() => Date.now());
-  const drivers = users.filter((item) => item.role === "DRIVER" && item.driver);
+  const sorted = useListSort(users.filter((item) => item.role === "DRIVER" && item.driver), [
+    { key: "created", label: t("sorting.created"), value: (item) => sortDate(item.createdAt) },
+    { key: "name", label: t("records.name"), value: (item) => item.name },
+    { key: "expiry", label: t("license.expiry"), value: (item) => sortDate(item.driver?.licenseExpiresAt) },
+    { key: "number", label: t("license.number"), value: (item) => item.driver?.licenseNo },
+    { key: "status", label: t("records.status"), value: (item) => {
+      const driver = item.driver;
+      const complete = driver?.licenseNo && driver.licenseExpiresAt && Date.parse(driver.licenseExpiresAt) >= now && sides.every((side) => driver.licenseImages?.some((image) => image.side === side));
+      return t(complete ? "license.complete" : "license.incomplete");
+    } },
+  ], { key: "created", direction: "desc" });
+  const drivers = sorted.items;
   const date = (value: string, options: Intl.DateTimeFormatOptions) => localizedDate(language, options).format(new Date(value));
 
   return <section className="rounded-[28px] bg-white p-6 shadow-sm" aria-labelledby="driver-licenses-title">
     <h2 id="driver-licenses-title" className="flex items-center gap-2 text-xl font-bold"><IdCard size={20} aria-hidden="true" />{t("license.adminTitle")}</h2>
     <p className="mt-2 text-sm text-slate-500">{t("license.adminIntro")}</p>
+    {sorted.controls}
     <div className="mt-4 overflow-x-auto"><table className="w-full text-left text-sm">
       <thead><tr><th>{t("license.driver")}</th><th>{t("license.number")}</th><th>{t("license.expiry")}</th><th>{t("license.photos")}</th><th>{t("records.status")}</th></tr></thead>
       <tbody>{drivers.map((item) => {

@@ -8,6 +8,8 @@ import { useLanguage } from "@/components/i18n/language-provider";
 import type { FleetDriver, FleetHub } from "@/components/maps/fleet-map";
 import styles from "./admin-dashboard.module.css";
 import { localizedDate } from "@/lib/locale-format";
+import { useListSort } from "@/components/admin/list-sort";
+import { sortDate } from "@/lib/list-sort";
 
 const FleetMap = dynamic(() => import("@/components/maps/fleet-map").then((module) => module.FleetMap), { ssr: false, loading: () => <div className="h-[480px] animate-pulse bg-slate-100" /> });
 
@@ -75,7 +77,14 @@ export function FleetSupervision() {
     };
   }, [refreshing]);
 
-  const drivers = state.drivers.map((driver) => ({ ...driver, stale: driver.stale || Boolean(driver.location && now - Date.parse(driver.location.recordedAt) > 120_000) }));
+  const sorted = useListSort(state.drivers, [
+    { key: "name", label: t("records.name"), value: (item) => item.name },
+    { key: "date", label: t("fleet.lastPosition"), value: (item) => sortDate(item.location?.recordedAt) },
+    { key: "status", label: t("records.status"), value: (item) => t(labelKey[item.status]) },
+    { key: "category", label: t("finance.category"), value: (item) => item.vehicle ? t(`fleet.category.${item.vehicle.iconCategory}`) : null },
+    { key: "vehicle", label: t("records.vehicles"), value: (item) => item.vehicle?.plate },
+  ], { key: "name", direction: "asc" });
+  const drivers = sorted.items.map((driver) => ({ ...driver, stale: driver.stale || Boolean(driver.location && now - Date.parse(driver.location.recordedAt) > 120_000) }));
   const selected = drivers.find((driver) => driver.id === selectedId) ?? null;
   const content = <div className={expanded ? styles.fleetFullscreenBody : styles.fleetBody}>
     <div className={styles.fleetList} aria-label={t("fleet.drivers")}>
@@ -102,6 +111,7 @@ export function FleetSupervision() {
       </div>
     </div>
     {state.error && <p role="alert" className={styles.error}>{t("fleet.loadError")}</p>}
+    <div className="px-4">{sorted.controls}</div>
     {!state.hubs.length && state.loaded && !state.error && <p className={styles.fleetNotice}>{t("fleet.hubNotice")}</p>}
     {content}
   </section>;

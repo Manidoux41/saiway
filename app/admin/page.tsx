@@ -12,6 +12,9 @@ import { FleetSupervision } from "@/components/admin/fleet-supervision";
 import { ChangePasswordForm } from "@/components/auth/change-password-form";
 import styles from "@/components/admin/admin-dashboard.module.css";
 import { DashboardMenu, DashboardSection, DashboardWorkspace } from "@/components/layout/dashboard-menu";
+import { useListSort } from "@/components/admin/list-sort";
+import { sortDate } from "@/lib/list-sort";
+import { enumLabel } from "@/components/i18n/enum-label";
 
 const BlogPanel = dynamic(() => import("@/components/admin/blog-panel").then((module) => module.BlogPanel));
 const ManagementMenu = dynamic(() => import("@/components/admin/management-panel").then((module) => module.ManagementMenu));
@@ -30,6 +33,13 @@ export default function AdminPage() {
   const [accountRole, setAccountRole] = useState<"CUSTOMER" | "DRIVER" | "ADMIN">("CUSTOMER");
   const [profileId, setProfileId] = useState<string | null>(null);
   const [employerVersion, setEmployerVersion] = useState(0);
+  const accounts = useListSort(data?.users ?? [], [
+    { key: "created", label: t("sorting.created"), value: (item) => sortDate(item.createdAt) },
+    { key: "name", label: t("records.name"), value: (item) => item.name },
+    { key: "email", label: t("records.email"), value: (item) => item.email },
+    { key: "role", label: t("ui.role"), value: (item) => enumLabel(item.role, t) },
+    { key: "status", label: t("records.status"), value: (item) => enumLabel(item.status, t) },
+  ], { key: "created", direction: "desc" });
   const sections = [{ key: "operations", icon: BriefcaseBusiness }, { key: "accounts", icon: Users }, { key: "management", icon: CarFront }, { key: "blog", icon: BookOpen }, { key: "security", icon: ShieldCheck }] as const;
   return <div className={styles.page}>
     <header className={styles.heading}><div><span className={styles.eyebrow}>SAIWAY / {t("nav.adminDashboard")}</span><h1>{t("dispatch.title")}</h1><p>{t("driver.localTime")}</p></div><button type="button" className={styles.iconButton} disabled={loading} onClick={refresh} title={t("admin.retry")} aria-label={t("admin.retry")}><RefreshCw size={19} /></button></header>
@@ -51,7 +61,8 @@ export default function AdminPage() {
       </DashboardSection>
       <DashboardSection id="admin-directory-section" title={t("records.users")}>
         <div className={styles.sectionHeading}><h2>{t("records.users")}</h2><span className={styles.muted}>{data?.users.length ?? 0}</span></div>
-        <div className={styles.tableWrap}><table className={styles.table}><thead><tr><th>{t("records.name")}</th><th>{t("records.email")}</th><th>{t("courses.entity")}</th><th>{t("records.status")}</th><th>{t("profile.actions")}</th></tr></thead><tbody>{data?.users.map((account) => <tr key={account.id} data-selected={profileId === account.id}><td>{account.name}</td><td>{account.email}</td><td>{t(account.role === "DRIVER" ? "admin.driver" : account.role === "CUSTOMER" ? "courses.customer" : "admin.administratorTitle")}</td><td>{t(account.status === "ACTIVE" ? "admin.active" : account.status === "SUSPENDED" ? "admin.suspended" : "admin.invited")}</td><td><button type="button" onClick={() => setProfileId(account.id)} aria-label={`${t("profile.edit")} · ${account.name}`} className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-semibold text-[var(--color-primary)]">{t("profile.edit")}</button></td></tr>)}</tbody></table></div>
+        {accounts.controls}
+        <div className={styles.tableWrap}><table className={styles.table}><thead><tr><th>{t("records.name")}</th><th>{t("records.email")}</th><th>{t("courses.entity")}</th><th>{t("records.status")}</th><th>{t("profile.actions")}</th></tr></thead><tbody>{accounts.items.map((account) => <tr key={account.id} data-selected={profileId === account.id}><td>{account.name}</td><td>{account.email}</td><td>{t(account.role === "DRIVER" ? "admin.driver" : account.role === "CUSTOMER" ? "courses.customer" : "admin.administratorTitle")}</td><td>{t(account.status === "ACTIVE" ? "admin.active" : account.status === "SUSPENDED" ? "admin.suspended" : "admin.invited")}</td><td><button type="button" onClick={() => setProfileId(account.id)} aria-label={`${t("profile.edit")} · ${account.name}`} className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-semibold text-[var(--color-primary)]">{t("profile.edit")}</button></td></tr>)}</tbody></table></div>
         {profileId && <AccountProfile key={`${profileId}-${employerVersion}`} userId={profileId} currentUserId={user?.id} onChanged={refresh} onClose={() => setProfileId(null)} />}
       </DashboardSection>
       <DashboardSection id="admin-employer-section" title={t("dashboard.employer")}><EmployerSettingsForm onChanged={() => setEmployerVersion((value) => value + 1)} /></DashboardSection>

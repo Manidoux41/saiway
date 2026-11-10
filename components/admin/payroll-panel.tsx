@@ -5,6 +5,8 @@ import { useLanguage } from "@/components/i18n/language-provider";
 import { payrollListSchema } from "@/lib/payroll-client";
 import { localizedDate, localizedNumber } from "@/lib/locale-format";
 import { z } from "zod";
+import { useListSort } from "@/components/admin/list-sort";
+import { sortDate } from "@/lib/list-sort";
 
 export function PayrollPanel({ admin = false, onChanged }: { admin?: boolean; onChanged?: () => void }) {
   const { t, language } = useLanguage();
@@ -19,6 +21,13 @@ export function PayrollPanel({ admin = false, onChanged }: { admin?: boolean; on
   const [saved, setSaved] = useState(false);
   const [payDates, setPayDates] = useState<Record<string, string>>({});
   const [selectedDriver, setSelectedDriver] = useState("");
+  const payrolls = useListSort(data?.payrolls ?? [], [
+    { key: "date", label: t("payroll.schedule"), value: (item) => sortDate(item.scheduledPayAt) },
+    { key: "name", label: t("payroll.driver"), value: (item) => item.snapshot.employeeName },
+    { key: "month", label: t("records.month"), value: (item) => item.month },
+    { key: "status", label: t("records.status"), value: (item) => t(`payroll.${item.status}`) },
+    { key: "amount", label: t("payroll.net"), value: (item) => item.netCents },
+  ], { key: "date", direction: "desc" });
   const endpoint = admin ? "/api/admin/payroll" : "/api/driver/payroll";
   useEffect(() => {
     const controller = new AbortController();
@@ -58,7 +67,8 @@ export function PayrollPanel({ admin = false, onChanged }: { admin?: boolean; on
         <button disabled={Boolean(selectedPayroll && selectedPayroll.status !== "DRAFT")} className={button}>{t("payroll.draft")}</button>
       </fieldset></form></>}
     {!data && !error && <p role="status">{t("admin.loading")}</p>}
-    {data?.payrolls.map((payroll) => <article key={payroll.id} className="min-w-0 space-y-3 rounded-2xl border p-4">
+    {admin && payrolls.controls}
+    {(admin ? payrolls.items : data?.payrolls ?? []).map((payroll) => <article key={payroll.id} className="min-w-0 space-y-3 rounded-2xl border p-4">
       <h3 className="text-lg font-bold">{payroll.snapshot.employeeName} · {payroll.month}</h3><p className="text-sm">{t(`payroll.${payroll.status}`)}</p>
       <dl className="grid gap-3 sm:grid-cols-2">
         {([{ label: "payroll.base", value: payroll.baseSalaryCents }, { label: "payroll.revenue", value: payroll.eligibleRevenueCents }, { label: "payroll.commission", value: payroll.commissionCents }, { label: "payroll.bonus", value: payroll.bonusCents }, { label: "payroll.deduction", value: payroll.deductionCents }, { label: "payroll.net", value: payroll.netCents }] as const).map(({ label, value }) => <div key={label}><dt className="text-sm text-slate-600">{t(label)}</dt><dd className="font-bold">{money(value)}</dd></div>)}

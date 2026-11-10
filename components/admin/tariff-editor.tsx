@@ -5,6 +5,8 @@ import { useState } from "react";
 import { useLanguage } from "@/components/i18n/language-provider";
 import { type FarePolicy } from "@/lib/fare-policy";
 import type { ManagementData } from "@/lib/admin-client";
+import { useListSort } from "@/components/admin/list-sort";
+import { sortDate } from "@/lib/list-sort";
 
 const categories = ["TUK_TUK", "PASSAPP", "SEDAN", "SUV", "MINIVAN", "MINIBUS", "VAN", "OTHER"] as const;
 export function TariffEditor({ policy, history, onSave }: {
@@ -14,6 +16,11 @@ export function TariffEditor({ policy, history, onSave }: {
   const [zones, setZones] = useState(policy.zones);
   const [times, setTimes] = useState(policy.timeSurcharges);
   const [extras, setExtras] = useState(policy.exceptionalSurcharges);
+  const versions = useListSort(history ?? [], [
+    { key: "effective", label: t("records.effective"), value: (item) => sortDate(item.effectiveAt) },
+    { key: "created", label: t("sorting.created"), value: (item) => sortDate(item.createdAt) },
+    { key: "amount", label: t("fare.cityRate"), value: (item) => item.policy.cityCentsPerKm },
+  ], { key: "effective", direction: "desc" });
   const input = "mt-1 w-full rounded-xl border p-3";
   const button = "rounded-xl border p-3 text-sm font-semibold";
   return <div><form className="mt-4 space-y-5" onSubmit={(event) => {
@@ -71,6 +78,6 @@ export function TariffEditor({ policy, history, onSave }: {
     <button type="button" className={button} disabled={extras.length >= 20} onClick={() => setExtras([...extras, { label: "", cents: 0 }])}>{t("auto.addExtra")}</button>
     <button type="submit" className="block w-full rounded-xl bg-[var(--color-primary)] p-4 font-bold text-white">{t("fare.save")}</button>
   </form>
-  <details className="mt-5"><summary className="cursor-pointer font-bold">{t("auto.tariffHistory")}</summary>{history?.map((version) => <details key={version.id} className="mt-3 rounded-xl border p-3"><summary>{localizedDate(language, { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Phnom_Penh" }).format(new Date(version.effectiveAt))} · {(version.policy.cityCentsPerKm / 100).toFixed(2)} USD/km · {version.policy.zones.map((zone) => zone.name).join(", ")}</summary><pre className="overflow-auto text-xs">{JSON.stringify(version.policy, null, 2)}</pre></details>)}</details>
+  <details className="mt-5"><summary className="cursor-pointer font-bold">{t("auto.tariffHistory")}</summary>{versions.controls}{versions.items.map((version) => <details key={version.id} className="mt-3 rounded-xl border p-3"><summary>{localizedDate(language, { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Phnom_Penh" }).format(new Date(version.effectiveAt))} · {(version.policy.cityCentsPerKm / 100).toFixed(2)} USD/km · {version.policy.zones.map((zone) => zone.name).join(", ")}</summary><pre className="overflow-auto text-xs">{JSON.stringify(version.policy, null, 2)}</pre></details>)}</details>
   </div>;
 }

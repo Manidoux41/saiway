@@ -35,7 +35,7 @@ export async function GET(request: Request) {
   try {
     if (!await authorize(request, "ADMIN")) return Response.json({ error: "Administrator access required" }, { status: 403 });
     const [users, vehicles, hubs, entries, forecasts, contracts, pricing, settings, receipts] = await Promise.all([
-      prisma.user.findMany({ select: { id: true, name: true, email: true, role: true, status: true, phone: true, driver: { select: { id: true, isAvailable: true, licenseNo: true, licenseExpiresAt: true, licenseImages: { select: { side: true, sizeBytes: true, uploadedAt: true }, orderBy: { side: "asc" } }, photo: { select: { uploadedAt: true } }, contactQrImages: { select: { channel: true, uploadedAt: true }, orderBy: { channel: "asc" } } } } }, orderBy: { createdAt: "desc" } }),
+      prisma.user.findMany({ select: { id: true, name: true, email: true, role: true, status: true, phone: true, createdAt: true, driver: { select: { id: true, isAvailable: true, licenseNo: true, licenseExpiresAt: true, licenseImages: { select: { side: true, sizeBytes: true, uploadedAt: true }, orderBy: { side: "asc" } }, photo: { select: { uploadedAt: true } }, contactQrImages: { select: { channel: true, uploadedAt: true }, orderBy: { channel: "asc" } } } } }, orderBy: { createdAt: "desc" } }),
       prisma.vehicle.findMany({ include: { iconImage: { select: { uploadedAt: true, sizeBytes: true } } }, orderBy: { createdAt: "desc" } }),
       prisma.hub.findMany({ orderBy: [{ active: "desc" }, { name: "asc" }] }),
       prisma.accountingEntry.findMany({ orderBy: { createdAt: "desc" } }),

@@ -5,6 +5,8 @@ import { useLanguage } from "@/components/i18n/language-provider";
 import { driverVehicleExpensesResponseSchema, type VehicleExpenseView, type VehicleExpenseVehicle } from "@/lib/vehicle-expense-client";
 import { convertedUsdCents, parseAmountInput } from "@/lib/vehicle-expense-policy";
 import { localizedDate, localizedNumber } from "@/lib/locale-format";
+import { useListSort } from "@/components/admin/list-sort";
+import { sortDate } from "@/lib/list-sort";
 
 export function VehicleExpenses({ admin = false, onChanged }: { admin?: boolean; onChanged?: () => void }) {
   const { t, language } = useLanguage();
@@ -17,6 +19,14 @@ export function VehicleExpenses({ admin = false, onChanged }: { admin?: boolean;
   const [vehicleFilter, setVehicleFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [reasons, setReasons] = useState<Record<string, string>>({});
+  const sorted = useListSort(data?.expenses ?? [], [
+    { key: "date", label: t("finance.date"), value: (item) => sortDate(item.occurredAt) },
+    { key: "category", label: t("finance.category"), value: (item) => t(item.category === "FUEL" ? "finance.FUEL" : "finance.MAINTENANCE") },
+    { key: "status", label: t("records.status"), value: (item) => t(`fuel.${item.status}`) },
+    { key: "vehicle", label: t("fuel.vehicle"), value: (item) => item.vehicle.plate },
+    { key: "amount", label: `${t("finance.amount")} (USD)`, value: (item) => item.usdCents },
+    { key: "odometer", label: t("fuel.odometer"), value: (item) => Number(item.odometerKm) },
+  ], { key: "date", direction: "desc" });
   const attempt = useRef<{ signature: string; id: string } | null>(null);
   const reload = useCallback(() => fetch(endpoint, { cache: "no-store" })
     .then(async (response) => {
@@ -78,7 +88,8 @@ export function VehicleExpenses({ admin = false, onChanged }: { admin?: boolean;
       <p className="text-xs leading-6 text-slate-500">{t("fuel.notice")}</p>
       <h3 className="font-semibold">{t("fuel.history")}</h3>
       <div className="grid gap-3 sm:grid-cols-2"><label>{t("fuel.vehicle")}<select value={vehicleFilter} onChange={(event) => setVehicleFilter(event.target.value)} className={input}><option value="">{t("records.all")}</option>{data.vehicles.map((vehicle) => <option key={vehicle.id} value={vehicle.id}>{vehicle.plate}</option>)}</select></label><label>{t("records.status")}<select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className={input}><option value="">{t("records.all")}</option>{(["PENDING", "APPROVED", "REJECTED"] as const).map((status) => <option key={status} value={status}>{t(`fuel.${status}`)}</option>)}</select></label></div>
-      {data.expenses.filter((expense) => (!vehicleFilter || expense.vehicleId === vehicleFilter) && (!statusFilter || expense.status === statusFilter)).map((expense) => <article key={expense.id} className="min-w-0 space-y-2 rounded-2xl border p-4">
+      {admin && sorted.controls}
+      {(admin ? sorted.items : data.expenses).filter((expense) => (!vehicleFilter || expense.vehicleId === vehicleFilter) && (!statusFilter || expense.status === statusFilter)).map((expense) => <article key={expense.id} className="min-w-0 space-y-2 rounded-2xl border p-4">
         <h4 className="font-semibold">{expense.vehicle.plate} · {t(expense.category === "FUEL" ? "finance.FUEL" : "finance.MAINTENANCE")}</h4>
         <p className="text-sm">{localizedDate(language, { dateStyle: "short", timeStyle: "short", timeZone: "Asia/Phnom_Penh" }).format(new Date(expense.occurredAt))} · {expense.odometerKm} km · {t(`fuel.${expense.status}`)}</p>
         <p>{money(expense)}{expense.liters && <> · {expense.liters} L · {t("fuel.unit")}: {localizedNumber(language, { style: "currency", currency: expense.currency }).format(expense.amountCents / (expense.currency === "USD" ? 100 : 1) / Number(expense.liters))}/L</>}</p>

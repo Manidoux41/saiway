@@ -7,6 +7,8 @@ import { useLanguage } from "@/components/i18n/language-provider";
 import { blogInputSchema, blogPostSchema, type AdminBlogPost, type BlogInput } from "@/lib/blog-client";
 import { BlogImage } from "@/components/blog/blog-public";
 import { prepareBlogImage } from "@/lib/blog-image-client";
+import { ListSort } from "@/components/admin/list-sort";
+import type { SortState } from "@/lib/list-sort";
 
 const listing = z.object({ posts: z.array(blogPostSchema), trips: z.array(z.object({ id: z.string(), reference: z.string() })) });
 type Mutate = (path: string, method: string, data?: BlogInput | { expectedUpdatedAt: string; photoIds?: string[] } | { caption: string } | FormData) => Promise<AdminBlogPost | null>;
@@ -96,6 +98,7 @@ export function BlogPanel() {
   const [posts, setPosts] = useState<AdminBlogPost[]>([]);
   const [trips, setTrips] = useState<{ id: string; reference: string }[]>([]);
   const [page, setPage] = useState(1);
+  const [sort, setSort] = useState<SortState>({ key: "createdAt", direction: "desc" });
   const [revision, setRevision] = useState(0);
   const [selected, setSelected] = useState<AdminBlogPost | "new" | null>(null);
   const [loading, setLoading] = useState(true);
@@ -109,7 +112,7 @@ export function BlogPanel() {
     const controller = new AbortController();
     async function load() {
       try {
-        const response = await fetch(`/api/admin/blog?page=${page}`, { cache: "no-store", signal: AbortSignal.any([controller.signal, AbortSignal.timeout(30000)]) });
+        const response = await fetch(`/api/admin/blog?page=${page}&sort=${encodeURIComponent(sort.key)}&direction=${sort.direction}`, { cache: "no-store", signal: AbortSignal.any([controller.signal, AbortSignal.timeout(30000)]) });
         if (!response.ok) throw new Error("Blog listing unavailable");
         const data = listing.parse(await response.json());
         if (!controller.signal.aborted) { setPosts(data.posts); setTrips(data.trips); }
@@ -119,7 +122,7 @@ export function BlogPanel() {
     }
     void load();
     return () => controller.abort();
-  }, [page, revision, t]);
+  }, [page, revision, t, sort]);
 
   const mutate: Mutate = async (path, method, data) => {
     if (lock.current) return null;
@@ -161,6 +164,12 @@ export function BlogPanel() {
     {saved && <p role="status" className="rounded-xl bg-emerald-50 p-4 text-emerald-800">{t("blog.saved")}</p>}
     {uploading && <p role="status">{t("blog.uploading")} {uploadProgress}</p>}
     {selected && <BlogEditor key={selected === "new" ? "new" : selected.id} post={selected === "new" ? null : selected} pending={pending || uploading} trips={trips} mutate={mutate} uploadPhotos={uploadPhotos} close={() => setSelected(null)} />}
+    <ListSort fields={[
+      { key: "createdAt", label: t("sorting.created") }, { key: "updatedAt", label: t("sorting.updated") },
+      { key: "publishedAt", label: t("sorting.published") }, { key: "title", label: t("blog.postTitle") },
+      { key: "language", label: t("blog.language") }, { key: "published", label: t("records.status") },
+      { key: "featured", label: t("blog.featured") }, { key: "layout", label: t("blog.layout") },
+    ]} value={sort} onChange={(value) => { setSort(value); setPage(1); setPosts([]); setLoading(true); }} />
     {loading && <p role="status">{t("admin.loading")}</p>}
     {!loading && !posts.length && !error && <p>{t("blog.empty")}</p>}
     <div className="grid min-w-0 gap-4">{posts.map((post) => <article key={post.id} className="flex min-w-0 flex-wrap items-center justify-between gap-4 rounded-2xl border bg-white p-4">

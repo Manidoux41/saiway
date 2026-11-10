@@ -322,6 +322,27 @@ destinations to retain draft input and filters.
 No API permissions, dispatch, payment or accounting rules are changed.
 Labels are available in English, French and Khmer.
 
+### Administration list sorting
+
+Each administration list has **Sort by** and **Order** selectors (ascending or
+descending): dispatch including archived trips, live fleet, both account
+directories, vehicles, hubs, driver licences/cards, accounting, receipts, monthly
+forecasts, rental/financing contracts, expenses, payslips, employment contracts,
+tariff history, record selectors and blog articles. Available criteria match the
+list: dates, name/reference, category/type, status, vehicle and numeric amounts.
+Existing filters are preserved and financial totals are unaffected.
+
+Dates use timestamps, amounts use numeric values, and client-side text uses
+natural ordering in the selected EN/FR/KM locale. Missing dates/relations stay
+last in either direction. Expense amounts are compared in their recorded USD
+equivalent; other monetary lists compare their displayed nominal amounts, not
+currency conversions. Blog sorting runs in the database **before** its 20-item
+pagination; changing its criterion/order returns to page one without discarding
+the open article editor. Other lists sort the loaded records (tariff history
+retains its existing latest-100-version limit). Choices remain while switching
+main admin sections; they are not saved across a full page reload. Editable
+tariff rules and article-photo sequences retain their explicit business order.
+
 ### Monthly accounting, vehicle costs and driver payroll
 
 Financial records use an explicit entry date, category and optional vehicle.

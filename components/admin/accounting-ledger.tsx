@@ -7,6 +7,8 @@ import { accountingBalance, accountingMonth, ledgerRows } from "@/lib/accounting
 import type { ManagementData } from "@/lib/admin-client";
 import { enumLabel } from "@/components/i18n/enum-label";
 import { FinanceRecordForm } from "@/components/admin/finance-record-form";
+import { useListSort } from "@/components/admin/list-sort";
+import { sortDate } from "@/lib/list-sort";
 
 const categories = ["TRIP", "FUEL", "MAINTENANCE", "SALARY", "OTHER"] as const;
 const categoryKeys = { TRIP: "finance.TRIP", FUEL: "finance.FUEL", MAINTENANCE: "finance.MAINTENANCE", SALARY: "finance.SALARY", OTHER: "finance.OTHER" } as const;
@@ -20,12 +22,20 @@ export function AccountingLedger({ data, disabled, onChanged }: { data: Manageme
   const [query, setQuery] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
-  const [ascending, setAscending] = useState(false);
   const [selected, setSelected] = useState("");
   const rows = ledgerRows(data);
   const monthly = rows.filter((row) => !month || accountingMonth(row.date) === month);
-  const visible = monthly.filter((row) => (!category || row.category === category) && (!type || row.type === type) && (!vehicle || row.vehicleId === vehicle) && (!query || row.label.toLocaleLowerCase().includes(query.toLocaleLowerCase())) && (!from || accountingMonthDay(row.date) >= from) && (!to || accountingMonthDay(row.date) <= to))
-    .sort((a, b) => (ascending ? 1 : -1) * (Date.parse(a.date) - Date.parse(b.date)) || a.id.localeCompare(b.id));
+  const sorted = useListSort(monthly, [
+    { key: "date", label: t("finance.date"), value: (item) => sortDate(item.date) },
+    { key: "category", label: t("finance.category"), value: (item) => enumLabel(item.category, t) },
+    { key: "type", label: t("records.type"), value: (item) => enumLabel(item.type, t) },
+    { key: "label", label: t("records.description"), value: (item) => item.label },
+    { key: "amount", label: t("finance.amount"), value: (item) => item.amountCents },
+    { key: "currency", label: "USD / KHR", value: (item) => item.currency },
+    { key: "vehicle", label: t("records.vehicles"), value: (item) => data.vehicles.find((vehicle) => vehicle.id === item.vehicleId)?.plate },
+    { key: "status", label: t("records.status"), value: (item) => t(item.paid ? "finance.paid" : "finance.unpaid") },
+  ], { key: "date", direction: "desc" });
+  const visible = sorted.items.filter((row) => (!category || row.category === category) && (!type || row.type === type) && (!vehicle || row.vehicleId === vehicle) && (!query || row.label.toLocaleLowerCase().includes(query.toLocaleLowerCase())) && (!from || accountingMonthDay(row.date) >= from) && (!to || accountingMonthDay(row.date) <= to));
   const currencies = [...new Set(monthly.map((row) => row.currency))];
   const money = (cents: number, currency: string) => localizedNumber(language, { style: "currency", currency }).format(cents / 100);
   const input = "mt-1 w-full min-w-0 rounded-xl border p-3";
@@ -49,8 +59,8 @@ export function AccountingLedger({ data, disabled, onChanged }: { data: Manageme
       <label>{t("finance.from")}<input type="date" value={from} onChange={(event) => setFrom(event.target.value)} className={input} /></label>
       <label>{t("finance.to")}<input type="date" value={to} onChange={(event) => setTo(event.target.value)} className={input} /></label>
       <label>{t("finance.search")}<input type="search" value={query} onChange={(event) => setQuery(event.target.value)} className={input} /></label>
-      <label>{t("finance.sort")}<select value={ascending ? "asc" : "desc"} onChange={(event) => setAscending(event.target.value === "asc")} className={input}><option value="desc">{t("finance.newest")}</option><option value="asc">{t("finance.oldest")}</option></select></label>
     </div>
+    {sorted.controls}
     <p className="text-xs text-slate-500">{t("finance.summaryScope")}</p>
     {(currencies.length ? currencies : ["USD"]).map((currency) => {
       const balance = accountingBalance(monthly, currency);

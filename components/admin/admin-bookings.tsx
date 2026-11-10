@@ -14,6 +14,9 @@ import type { ManagementData } from "@/lib/admin-client";
 import { closedDriverStatuses, driverDay, driverTimeZone, navigationUrl } from "@/lib/driver-dashboard";
 import { FareSummary } from "@/components/booking/fare-summary";
 import styles from "./admin-dashboard.module.css";
+import { useListSort } from "@/components/admin/list-sort";
+import { sortDate } from "@/lib/list-sort";
+import { enumLabel } from "@/components/i18n/enum-label";
 
 const TripMap = dynamic(() => import("@/components/driver/trip-map"), { ssr: false, loading: () => <div className="h-80 animate-pulse bg-slate-100" /> });
 const SavedRouteMap = dynamic(() => import("@/components/maps/saved-route-map").then((module) => module.SavedRouteMap), { ssr: false });
@@ -101,7 +104,16 @@ export function AdminBookings({ management, disabled }: { management: Management
   const closed = (course: Course) => closedDriverStatuses.includes(course.status);
   const matchesView = (course: Course, value: View) => value === "all" || (value === "history" ? closed(course) : value === "toValidate" ? course.status === "PENDING_PAYMENT" : value === "toAssign" ? !closed(course) && !course.driverId : ongoing.includes(course.status));
   const search = query.trim().toLocaleLowerCase();
-  const visible = courses.filter((course) => matchesView(course, view) && (!driverId || course.driverId === driverId) && (!date || driverDay(course.pickupAt) === date)
+  const sorted = useListSort(courses, [
+    { key: "date", label: t("courses.pickup"), value: (item) => sortDate(item.pickupAt) },
+    { key: "customer", label: t("courses.customer"), value: (item) => item.customer.name },
+    { key: "driver", label: t("admin.driver"), value: (item) => item.driver?.user.name },
+    { key: "status", label: t("records.status"), value: (item) => enumLabel(item.status, t) },
+    { key: "category", label: t("booking.tripType"), value: (item) => enumLabel(item.tripType, t) },
+    { key: "amount", label: t("finance.amount"), value: (item) => item.priceCents },
+    { key: "reference", label: t("customer.abaReference"), value: (item) => item.reference },
+  ], { key: "date", direction: "asc" });
+  const visible = sorted.items.filter((course) => matchesView(course, view) && (!driverId || course.driverId === driverId) && (!date || driverDay(course.pickupAt) === date)
     && (!vehicleId || course.vehicleId === vehicleId) && (!status || course.status === status) && (!origin || course.originType === origin)
     && (!zoneId || course.fareDetails?.zoneId === zoneId) && (!fromDate || driverDay(course.pickupAt) >= fromDate) && (!toDate || driverDay(course.pickupAt) <= toDate)
     && (!search || [course.reference, course.customer.name, course.customer.email, course.fromAddress, course.toAddress, course.flightNumber ?? "", course.vehicle?.plate ?? ""].join(" ").toLocaleLowerCase().includes(search)));
@@ -164,6 +176,7 @@ export function AdminBookings({ management, disabled }: { management: Management
         {archived && <p className={styles.footnote}>{t("archive.notice")}</p>}
         <div className={styles.sectionHeading}><h2>{t("courses.adminTitle")}</h2><span className={styles.muted}>{visible.length} {t("dispatch.results")}</span></div>
         <div className={styles.views} role="group" aria-label={t("courses.adminTitle")}>{views.map((value) => <button key={value} type="button" aria-pressed={view === value} onClick={() => setView(value)}>{t(`dispatch.${value}`)}</button>)}</div>
+        <div className="px-4">{sorted.controls}</div>
         <div className={styles.filters}><label className={styles.search}><Search size={17} /><input type="search" aria-label={t("dispatch.search")} placeholder={t("dispatch.search")} value={query} onChange={(event) => setQuery(event.target.value)} /></label><select aria-label={t("dispatch.allDrivers")} value={driverId} onChange={(event) => setDriverId(event.target.value)}><option value="">{t("dispatch.allDrivers")}</option>{management?.users.filter((user) => user.role === "DRIVER" && user.driver).map((user) => <option key={user.id} value={user.driver!.id}>{user.name}</option>)}</select><input type="date" aria-label={t("dispatch.allDates")} value={date} onChange={(event) => setDate(event.target.value)} /><button type="button" className={styles.iconButton} onClick={clearFilters} title={t("dispatch.clear")} aria-label={t("dispatch.clear")}><X size={16} /></button></div>
         <div className="grid gap-3 p-4 text-sm sm:grid-cols-2 lg:grid-cols-3">
           <label>{t("auto.allVehicles")}<select className="mt-1 w-full rounded-xl border p-2" value={vehicleId} onChange={(event) => setVehicleId(event.target.value)}><option value="">{t("auto.allVehicles")}</option>{management?.vehicles.map((vehicle) => <option key={vehicle.id} value={vehicle.id}>{vehicle.name} · {vehicle.plate}</option>)}</select></label>

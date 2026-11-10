@@ -4,6 +4,8 @@ import { localizedDate, localizedNumber } from "@/lib/locale-format";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Download, ExternalLink, FileSignature, Trash2, Upload, X } from "lucide-react";
 import { useLanguage } from "@/components/i18n/language-provider";
+import { useListSort } from "@/components/admin/list-sort";
+import { sortDate } from "@/lib/list-sort";
 
 type Translate = ReturnType<typeof useLanguage>["t"];
 type Key = Parameters<Translate>[0];
@@ -218,6 +220,12 @@ function Contracts({ account, reload }: { account: Account; reload: () => Promis
   const [terminatedAt, setTerminatedAt] = useState(today);
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [busy, setBusy] = useState(false);
+  const contracts = useListSort(driver.employmentContracts, [
+    { key: "date", label: t("records.start"), value: (item) => sortDate(item.startsAt) },
+    { key: "reference", label: t("customer.abaReference"), value: (item) => item.reference },
+    { key: "status", label: t("records.status"), value: (item) => t(`profile.contract${item.status}`) },
+    { key: "amount", label: t("finance.amount"), value: (item) => item.monthlySalaryCents },
+  ], { key: "date", direction: "desc" });
   const formatDate = (value: string) => localizedDate(language, { dateStyle: "medium", timeZone: "UTC" }).format(new Date(value));
   const money = (contract: Contract) => localizedNumber(language, { style: "currency", currency: contract.currency }).format(contract.monthlySalaryCents / 100);
   async function run(request: Promise<{ ok: boolean; body: Record<string, unknown> | null }>) {
@@ -242,7 +250,8 @@ function Contracts({ account, reload }: { account: Account; reload: () => Promis
     <div className={`rounded-2xl p-3 text-sm ${readiness.length ? "bg-amber-50 text-amber-900" : "bg-emerald-50 text-emerald-800"}`}>
       {readiness.length ? <><strong>{t("profile.missingTitle")}</strong><ul className="mt-1 list-disc pl-5">{readiness.map((item) => <li key={item}>{t(`profile.missing.${item}` as Key)}</li>)}</ul></> : t("profile.readyForContract")}
     </div>
-    {driver.employmentContracts.length ? <ul className="mt-4 grid gap-3">{driver.employmentContracts.map((contract) => <li key={contract.id} className="rounded-2xl border border-slate-200 p-4">
+    {contracts.controls}
+    {driver.employmentContracts.length ? <ul className="mt-4 grid gap-3">{contracts.items.map((contract) => <li key={contract.id} className="rounded-2xl border border-slate-200 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div><strong className="font-mono text-sm">{contract.reference}</strong> <span className={`ml-2 rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusClass[contract.status]}`}>{t(`profile.contract${contract.status}`)}</span>
           <p className="mt-1 text-sm text-slate-600">{contract.position} · {contract.workplace} · {formatDate(contract.startsAt)}{contract.terminatedAt ? ` → ${formatDate(contract.terminatedAt)}` : ""} · {money(contract)} · {contract.hoursPerWeek} h</p></div>

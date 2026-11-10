@@ -11,6 +11,8 @@ import { contactQrChannels, contactQrImageUrl, type ContactQrChannel } from "@/l
 import { AngkorWatBackground } from "@/components/branding/angkor-wat-background";
 import { ContactBrandLogo } from "@/components/branding/contact-brand-logo";
 import styles from "@/components/admin/driver-business-card.module.css";
+import { useListSort } from "@/components/admin/list-sort";
+import { sortDate } from "@/lib/list-sort";
 
 const maxPhotoBytes = 5 * 1024 * 1024;
 type Driver = { id: string; name: string; phone: string; photoVersion: string | null; contactQrImages: { channel: ContactQrChannel; uploadedAt: string }[] };
@@ -51,7 +53,13 @@ export function DriverBusinessCards({ users, onChanged }: { users: ManagementDat
   const [message, setMessage] = useState<{ tone: "error" | "ok"; text: string } | null>(null);
   const [printing, setPrinting] = useState<Driver[] | null>(null);
   const printRoot = useRef<HTMLDivElement>(null);
-  const drivers = users.filter((item) => item.role === "DRIVER" && item.driver);
+  const sorted = useListSort(users.filter((item) => item.role === "DRIVER" && item.driver), [
+    { key: "created", label: t("sorting.created"), value: (item) => sortDate(item.createdAt) },
+    { key: "name", label: t("records.name"), value: (item) => item.name },
+    { key: "phone", label: t("records.phone"), value: (item) => item.phone },
+    { key: "photo", label: t("sorting.updated"), value: (item) => sortDate(item.driver?.photo?.uploadedAt) },
+  ], { key: "created", direction: "desc" });
+  const drivers = sorted.items;
   const cards: (Driver | null)[] = drivers.map((item) => item.phone ? { id: item.driver!.id, name: item.name, phone: item.phone, photoVersion: item.driver!.photo?.uploadedAt ?? null, contactQrImages: item.driver!.contactQrImages ?? [] } : null);
   const ready = cards.filter((card): card is Driver => card !== null);
   const bookingUrl = `${typeof window === "undefined" ? "" : window.location.origin}/booking`;
@@ -133,6 +141,7 @@ export function DriverBusinessCards({ users, onChanged }: { users: ManagementDat
       </div>
     </div>
     {message && <p role={message.tone === "error" ? "alert" : "status"} className={`mt-4 text-sm font-semibold ${message.tone === "error" ? "text-[var(--color-error)]" : "text-emerald-700"}`}>{message.text}</p>}
+    {sorted.controls}
     <div className="mt-5 grid gap-6 lg:grid-cols-2">{drivers.map((item, index) => {
       const card = cards[index];
       const driver = item.driver!;
