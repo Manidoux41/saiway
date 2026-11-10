@@ -287,6 +287,18 @@ The anonymous endpoint exposes only reference, status, pickup, confirmed
 destination/fare, assigned driver name/vehicle, and that ride's latest driver
 position while operationally active. Closed rides stop location sharing.
 
+As soon as a driver is assigned/accepted, the private `/ride` page shows an
+interactive map with the pickup point and the driver's latest position. It
+refreshes every five seconds, animates the driver marker and offers recentering.
+The approach route and estimated arrival use the existing routing service.
+No fictitious destination is geocoded for GPS-only requests. Before the driver's
+first update, the map shows pickup with an explicit waiting message; positions
+older than two minutes are flagged and do not produce a live arrival estimate.
+After cancellation/completion the map and location disappear. Before departure,
+only the assigned driver's unallocated/current-trip position is readable, never
+another trip's GPS history. Signed-in tracking also exposes the latest available
+driver fix from assignment, with its existing ownership checks.
+
 Requests reuse existing booking dispatch and admin/driver lists with origin
 `GUEST`; no separate queue or fictional customer is created. Automatic assignment
 uses FIFO availability (oldest available first, then creation/id) among active,

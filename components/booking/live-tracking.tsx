@@ -135,7 +135,7 @@ export function LiveTracking() {
       </section>
 
       <section className={`${styles.mapCard} ${mapExpanded ? styles.mapFullscreen : ""}`}>
-        <LiveTrackingMap key={course.id} fromAddress={course.routeDetails ? coordinateAddress(course.routeDetails.from) : course.fromAddress} toAddress={course.routeDetails ? coordinateAddress(course.routeDetails.to) : course.toAddress} driver={trackingStatuses.includes(status) ? driverPoint : null} me={me.point} status={status} history={current?.data?.history ?? []} vehicle={current?.data?.booking.vehicle ?? null} recenter={recenter} fullScreen={mapExpanded}
+        <LiveTrackingMap key={course.id} fromAddress={course.routeDetails ? coordinateAddress(course.routeDetails.from) : course.fromAddress} toAddress={course.routeDetails ? coordinateAddress(course.routeDetails.to) : course.toAddress} driver={trackingStatuses.includes(status) ? driverPoint : null} me={me.point} status={status} history={current?.data?.history ?? []} vehicle={current?.data?.booking.vehicle ?? null} recenter={recenter} fullScreen={mapExpanded} stale={Boolean(current?.failed || age !== null && age > staleMs)}
           labels={{ map: t("live.title"), driver: t("live.driver"), you: t("live.you"), pickup: t("track.pickup"), destination: t("track.destination"), tiles: t("driver.mapTilesError"), eta: t("live.eta"), remaining: t("live.remaining"), routeUnavailable: t("live.routeUnavailable"), routeLoading: t("live.routeLoading") }} />
         <div className={styles.mapControls}>
           <button type="button" className={styles.mapControl} onClick={() => setRecenter((value) => value + 1)}><Crosshair size={17} aria-hidden="true" />{t("live.recenter")}</button>

@@ -49,8 +49,9 @@ async function findAccess(token: string) {
 }
 async function view(access: NonNullable<Awaited<ReturnType<typeof findAccess>>>) {
   const trip = access.booking;
-  const point = trip.driverId && ["DRIVER_EN_ROUTE", "DRIVER_ARRIVED", "TRIP_STARTED"].includes(trip.status)
-    ? await prisma.driverLocation.findFirst({ where: { bookingId: trip.id, driverId: trip.driverId }, orderBy: { recordedAt: "desc" }, select: { latitude: true, longitude: true, recordedAt: true } }) : null;
+  const approach = ["DRIVER_ASSIGNED", "DRIVER_ACCEPTED"].includes(trip.status);
+  const point = trip.driverId && (approach || ["DRIVER_EN_ROUTE", "DRIVER_ARRIVED", "TRIP_STARTED"].includes(trip.status))
+    ? await prisma.driverLocation.findFirst({ where: { driverId: trip.driverId, ...(approach ? { OR: [{ bookingId: trip.id }, { bookingId: null }] } : { bookingId: trip.id }) }, orderBy: { recordedAt: "desc" }, select: { latitude: true, longitude: true, recordedAt: true } }) : null;
   return {
     reference: trip.reference, status: trip.status, fromAddress: trip.fromAddress,
     toAddress: ["AWAITING_DESTINATION", "GPS_METER"].includes(trip.pricingStatus) ? null : trip.toAddress,

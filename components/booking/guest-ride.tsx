@@ -3,12 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { LocateFixed } from "lucide-react";
+import dynamic from "next/dynamic";
 import { useLanguage, type TranslationKey } from "@/components/i18n/language-provider";
 import { coordinateAddress } from "@/lib/booking-location";
 import { freshGuestGps, guestCancellableStatuses, guestClosedStatuses, guestGpsSchema, guestRideViewSchema, type GuestRideView } from "@/lib/guest-ride-policy";
 import { enumLabel } from "@/components/i18n/enum-label";
 
 const responseSchema = z.object({ booking: guestRideViewSchema.nullable() });
+const LiveTrackingMap = dynamic(() => import("./live-tracking-map"), { ssr: false, loading: () => <div className="h-[420px] animate-pulse rounded-xl bg-slate-100" /> });
 const button = "inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-blue-900 disabled:opacity-50";
 const action = "inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-[var(--color-primary)] px-4 py-3 text-sm font-bold text-white disabled:opacity-50";
 function errorKey(status: number): TranslationKey {
@@ -26,8 +28,13 @@ export function GuestRide() {
   const [gpsError, setGpsError] = useState(false);
   const [revision, setRevision] = useState(0);
   const [now, setNow] = useState(() => Date.now());
+  const [recenter, setRecenter] = useState(0);
   const lock = useRef(false);
   const mounted = useRef(true);
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
   useEffect(() => {
     mounted.current = true;
     const controller = new AbortController();
@@ -82,7 +89,7 @@ export function GuestRide() {
     finally { lock.current = false; setPending(false); setRevision((value) => value + 1); }
   }
   const closed = ride && guestClosedStatuses.includes(ride.status);
-  const stale = ride?.location && now - Date.parse(ride.location.recordedAt) > 120000;
+  const stale = Boolean(error || mutationError || ride?.location && now - Date.parse(ride.location.recordedAt) > 120000);
   return <section className="mx-auto w-full max-w-3xl space-y-5 rounded-3xl border border-blue-100 bg-white p-5 shadow-sm sm:p-8">
     <h1 className="text-2xl font-black text-[var(--color-primary)] sm:text-3xl">{t("guest.title")}</h1>
     <p className="leading-7 text-slate-700">{t("guest.help")}</p>
@@ -100,6 +107,17 @@ export function GuestRide() {
       {ride.vehicle && <p>{t("booking.vehicle")}: {ride.vehicle.name} · <strong>{ride.vehicle.plate}</strong></p>}
       {ride.toAddress && <p className="break-words">{t("booking.to")}: {ride.toAddress}</p>}
       <p className="font-bold">{ride.priceCents === null ? t("guest.price") : new Intl.NumberFormat(language, { style: "currency", currency: ride.currency }).format(ride.priceCents / 100)}</p>
+      {ride.driverName && !closed && <section className="space-y-3" aria-label={t("live.title")}>
+        <h2 className="text-lg font-bold">{t("live.title")}</h2>
+        {!ride.location && <p role="status" className="text-sm text-amber-900">{t("guest.waitingGps")}</p>}
+        <div className="overflow-hidden rounded-xl border">
+          <LiveTrackingMap key={ride.reference} fromAddress={ride.fromAddress} toAddress={ride.toAddress}
+            driver={ride.location ? { ...ride.location, accuracy: null } : null} me={null}
+            status={ride.status} history={[]} vehicle={null} recenter={recenter} stale={stale}
+            labels={{ map: t("live.title"), driver: t("live.driver"), you: t("live.you"), pickup: t("track.pickup"), destination: t("track.destination"), tiles: t("driver.mapTilesError"), eta: t("live.eta"), remaining: t("live.remaining"), routeUnavailable: t("live.routeUnavailable"), routeLoading: t("live.routeLoading") }} />
+        </div>
+        <button type="button" className={button} onClick={() => setRecenter((value) => value + 1)}>{t("live.recenter")}</button>
+      </section>}
       {ride.location && <div className="space-y-2 rounded-xl border p-4">
         <p>{t("guest.location")}: {coordinateAddress(ride.location)}</p>
         <p className="text-sm">{new Intl.DateTimeFormat(language, { dateStyle: "short", timeStyle: "medium", timeZone: "Asia/Phnom_Penh" }).format(new Date(ride.location.recordedAt))}</p>

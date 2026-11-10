@@ -19,9 +19,9 @@ function label(text: string) {
   return element;
 }
 
-export default function LiveTrackingMap({ fromAddress, toAddress, driver, me, status, history, vehicle, recenter, labels, fullScreen = false }: {
+export default function LiveTrackingMap({ fromAddress, toAddress, driver, me, status, history, vehicle, recenter, labels, fullScreen = false, stale = false }: {
   fromAddress: string;
-  toAddress: string;
+  toAddress: string | null;
   driver: LivePoint & { recordedAt: string } | null;
   me: LivePoint | null;
   status: string;
@@ -30,6 +30,7 @@ export default function LiveTrackingMap({ fromAddress, toAddress, driver, me, st
   recenter: number;
   labels: Labels;
   fullScreen?: boolean;
+  stale?: boolean;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -58,7 +59,7 @@ export default function LiveTrackingMap({ fromAddress, toAddress, driver, me, st
   function fit() {
     const map = mapRef.current;
     if (!map) return;
-    const points = [driverMarker.current?.getLatLng(), meMarker.current?.getLatLng()].filter((point): point is L.LatLng => Boolean(point));
+    const points = [driverMarker.current?.getLatLng(), meMarker.current?.getLatLng(), places.current.from, places.current.to].filter((point): point is L.LatLng => Boolean(point));
     const target = points.length ? points : [places.current.from, places.current.to].filter((point): point is L.LatLng => Boolean(point));
     if (!target.length) return;
     if (target.length === 1) map.setView(target[0], Math.max(map.getZoom(), 15));
@@ -76,7 +77,7 @@ export default function LiveTrackingMap({ fromAddress, toAddress, driver, me, st
     observer.observe(container.current);
     const controller = new AbortController();
     const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(18_000)]);
-    void Promise.allSettled([locateMapAddress(fromAddress, signal), locateMapAddress(toAddress, signal)]).then((results) => {
+    void Promise.allSettled([locateMapAddress(fromAddress, signal), ...(toAddress ? [locateMapAddress(toAddress, signal)] : [])]).then((results) => {
       if (controller.signal.aborted) return;
       results.forEach((result, index) => {
         if (result.status !== "fulfilled") return;
@@ -86,7 +87,8 @@ export default function LiveTrackingMap({ fromAddress, toAddress, driver, me, st
         L.circleMarker(point, { radius: 8, color: "#fff", weight: 3, fillColor: index === 0 ? "#032ea1" : "#e00025", fillOpacity: 1 })
           .addTo(map).bindTooltip(label(`${index === 0 ? labelsRef.current.pickup : labelsRef.current.destination} · ${index === 0 ? fromAddress : toAddress}`));
       });
-      if (!fitted.current) fit();
+      fit();
+      setRouteTick((value) => value + 1);
     });
     return () => {
       controller.abort();
@@ -171,7 +173,7 @@ export default function LiveTrackingMap({ fromAddress, toAddress, driver, me, st
     const layer = routeLayer.current;
     if (!layer) return;
     const color = status === "TRIP_STARTED" ? "#F58220" : "#D6A000";
-    if (!driver) {
+    if (!driver || stale) {
       layer.clearLayers();
       routeController.current?.abort();
       routeController.current = null;
@@ -237,7 +239,7 @@ export default function LiveTrackingMap({ fromAddress, toAddress, driver, me, st
         routeController.current = null;
       }
     });
-  }, [driver, status, fromAddress, toAddress, routeTick]);
+  }, [driver, status, fromAddress, toAddress, routeTick, stale]);
 
   useEffect(() => { if (recenter) fit(); }, [recenter]);
 
@@ -245,7 +247,7 @@ export default function LiveTrackingMap({ fromAddress, toAddress, driver, me, st
 
   return <div className="relative">
     <div ref={container} style={fullScreen ? { height: "100%" } : undefined} className={`relative z-0 w-full bg-slate-100 ${fullScreen ? "h-full" : "h-[420px] sm:h-[520px]"}`} role="region" aria-label={labels.map} />
-    {driver && <div className="absolute left-3 top-3 z-[500] rounded-lg bg-white/95 px-3 py-2 text-sm shadow" aria-live="polite">
+    {driver && !stale && (status !== "TRIP_STARTED" || toAddress) && <div className="absolute left-3 right-3 top-3 z-[500] rounded-lg bg-white/95 px-3 py-2 text-sm shadow" aria-live="polite">
       {routeStatus === "ready" && route && eta ? <strong>{labels.remaining}: {(route.distance / 1000).toFixed(1)} km · {labels.eta}: {eta}</strong> : routeStatus === "error" ? <span role="status">{labels.routeUnavailable}</span> : <span>{labels.routeLoading}</span>}
     </div>}
     {tilesFailed && <p className="absolute inset-x-3 bottom-3 z-[500] rounded bg-white/95 px-3 py-2 text-sm text-red-700 shadow" role="alert">{labels.tiles}</p>}

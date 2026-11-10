@@ -1,5 +1,6 @@
 export const guestCopy = {
   en: {
+    "guest.waitingGps": "Your driver is assigned. Waiting for their first GPS update; the pickup point is shown on the map.",
     "guest.title": "A driver here, now — no account",
     "guest.help": "Share only your GPS position, without an account. The first compatible free driver accepts automatically. The GPS meter starts when you board; your drop-off determines the final fare.",
     "guest.open": "Request a driver without signing up", "guest.locate": "Get my GPS position", "guest.send": "Confirm pickup at this position",
@@ -30,6 +31,7 @@ export const guestCopy = {
     "guest.pending": "Waiting for a driver", "guest.closed": "Request closed. No more driver location is shared.",
   },
   fr: {
+    "guest.waitingGps": "Votre chauffeur est attribué. En attente de sa première position GPS ; votre point de prise en charge est affiché sur la carte.",
     "guest.title": "Un chauffeur ici, maintenant — sans compte",
     "guest.help": "Partagez uniquement votre position GPS, sans compte. Le premier chauffeur libre compatible accepte automatiquement. Le compteur GPS démarre à votre montée ; le lieu de dépose détermine le tarif final.",
     "guest.open": "Commander sans inscription", "guest.locate": "Obtenir ma position GPS", "guest.send": "Confirmer la prise en charge ici",
@@ -60,6 +62,7 @@ export const guestCopy = {
     "guest.pending": "En attente d’un chauffeur", "guest.closed": "Demande clôturée. La position du chauffeur n’est plus partagée.",
   },
   km: {
+    "guest.waitingGps": "អ្នកបើកបរត្រូវបានចាត់តាំង។ កំពុងរង់ចាំទីតាំង GPS ដំបូង។ ចំណុចទទួលបង្ហាញលើផែនទី។",
     "guest.destination": "គោលដៅត្រូវព្រមព្រៀងជាមួយអ្នកបើកបរ",
     "guest.ongoing": "ដំណើរកំពុងប្រព្រឹត្តទៅ។ ចម្ងាយ GPS កំពុងកត់ត្រា។ គោលដៅ និងតម្លៃនឹងបង្ហាញពេលចុះ ហើយមិនអាចលុបចោលបានទៀតទេ។",
     "guest.title": "អ្នកបើកបរនៅទីនេះ ឥឡូវនេះ — មិនបាច់មានគណនី",

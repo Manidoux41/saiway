@@ -54,13 +54,15 @@ export async function readTripLocation(request: Request, bookingId: string) {
     const scope = account.role === "ADMIN" ? {} : account.role === "CUSTOMER" ? { customerId: account.id } : { driver: { userId: account.id } };
     const booking = await prisma.booking.findFirst({
       where: { ...scope, id: bookingId },
-      select: { id: true, reference: true, status: true, fromAddress: true, toAddress: true, pickupAt: true, driver: { select: { user: { select: { name: true } } } }, vehicle: { select: { id: true, name: true, plate: true, iconCategory: true } } },
+      select: { id: true, reference: true, status: true, driverId: true, fromAddress: true, toAddress: true, pickupAt: true, driver: { select: { user: { select: { name: true } } } }, vehicle: { select: { id: true, name: true, plate: true, iconCategory: true } } },
     });
     if (!booking) return json({ error: "Booking not found" }, 404);
-    const points = customerLocationStatuses.includes(booking.status)
-      ? await prisma.driverLocation.findMany({ where: { bookingId }, orderBy: { recordedAt: "desc" }, take: 120 })
+    const points = booking.driverId && customerLocationStatuses.includes(booking.status)
+      ? await prisma.driverLocation.findMany({ where: { bookingId, driverId: booking.driverId }, orderBy: { recordedAt: "desc" }, take: 120 })
       : [];
-    const point = points[0] ?? null;
+    const point = points[0] ?? (booking.driverId && ["DRIVER_ASSIGNED", "DRIVER_ACCEPTED"].includes(booking.status)
+      ? await prisma.driverLocation.findFirst({ where: { driverId: booking.driverId, bookingId: null }, orderBy: { recordedAt: "desc" } })
+      : null);
     const tracking = customerLocationStatuses.includes(booking.status) && point !== null;
     return json({
       booking: { id: booking.id, reference: booking.reference, status: booking.status, fromAddress: booking.fromAddress, toAddress: booking.toAddress, pickupAt: booking.pickupAt, driverName: booking.driver?.user.name ?? null, vehicle: booking.vehicle },
