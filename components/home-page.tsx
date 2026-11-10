@@ -38,6 +38,7 @@ export default function HomePage({ background = defaultHeroBackground, featuredP
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row">
+              <Link href="/ride" className="saiway-action inline-flex items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-bold text-[var(--color-primary)]">{t("guest.open")}</Link>
               <Link href="/booking" className="saiway-action inline-flex min-w-[220px] items-center justify-center rounded-full bg-[var(--color-primary)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-primary-dark)]">
                 {t("home.book")}
               </Link>

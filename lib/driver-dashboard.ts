@@ -40,8 +40,9 @@ export function driverSummary(courses: Course[], now = new Date()) {
   return { remaining: active.length, completed: today.filter((course) => course.status === "TRIP_COMPLETED").length, passengers: active.reduce((sum, course) => sum + course.passengers, 0), totals };
 }
 
-export function navigationUrl(course: Pick<Course, "fromAddress" | "toAddress" | "routeDetails">) {
+export function navigationUrl(course: Pick<Course, "fromAddress" | "toAddress" | "routeDetails"> & { pricingStatus?: string }) {
   const origin = course.routeDetails ? `${course.routeDetails.from.latitude},${course.routeDetails.from.longitude}` : course.fromAddress.replace(/^GPS:\s*/i, "");
+  if (course.pricingStatus === "AWAITING_DESTINATION") return `https://www.google.com/maps/dir/?${new URLSearchParams({ api: "1", destination: origin, travelmode: "driving" })}`;
   const destination = course.routeDetails ? `${course.routeDetails.to.latitude},${course.routeDetails.to.longitude}` : course.toAddress.replace(/^GPS:\s*/i, "");
   const params = new URLSearchParams({ api: "1", origin, destination, travelmode: "driving" });
   return `https://www.google.com/maps/dir/?${params}`;

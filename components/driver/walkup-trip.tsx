@@ -18,17 +18,18 @@ const RouteMap = dynamic(() => import("@/components/maps/saved-route-map").then(
 const previewSchema = z.object({ token: z.string(), priceCents: z.number().nullable(), route: routeDetailsSchema, fareDetails: fareDetailsSchema });
 type Preview = z.infer<typeof previewSchema>;
 
-export function WalkupTrip({ onStarted, disabled, location, gpsPhase, retryGps }: {
+export function WalkupTrip({ onStarted, disabled, location, gpsPhase, retryGps, guest }: {
   onStarted: () => void; disabled: boolean; location: LocationPoint | null; gpsPhase: string; retryGps: () => void;
+  guest?: { id: string; fromAddress: string; vehicleId: string | null };
 }) {
   const { t } = useLanguage();
   const { user } = useAuth();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(Boolean(guest));
   const [vehicles, setVehicles] = useState<{ id: string; name: string; plate: string }[]>([]);
-  const [vehicleId, setVehicleId] = useState("");
-  const [from, setFrom] = useState("");
+  const [vehicleId, setVehicleId] = useState(guest?.vehicleId ?? "");
+  const [from, setFrom] = useState(guest?.fromAddress ?? "");
   const [to, setTo] = useState("");
-  const [fromPoint, setFromPoint] = useState<LocationPoint | undefined>();
+  const [fromPoint, setFromPoint] = useState<LocationPoint | undefined>(guest ? parseCoordinateAddress(guest.fromAddress) ?? undefined : undefined);
   const [toPoint, setToPoint] = useState<LocationPoint | undefined>();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
@@ -50,7 +51,7 @@ export function WalkupTrip({ onStarted, disabled, location, gpsPhase, retryGps }
     return () => controller.abort();
   }, [open, t]);
   useEffect(() => {
-    if (!open || !location || initialized.current || manualDeparture.current) return;
+    if (guest || !open || !location || initialized.current || manualDeparture.current) return;
     const controller = new AbortController();
     const point = { latitude: location.latitude, longitude: location.longitude };
     async function locate() {
@@ -67,7 +68,7 @@ export function WalkupTrip({ onStarted, disabled, location, gpsPhase, retryGps }
     }
     void locate();
     return () => controller.abort();
-  }, [open, location, t]);
+  }, [open, location, t, guest]);
   useEffect(() => {
     if (!open || !from.trim() || !to.trim() || !vehicleId) return;
     const controller = new AbortController();
@@ -91,7 +92,7 @@ export function WalkupTrip({ onStarted, disabled, location, gpsPhase, retryGps }
       if (!navigator.onLine) throw new Error(t("auto.offline"));
       const email = String(form.get("email") ?? "").trim();
       const response = await fetch("/api/driver/bookings", { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ quoteToken: quote.token, ...(email ? { customerEmail: email } : {}), passengerName: String(form.get("passenger") ?? ""), contactPhone: String(form.get("phone") ?? ""), passengers: Number(form.get("passengers")),
+        body: JSON.stringify({ quoteToken: quote.token, ...(guest ? { guestBookingId: guest.id } : { ...(email ? { customerEmail: email } : {}), passengerName: String(form.get("passenger") ?? ""), contactPhone: String(form.get("phone") ?? "") }), passengers: Number(form.get("passengers")),
           ...(quote.fareDetails.mode === "OUTSIDE" ? { agreedPriceCents: Math.round(Number(form.get("agreedPrice")) * 100), priceReason: String(form.get("reason") ?? "") } : {}) }),
       });
       if (!response.ok) {
@@ -103,21 +104,21 @@ export function WalkupTrip({ onStarted, disabled, location, gpsPhase, retryGps }
   }
   const input = "mt-1 w-full rounded-xl border p-3";
   return <section className="my-4 rounded-2xl border bg-white p-4 sm:p-6">
-    <button type="button" disabled={disabled || pending} onClick={() => setOpen(!open)} className="min-h-12 w-full rounded-xl bg-[var(--color-primary)] p-3 text-lg font-bold text-white disabled:opacity-50">{t("auto.new")}</button>
+    <button type="button" disabled={disabled || pending} onClick={() => setOpen(!open)} className="min-h-12 w-full rounded-xl bg-[var(--color-primary)] p-3 text-lg font-bold text-white disabled:opacity-50">{t(guest ? "guest.prepare" : "auto.new")}</button>
     {open && <form onSubmit={start} className="mt-4 space-y-4"><fieldset disabled={pending || disabled} className="space-y-4">
-      <p className="text-sm">{t("auto.review")}</p>
+      <p className="text-sm">{t(guest ? "guest.driverHelp" : "auto.review")}</p>
       <strong>{user?.name}</strong>
       {!fromPoint && !departureEdited && <p role="status">{t(gpsPhase === "starting" ? "auto.gps" : "auto.gpsHelp")} <button type="button" onClick={retryGps} className="underline">{t("live.retry")}</button></p>}
       {gpsMessage && <p role="status" className="text-sm text-amber-800">{gpsMessage}</p>}
-      <label className="block text-sm">{t("booking.vehicle")}<select value={vehicleId} onChange={(event) => setVehicleId(event.target.value)} required className={input}><option value="">—</option>{vehicles.map((vehicle) => <option key={vehicle.id} value={vehicle.id}>{vehicle.name} · {vehicle.plate}</option>)}</select></label>
-      <HotelSearch cambodiaOnly value={from} onChange={(value) => { manualDeparture.current = true; setDepartureEdited(true); setFrom(value); setFromPoint(parseCoordinateAddress(value) ?? undefined); }} onSelectPoint={setFromPoint} label={t("booking.from")} />
+      <label className="block text-sm">{t("booking.vehicle")}<select value={vehicleId} disabled={Boolean(guest)} onChange={(event) => setVehicleId(event.target.value)} required className={input}><option value="">—</option>{vehicles.map((vehicle) => <option key={vehicle.id} value={vehicle.id}>{vehicle.name} · {vehicle.plate}</option>)}</select></label>
+      {guest ? <p className="break-words text-sm">{t("booking.from")}: {from}</p> : <HotelSearch cambodiaOnly value={from} onChange={(value) => { manualDeparture.current = true; setDepartureEdited(true); setFrom(value); setFromPoint(parseCoordinateAddress(value) ?? undefined); }} onSelectPoint={setFromPoint} label={t("booking.from")} />}
       {fromPoint && <p className="text-xs text-slate-500">{coordinateAddress(fromPoint)}</p>}
       <HotelSearch cambodiaOnly value={to} onChange={(value) => { setTo(value); setToPoint(parseCoordinateAddress(value) ?? undefined); }} onSelectPoint={setToPoint} label={t("booking.to")} />
       {toPoint && <p className="text-xs text-slate-500">{coordinateAddress(toPoint)}</p>}
       <div className="grid gap-3 sm:grid-cols-2">
-        <label className="text-sm">{t("auto.passenger")}<input name="passenger" maxLength={200} className={input} /></label>
+        {!guest && <><label className="text-sm">{t("auto.passenger")}<input name="passenger" maxLength={200} className={input} /></label>
         <label className="text-sm">{t("auto.phone")}<input name="phone" type="tel" maxLength={50} className={input} /></label>
-        <label className="text-sm">{t("auto.email")}<input name="email" type="email" className={input} /></label>
+        <label className="text-sm">{t("auto.email")}<input name="email" type="email" className={input} /></label></>}
         <label className="text-sm">{t("booking.passengers")}<input name="passengers" type="number" required min="1" max="50" defaultValue="1" className={input} /></label>
       </div>
       {!quote && from.trim() && to.trim() && vehicleId && !error && <p role="status">{t("driver.routeLoading")}</p>}
@@ -131,6 +132,7 @@ export function WalkupTrip({ onStarted, disabled, location, gpsPhase, retryGps }
           <label className="block">{t("auto.reason")}<textarea name="reason" required minLength={3} maxLength={2000} className={input} /></label>
         </div> : <FareSummary details={quote.fareDetails} />}
       </div>}
+      {guest && <label className="flex items-start gap-3 text-sm"><input type="checkbox" required className="mt-1" />{t("guest.agreement")}</label>}
       <button type="submit" disabled={!quote} className="min-h-14 w-full rounded-xl bg-[var(--color-primary)] p-4 font-bold text-white disabled:opacity-40">{t(pending ? "admin.saving" : "auto.confirm")}</button>
     </fieldset></form>}
     {error && <p role="alert" className="mt-3 text-sm text-red-700">{error}</p>}

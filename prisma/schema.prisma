@@ -549,10 +549,26 @@ model Booking {
   payments       Payment[]
   messages       DriverMessage[]
   blogPosts      BlogPost[]
+  guestAccess    GuestRideAccess?
 
   @@index([originType, pickupAt])
   @@index([driverId, pickupAt, dispatchEndsAt])
   @@index([vehicleId, pickupAt, dispatchEndsAt])
+}
+
+model GuestRideAccess {
+  tokenHash String   @id
+  bookingId String   @unique
+  booking   Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+}
+
+model GuestRideLimit {
+  key       String   @id
+  attempts  Int
+  expiresAt DateTime
+
+  @@index([expiresAt])
 }
 
 model BookingStatusHistory {

@@ -106,6 +106,7 @@ function BookingForm() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+      <Link href="/ride" className="mb-5 inline-flex min-h-12 items-center rounded-xl border border-blue-200 bg-white px-4 py-3 font-bold text-blue-900">{t("guest.open")}</Link>
       <header className="relative mb-8 overflow-hidden rounded-[32px] bg-[var(--color-primary-dark)] px-6 py-9 text-white md:px-10 md:py-12">
         <Plane aria-hidden="true" className="pointer-events-none absolute -right-8 top-4 h-64 w-64 -rotate-12 text-white/5" />
         <p className="relative text-xs font-semibold uppercase tracking-[0.24em] text-white/70">SAIWAY · SIEM REAP</p>

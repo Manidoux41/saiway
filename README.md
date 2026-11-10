@@ -36,6 +36,7 @@ autorisations ou des migrations dans l’environnement déployé.
 | Espace | Fonctionnalités |
 |---|---|
 | 🔵 **Accueil & réservation** | Formulaire unifié ; transfert aéroport, trajet urbain, transfert privé, hôtel et circuit touristique ; départ GPS/carte ou adresse, suggestions de lieux, destination, passagers, bagages, vol, date/heure et besoins particuliers. |
+| 📍 **Commande immédiate sans inscription** | Bouton « Commander sans inscription » : position GPS actuelle uniquement, sans nom, téléphone, email ni compte. Référence privée, suivi chauffeur/véhicule et annulation depuis le même navigateur ; destination, capacité et tarif confirmés avec le chauffeur avant le départ. |
 | 💰 **Tarification** | Devis calculé côté serveur, politique tarifaire versionnée, zones et circuits, distance/temps et suppléments selon les règles configurées ; détail du prix et confirmation des ajustements. |
 | 👤 **Compte client** | Inscription et connexion, profil, réservations personnelles, prochaines courses, historique, annulation selon les règles applicables, choix du paiement et suivi du chauffeur affecté. |
 | 🟢 **Disponibilité & attribution** | Interrupteur disponible/indisponible, véhicule actif sélectionné, statut en service ; attribution automatique d’une nouvelle réservation au chauffeur éligible le plus proche avec GPS fiable, puis ancienneté de disponibilité ; contrôle des places et conflits d’horaires. Attribution manuelle si aucun candidat ne convient. |
@@ -66,6 +67,7 @@ autorisations ou des migrations dans l’environnement déployé.
 |---|---|
 | `/` | Accueil, réservation rapide, prestations, articles à la une et partenariats. |
 | `/booking` | Réservation et revue du trajet/prix ; connexion nécessaire pour enregistrer une réservation personnelle. |
+| `/ride` | Demande immédiate sans compte : GPS uniquement, référence et suivi privés dans le navigateur. |
 | `/auth` | Inscription client et connexion ; le rôle provient du compte, jamais d’un choix libre donnant des droits. |
 | `/account` | Réservations, paiements et profil du client connecté. |
 | `/booking/track` | Suivi de la course du client autorisé. |
@@ -234,6 +236,51 @@ card. The review shows the exact selected transfer type, including private and
 hotel transfers. Existing booking steps and server-side pricing are preserved.
 
 ## Database and administration
+
+### GPS-only immediate pickup without registration
+
+The homepage and booking page link to `/ride`. Visitors explicitly obtain a fresh
+GPS fix (at most two minutes old, accuracy within 100 metres) and confirm pickup.
+No name, telephone, email, password or customer account is created. GPS itself is
+location data: consent text explains sharing with SAIWAY and the assigned driver.
+
+A separate random, HttpOnly, SameSite=Lax cookie (Secure in production, seven
+days) grants access to this single request. Only its SHA-256 hash is stored in
+`GuestRideAccess`, never exposed by booking lists. A reference is not an access
+credential. Reloading the page recovers the request in the same browser; clearing
+cookies or changing browser loses access. It cannot be recovered by phone/email.
+The anonymous endpoint exposes only reference, status, pickup, confirmed
+destination/fare, assigned driver name/vehicle, and that ride's latest driver
+position while operationally active. Closed rides stop location sharing.
+
+Requests reuse existing booking dispatch and admin/driver lists with origin
+`GUEST`; no separate queue or fictional customer is created. Automatic assignment
+requires an available, conflict-free vehicle/driver and fresh reliable driver
+GPS. Otherwise the request remains visible for manual assignment in admin.
+There is no promised arrival time. The passenger must stay at the pickup and
+show the reference: there is no telephone or email contact.
+
+Before destination confirmation, `AWAITING_DESTINATION` is an unknown fare,
+not a free ride. The driver accepts, travels to pickup, marks arrival, then
+confirms actual passenger count, destination and the quoted/agreed fare with
+the passenger using the existing autonomous-route quote workflow. Starting via
+the normal status button or an administrator price override cannot bypass this
+step. The original guest booking/reference is retained, and normal GPS metering,
+completion and collection/accounting rules apply after departure.
+
+The browser can cancel until the trip starts, refresh status every five seconds,
+and begin another request only after closure. POST retries reuse the existing
+request, including after a lost response. Same-origin mutation checks and
+transactional database limits prevent obvious cross-site or repeated creation:
+100 requests per ten-minute global bucket; on Vercel, five per network per bucket
+using only its trusted forwarding header and a short-lived HMAC, never raw IP.
+Expired throttle buckets are pruned on creation. These limits are basic abuse
+controls, not proof that a device is physically at the submitted coordinates.
+No payment, paid receipt or accounting entry is created when requesting pickup.
+
+Deployment requires additive migration `20261110050000_guest_gps_requests` after
+a verified backup and explicit approval, plus the matching Prisma client/app.
+The pre-existing customer booking and authentication flows remain unchanged.
 
 ### Advertising contracts and selectable placements
 

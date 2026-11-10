@@ -37,6 +37,13 @@ test('navigation encodes addresses rather than treating them as URL parameters',
   assert.equal(url.searchParams.get('destination'), 'SAI #1');
 });
 
+test('GPS-only pickups navigate to the passenger without a fictitious destination', () => {
+  const url = new URL(navigationUrl({ fromAddress: 'GPS: 13.3601234, 103.8501234', toAddress: 'Destination to be agreed with driver', pricingStatus: 'AWAITING_DESTINATION' }));
+  assert.equal(url.searchParams.get('destination'), '13.3601234, 103.8501234');
+  assert.equal(url.searchParams.has('origin'), false);
+  assert.ok(!url.href.includes('agreed'));
+});
+
 test('the driver ABA QR is available for completed unpaid USD reservations and autonomous trips when ABA is selected', () => {
   const trip = { originType: 'DRIVER', status: 'TRIP_COMPLETED', currency: 'USD', payments: [] };
   assert.equal(showDriverAbaQr(trip, 'ABA'), true);
