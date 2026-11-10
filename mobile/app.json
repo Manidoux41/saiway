@@ -1,0 +1,53 @@
+{
+  "expo": {
+    "name": "SAIWAY",
+    "slug": "saiway-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/saiway-icon.png",
+    "scheme": "saiway",
+    "userInterfaceStyle": "light",
+    "platforms": ["ios", "android", "web"],
+    "ios": {
+      "bundleIdentifier": "com.saiway.app",
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.saiway.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#032EA1",
+        "foregroundImage": "./assets/images/saiway-icon.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "output": "server",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#F3F6FC",
+          "image": "./assets/images/saiway-icon.png",
+          "imageWidth": 120
+        }
+      ],
+      "expo-secure-store",
+      "expo-sharing",
+      ["expo-location", {
+        "locationWhenInUsePermission": "SAIWAY utilise votre position pour la prise en charge et le suivi de vos courses lorsque l’application est ouverte."
+      }],
+      ["expo-image-picker", {
+        "photosPermission": "SAIWAY accède aux photos choisies pour votre permis et vos QR de contact.",
+        "cameraPermission": false,
+        "microphonePermission": false
+      }]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}
