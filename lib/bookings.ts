@@ -15,6 +15,7 @@ import { enqueueBookingPush } from "@/lib/push-events";
 import { schedulePushDelivery } from "@/lib/push-delivery";
 import { assertDispatchSlot, automaticDriver, DispatchError, dispatchTransaction } from "@/lib/driver-dispatch";
 import { inServiceStatuses, plannedDispatchEnd } from "@/lib/dispatch-policy";
+import { guestMeterFare } from "@/lib/guest-meter";
 
 const text = z.string().trim().min(1).max(500);
 const address = text.refine((value) => !/^GPS:/i.test(value) || parseCoordinateAddress(value) !== null, "Invalid GPS coordinates");
@@ -35,6 +36,7 @@ const customerCreate = details.extend({ passengerName: guestName, paymentMethod:
 const adminEdit = details.partial().extend({ id: text, pickupAt: z.iso.datetime({ offset: true }).optional(), driverId: nullableId, vehicleId: nullableId, priceCents: z.number().int().nonnegative().max(100000000).optional() });
 const adminConfirm = z.object({ id: text, status: z.literal("CONFIRMED") }).strict();
 const priceCorrection = z.object({ id: text, finalPriceCents: z.number().int().nonnegative().max(10000000), priceReason: z.string().trim().min(3).max(2000) }).strict();
+const driverPriceCorrection = z.object({ id: text, finalPriceCents: z.number().int().nonnegative().max(10000000), expectedPriceCents: z.number().int().nonnegative() }).strict();
 const archiveCommand = z.object({ id: text, action: z.enum(["ARCHIVE", "RESTORE"]) }).strict();
 const adminPatch = z.union([adminEdit.strict(), adminConfirm, priceCorrection]);
 const command = z.object({ id: text, status: z.enum(BookingStatus), confirmEstimatedDistance: z.boolean().optional(), tourCircuit: circuitSchema.optional(), observations: z.string().trim().max(2000).optional(), finalPoint: locationPointSchema.optional() }).strict();
@@ -117,6 +119,17 @@ export async function bookingRequest(request: Request, role: SessionRole) {
     if (!account) return Response.json({ error: `${role} access required` }, { status: 403 });
     const scope: Prisma.BookingWhereInput = role === "ADMIN" ? {} : role === "CUSTOMER" ? { customerId: account.id } : { driver: { userId: account.id } };
     if (request.method === "GET") {
+      const meterId = new URL(request.url).searchParams.get("meter");
+      if (role === "DRIVER" && meterId) {
+        const trip = await prisma.booking.findFirst({ where: { ...scope, id: meterId, status: "TRIP_STARTED", originType: "GUEST" } });
+        if (!trip?.fareDetails) throw new BookingError("Active guest meter not found", 404);
+        const snapshot = fareDetailsSchema.parse(trip.fareDetails);
+        if (!snapshot.guestMeter || !snapshot.startedAt) throw new BookingError("Active guest meter not found", 404);
+        const finished = new Date();
+        const positions = await prisma.driverLocation.findMany({ where: { driverId: trip.driverId!, bookingId: trip.id, recordedAt: { gte: new Date(snapshot.startedAt), lte: finished } }, orderBy: { recordedAt: "asc" } });
+        const meter = guestMeterFare(snapshot, positions.map((point) => ({ latitude: Number(point.latitude), longitude: Number(point.longitude), accuracy: point.accuracy === null ? null : Number(point.accuracy), recordedAt: point.recordedAt })), finished);
+        return Response.json({ distanceMeters: meter.snapshot.distanceMeters, priceCents: meter.priceCents, complete: meter.complete, mode: meter.snapshot.mode }, { headers: { "Cache-Control": "no-store" } });
+      }
       if (role === "DRIVER" && new URL(request.url).searchParams.get("walkupOptions") === "true") {
         const vehicles = await prisma.vehicle.findMany({ where: { active: true }, select: { id: true, name: true, plate: true, seats: true } });
         return Response.json({ vehicles }, { headers: { "Cache-Control": "no-store" } });
@@ -264,19 +277,26 @@ export async function bookingRequest(request: Request, role: SessionRole) {
       return Response.json({ booking }, { status: 201 });
     }
     let confirmedRoute: number | null = null;
+    let confirmedDropoffId: string | null = null;
     const ending = command.safeParse(body);
     if (role === "DRIVER" && ending.success && ending.data.status === "TRIP_COMPLETED" && ending.data.confirmEstimatedDistance) {
       const own = await prisma.booking.findFirst({ where: { ...scope, id: ending.data.id, status: "TRIP_STARTED", metered: true } });
       if (!own) throw new BookingError("Active metered trip not found", 404);
-      confirmedRoute = own.routeDetails ? routeDetailsSchema.parse(own.routeDetails).distanceMeters : await routeDistance(own.fromAddress, own.toAddress);
+      const snapshot = own.fareDetails ? fareDetailsSchema.parse(own.fareDetails) : null;
+      if (snapshot?.guestMeter) {
+        const latest = await prisma.driverLocation.findFirst({ where: { driverId: own.driverId!, bookingId: own.id, recordedAt: { gte: new Date(Date.now() - 60000) }, accuracy: { lte: 50 } }, orderBy: { recordedAt: "desc" } });
+        if (!latest || !snapshot.meterStartPoint) throw new BookingError("GUEST_DROPOFF_GPS_REQUIRED", 409);
+        confirmedDropoffId = latest.id;
+        confirmedRoute = await routeDistance(coordinateAddress(snapshot.meterStartPoint), coordinateAddress({ latitude: Number(latest.latitude), longitude: Number(latest.longitude) }));
+      } else confirmedRoute = own.routeDetails ? routeDetailsSchema.parse(own.routeDetails).distanceMeters : await routeDistance(own.fromAddress, own.toAddress);
     }
     const booking = await dispatchTransaction(async (tx) => {
-      const parsed = request.method === "PATCH" && role === "ADMIN" ? adminPatch.safeParse(body) : command.safeParse(body);
+      const parsed = request.method === "PATCH" && role === "ADMIN" ? adminPatch.safeParse(body) : role === "DRIVER" && request.method === "PATCH" ? z.union([command, driverPriceCorrection]).safeParse(body) : command.safeParse(body);
       if (!parsed.success) throw new BookingError("Invalid booking update");
       const existing = await tx.booking.findFirst({ where: { ...scope, id: parsed.data.id }, include: { payments: { select: { status: true } } } });
       if (!existing) throw new BookingError("Booking not found", 404);
       if (existing.originType === "GUEST" && existing.pricingStatus === "AWAITING_DESTINATION" && (
-        "status" in parsed.data && ["TRIP_STARTED", "TRIP_COMPLETED"].includes(parsed.data.status)
+        "status" in parsed.data && ["TRIP_STARTED", "TRIP_COMPLETED"].includes(parsed.data.status) && role !== "DRIVER"
         || "finalPriceCents" in parsed.data
         || "fromAddress" in parsed.data && parsed.data.fromAddress !== existing.fromAddress
         || "toAddress" in parsed.data && parsed.data.toAddress !== existing.toAddress
@@ -284,14 +304,19 @@ export async function bookingRequest(request: Request, role: SessionRole) {
         || "tripType" in parsed.data && parsed.data.tripType !== existing.tripType
       )) throw new BookingError("Confirm the guest destination and fare with the assigned driver before departure", 409);
       if (role === "ADMIN" && existing.adminArchivedAt) throw new BookingError("Restore the archived booking before editing", 409);
-      if (role === "ADMIN" && "finalPriceCents" in parsed.data) {
-        const correction = priceCorrection.parse(body);
+      if ((role === "ADMIN" || role === "DRIVER") && "finalPriceCents" in parsed.data) {
+        const correction = role === "ADMIN" ? priceCorrection.parse(body) : driverPriceCorrection.parse(body);
+        if (existing.adminArchivedAt) throw new BookingError("Restore the archived booking before editing", 409);
+        if (existing.pricingStatus === "GPS_METER") throw new BookingError("Finish the guest meter before adjusting its fare", 409);
+        if (role === "DRIVER" && (existing.originType !== "GUEST" || existing.status !== "TRIP_COMPLETED" || !existing.fareDetails || !fareDetailsSchema.parse(existing.fareDetails).guestMeter)) throw new BookingError("Only a completed guest meter fare can be changed", 409);
+        if ("expectedPriceCents" in correction && existing.priceCents !== correction.expectedPriceCents) throw new BookingError("Fare changed; refresh before editing", 409);
         if (existing.payments.some((payment) => ["PAID", "PROCESSING"].includes(payment.status))) throw new BookingError("A paid or processing fare cannot be changed", 409);
         if (isAirportTrip(existing) && correction.finalPriceCents > 3000) throw new BookingError("Airport transfers cannot exceed USD 30");
         const snapshot = existing.fareDetails === null ? null : fareDetailsSchema.parse(existing.fareDetails);
         if (snapshot) snapshot.adjustmentCents = (snapshot.adjustmentCents ?? 0) + correction.finalPriceCents - existing.priceCents;
-        const updated = await tx.booking.update({ where: { id: existing.id, updatedAt: existing.updatedAt }, data: { priceCents: correction.finalPriceCents, pricingStatus: "ADMIN_ADJUSTED", ...(snapshot ? { fareDetails: snapshot } : {}), statusHistory: { create: { status: existing.status, note: `PRICE_ADJUSTMENT ${existing.priceCents} -> ${correction.finalPriceCents} USD cents: ${correction.priceReason}` } } }, include: bookingInclude });
-        await tx.auditLog.create({ data: { actorId: account.id, entity: "Booking", entityId: existing.id, action: "PRICE_ADJUSTMENT", metadata: { oldCents: existing.priceCents, newCents: correction.finalPriceCents, reason: correction.priceReason } } });
+        const reason = "priceReason" in correction ? correction.priceReason : null;
+        const updated = await tx.booking.update({ where: { id: existing.id, updatedAt: existing.updatedAt }, data: { priceCents: correction.finalPriceCents, pricingStatus: role === "ADMIN" ? "ADMIN_ADJUSTED" : "DRIVER_ADJUSTED", ...(snapshot ? { fareDetails: snapshot } : {}), statusHistory: { create: { status: existing.status, note: `${role} PRICE_ADJUSTMENT ${existing.priceCents} -> ${correction.finalPriceCents} USD cents${reason ? `: ${reason}` : ""}` } } }, include: bookingInclude });
+        await tx.auditLog.create({ data: { actorId: account.id, entity: "Booking", entityId: existing.id, action: "PRICE_ADJUSTMENT", metadata: { oldCents: existing.priceCents, newCents: correction.finalPriceCents, reason } } });
         return updated;
       }
       if (terminal.includes(existing.status)) throw new BookingError("A closed booking cannot be modified", 409);
@@ -339,6 +364,22 @@ export async function bookingRequest(request: Request, role: SessionRole) {
           const startTime = new Date();
           update.startedAt = startTime;
           if (fareValue) update.fareDetails = { ...fareValue, startedAt: startTime.toISOString() };
+          if (existing.originType === "GUEST" && existing.pricingStatus === "AWAITING_DESTINATION") {
+            const driver = await tx.driverProfile.findUniqueOrThrow({ where: { id: existing.driverId! } });
+            if (!driver.isAvailable) throw new BookingError("Driver must be available", 409);
+            await assignment(tx, existing.driverId, existing.vehicleId, existing.passengers);
+            const location = await tx.driverLocation.findFirst({ where: { driverId: driver.id }, orderBy: { recordedAt: "desc" } });
+            if (!location || startTime.getTime() - location.recordedAt.getTime() > 15000 || location.accuracy === null || Number(location.accuracy) > 50) throw new BookingError("GUEST_START_GPS_REQUIRED", 409);
+            const { policy, tariffId } = await activeFarePolicy();
+            const vehicle = await tx.vehicle.findUniqueOrThrow({ where: { id: existing.vehicleId! } });
+            update = { ...update, metered: true, pricingStatus: "GPS_METER", fareDetails: {
+              mode: "CITY", policy, tariffId, supplements: fareSupplements(policy, vehicle.iconCategory, startTime),
+              distanceMeters: 0, distanceSource: "GPS", circuit: null, bookedHours: policy.tourIncludedHours, extraHours: 0,
+              startedAt: startTime.toISOString(), finalized: false, guestMeter: true,
+              meterStartPoint: { latitude: Number(location.latitude), longitude: Number(location.longitude), accuracy: Number(location.accuracy) },
+            } };
+            await tx.driverProfile.update({ where: { id: driver.id }, data: { returningToHub: false } });
+          }
         }
         if (["DRIVER_EN_ROUTE", "TRIP_STARTED"].includes(next) && existing.driverId) {
           if (await tx.booking.count({ where: { id: { not: existing.id }, status: { in: inServiceStatuses }, OR: [{ driverId: existing.driverId }, ...(existing.vehicleId ? [{ vehicleId: existing.vehicleId }] : [])] } })) throw new DispatchError("Finish the current trip first");
@@ -350,13 +391,22 @@ export async function bookingRequest(request: Request, role: SessionRole) {
             if (!snapshot.startedAt) throw new BookingError("Meter start time missing", 409);
             const positions = await tx.driverLocation.findMany({ where: { driverId: existing.driverId!, bookingId: existing.id, recordedAt: { gte: new Date(snapshot.startedAt), lte: finished } }, orderBy: { recordedAt: "asc" } });
             const measured = measuredDistance(positions.map((p) => ({ latitude: Number(p.latitude), longitude: Number(p.longitude), accuracy: p.accuracy === null ? null : Number(p.accuracy), recordedAt: p.recordedAt })), new Date(snapshot.startedAt), finished);
-            if (!measured.complete && confirmedRoute === null) throw new BookingError("GPS_INCOMPLETE_CONFIRM_ROUTE", 409);
-            retainedEstimate = measured.complete && measured.meters === 0 && existing.priceCents > 0;
-            if (retainedEstimate) {
-              snapshot.zeroGpsEstimateRetained = true;
+            if (snapshot.guestMeter) {
+              if (confirmedDropoffId && positions.at(-1)?.id !== confirmedDropoffId) throw new BookingError("Drop-off changed; retry completion", 409);
+              const meter = guestMeterFare(snapshot, positions.map((p) => ({ latitude: Number(p.latitude), longitude: Number(p.longitude), accuracy: p.accuracy === null ? null : Number(p.accuracy), recordedAt: p.recordedAt })), finished, confirmedRoute);
+              if (!meter.dropoff) throw new BookingError("GUEST_DROPOFF_GPS_REQUIRED", 409);
+              if (!meter.complete && confirmedRoute === null) throw new BookingError("GPS_INCOMPLETE_CONFIRM_ROUTE", 409);
+              Object.assign(snapshot, meter.snapshot);
+              update = { ...update, toAddress: coordinateAddress(meter.dropoff), finalLatitude: meter.dropoff.latitude, finalLongitude: meter.dropoff.longitude, tripType: snapshot.mode === "AIRPORT" ? "AIRPORT_TRANSFER" : "CITY_TRANSFER", pricingStatus: "AUTOMATIC" };
             } else {
-              snapshot.distanceMeters = measured.complete ? measured.meters : confirmedRoute;
-              snapshot.distanceSource = measured.complete ? "GPS" : "CONFIRMED_ROUTE";
+              if (!measured.complete && confirmedRoute === null) throw new BookingError("GPS_INCOMPLETE_CONFIRM_ROUTE", 409);
+              retainedEstimate = measured.complete && measured.meters === 0 && existing.priceCents > 0;
+              if (retainedEstimate) {
+                snapshot.zeroGpsEstimateRetained = true;
+              } else {
+                snapshot.distanceMeters = measured.complete ? measured.meters : confirmedRoute;
+                snapshot.distanceSource = measured.complete ? "GPS" : "CONFIRMED_ROUTE";
+              }
             }
           }
           if (snapshot.mode === "TOUR") {
@@ -374,7 +424,7 @@ export async function bookingRequest(request: Request, role: SessionRole) {
           const finished = new Date();
           const input = command.parse(body);
           const startTime = existing.startedAt ?? (fareValue?.startedAt ? new Date(fareValue.startedAt) : null);
-          update = { ...update, completedAt: finished, actualDurationSeconds: startTime ? Math.max(0, Math.round((finished.getTime() - startTime.getTime()) / 1000)) : null, driverObservations: input.observations || null, ...(input.finalPoint ? { finalLatitude: input.finalPoint.latitude, finalLongitude: input.finalPoint.longitude } : {}) };
+          update = { ...update, completedAt: finished, actualDurationSeconds: startTime ? Math.max(0, Math.round((finished.getTime() - startTime.getTime()) / 1000)) : null, driverObservations: input.observations || null, ...(!fareValue?.guestMeter && input.finalPoint ? { finalLatitude: input.finalPoint.latitude, finalLongitude: input.finalPoint.longitude } : {}) };
         }
       }
       const confirming = role === "ADMIN" && request.method === "PATCH" && "status" in parsed.data;

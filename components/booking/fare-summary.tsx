@@ -10,13 +10,13 @@ export function FareSummary({ details }: { details?: FareDetails | null }) {
   const dollars = (value: number) => localizedNumber(language, { style: "currency", currency: "USD" }).format(value / 100);
   return <div className="my-3 space-y-1 rounded-xl border border-slate-200 p-3 text-sm">
     <strong>{t(details.mode === "OUTSIDE" ? "auto.outside" : details.mode === "CITY" ? "fare.city" : details.mode === "TOUR" ? "fare.tour" : "fare.airport")}</strong>
-    {details.mode === "CITY" && <p>{details.distanceMeters === null ? "—" : (details.distanceMeters / 1000).toFixed(2)} km · {dollars(details.policy.cityCentsPerKm)}/km · {t(details.distanceSource === "GPS" ? "fare.measured" : details.distanceSource === "CONFIRMED_ROUTE" ? "fare.confirmedRoute" : "fare.estimated")}</p>}
+    {details.mode === "CITY" && <p>{details.guestMeter && !details.finalized ? t("guest.meterTitle") : `${details.distanceMeters === null ? "—" : (details.distanceMeters / 1000).toFixed(2)} km`} · {dollars(details.policy.cityCentsPerKm)}/km · {t(details.distanceSource === "GPS" ? "fare.measured" : details.distanceSource === "CONFIRMED_ROUTE" ? "fare.confirmedRoute" : "fare.estimated")}</p>}
     {details.zoneName && <p>{t("auto.zone")}: {details.zoneName}</p>}
     {details.mode === "CITY" && <p>{t("auto.pickup")}: {dollars(details.policy.cityPickupCents)} · {t("auto.minimum")}: {dollars(details.policy.cityMinimumCents)}</p>}
     {details.supplements?.map((item, index) => <p key={index}>{item.label}: +{dollars(item.cents)}</p>)}
     {details.initialPriceCents != null && <p>{t("auto.estimate")}: {dollars(details.initialPriceCents)}</p>}
     {details.zeroGpsEstimateRetained && <p role="status">{t("auto.zeroGpsEstimate")}</p>}
-    {details.adjustmentCents ? <p>{t("auto.correct")}: {dollars(details.adjustmentCents)}</p> : null}
+    {details.adjustmentCents ? <p>{t(details.guestMeter ? "ui.notePriceAdjusted" : "auto.correct")}: {dollars(details.adjustmentCents)}</p> : null}
     {details.mode === "OUTSIDE" && details.negotiatedPriceCents != null && <p>{t("auto.agreed")}: {dollars(details.negotiatedPriceCents)}</p>}
     {details.mode !== "OUTSIDE" || details.negotiatedPriceCents != null ? <p>{details.policy.khrPerUsd ? `≈ ${localizedNumber(language, { maximumFractionDigits: 0 }).format(priceFare(details) * details.policy.khrPerUsd / 100)} KHR` : t("auto.khrUnset")}</p> : null}
     {details.mode === "TOUR" && <>

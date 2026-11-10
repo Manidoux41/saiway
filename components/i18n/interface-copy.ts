@@ -1,5 +1,7 @@
 const en = {
   "ui.noteAutoAssigned": "Automatically assigned to an available driver; payment tracked separately",
+  "ui.noteGuestAccepted": "Assigned and accepted automatically by availability order; GPS meter starts when the passenger boards",
+  "ui.noteGuestWaiting": "No compatible free driver; administrator assignment required",
   "ui.scheduleConflict": "The driver or vehicle is already reserved for this time. Choose another driver, vehicle or departure time.",
   "ui.noteStarted": "Driver started autonomous trip; estimate retained",
   "ui.noteCreated": "Booking created; payment is tracked separately",
@@ -48,6 +50,8 @@ const en = {
 };
 const fr: typeof en = {
   "ui.noteAutoAssigned": "Attribuée automatiquement à un chauffeur disponible ; paiement suivi séparément",
+  "ui.noteGuestAccepted": "Attribuée et acceptée automatiquement par ancienneté de disponibilité ; compteur GPS à la montée du client",
+  "ui.noteGuestWaiting": "Aucun chauffeur libre compatible ; attribution nécessaire par l’administration",
   "ui.scheduleConflict": "Le chauffeur ou le véhicule est déjà réservé sur ce créneau. Choisissez un autre chauffeur, véhicule ou horaire.",
   "ui.noteStarted": "Course autonome démarrée par le chauffeur ; estimation conservée",
   "ui.noteCreated": "Réservation créée ; le paiement est suivi séparément",
@@ -96,6 +100,8 @@ const fr: typeof en = {
 };
 const km: typeof en = {
   "ui.noteAutoAssigned": "បានចាត់តាំងដោយស្វ័យប្រវត្តិឱ្យអ្នកបើកបរទំនេរ។ ការទូទាត់តាមដានដោយឡែក",
+  "ui.noteGuestAccepted": "ចាត់តាំង និងទទួលដោយស្វ័យប្រវត្តិតាមលំដាប់ទំនេរ។ កុងទ័រ GPS ចាប់ផ្ដើមពេលអ្នកដំណើរឡើងជិះ",
+  "ui.noteGuestWaiting": "គ្មានអ្នកបើកបរទំនេរសមស្រប។ អ្នកគ្រប់គ្រងត្រូវចាត់តាំង",
   "ui.scheduleConflict": "អ្នកបើកបរ ឬយានយន្តត្រូវបានកក់សម្រាប់ពេលនេះ។ សូមជ្រើសអ្នកបើកបរ យានយន្ត ឬពេលចេញដំណើរផ្សេង។",
   "ui.noteStarted": "អ្នកបើកបរបានចាប់ផ្ដើមដំណើរផ្ទាល់ខ្លួន ហើយរក្សាតម្លៃប៉ាន់ស្មាន",
   "ui.noteCreated": "បានបង្កើតការកក់ ហើយតាមដានការទូទាត់ដោយឡែក",

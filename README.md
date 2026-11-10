@@ -289,18 +289,40 @@ position while operationally active. Closed rides stop location sharing.
 
 Requests reuse existing booking dispatch and admin/driver lists with origin
 `GUEST`; no separate queue or fictional customer is created. Automatic assignment
-requires an available, conflict-free vehicle/driver and fresh reliable driver
-GPS. Otherwise the request remains visible for manual assignment in admin.
+uses FIFO availability (oldest available first, then creation/id) among active,
+available, conflict-free drivers with an active selected vehicle of sufficient
+capacity. Driver GPS is not required for assignment. Assignment is immediately
+accepted (`DRIVER_ACCEPTED`). Ordinary registered bookings keep proximity dispatch.
+Without an eligible driver, only administrators are alerted for manual assignment;
+manual admin assignment keeps its normal driver acceptance step.
 There is no promised arrival time. The passenger must stay at the pickup and
 show the reference: there is no telephone or email contact.
 
-Before destination confirmation, `AWAITING_DESTINATION` is an unknown fare,
-not a free ride. The driver accepts, travels to pickup, marks arrival, then
-confirms actual passenger count, destination and the quoted/agreed fare with
-the passenger using the existing autonomous-route quote workflow. Starting via
-the normal status button or an administrator price override cannot bypass this
-step. The original guest booking/reference is retained, and normal GPS metering,
-completion and collection/accounting rules apply after departure.
+`AWAITING_DESTINATION` is an unknown fare, not a free ride. The driver travels to
+pickup, marks arrival, checks passenger/vehicle capacity and presses **Passenger on
+board**. A driver GPS fix within 15 seconds and 50 metres is required. No destination
+entry is necessary. `GPS_METER` snapshots the tariff and start point, excluding the
+approach to the passenger. The driver sees a server-calculated provisional distance
+and price refreshed every five seconds. At completion, a recent accurate GPS fix
+records the drop-off; GPS kilometres use the configured city rate, pickup/minimum
+and supplements (also outside configured city zones for this GPS-only product).
+The existing airport package/cap applies when either endpoint is at SAI Airport.
+Other autonomous trips keep their existing outside-zone agreed-fare rules.
+Incomplete GPS never silently produces a final fare: the driver must explicitly
+confirm a road estimate between the meter start and the GPS drop-off.
+Final amounts, destination and receipt remain on the original booking/reference.
+
+After completion and before payment starts, the assigned driver can edit the final
+guest-meter fare **without a mandatory reason**. Old/new amounts and the actor are
+audited and visible in status history. Airport fares remain capped at USD 30.
+Paid/processing fares and stale edits are rejected. Normal collection/accounting
+rules use the saved final amount.
+
+New guest assignments open their details in an active driver dashboard. Push taps
+deep-link to that exact booking; a closed webapp cannot be forcibly opened by the
+server, and continuous GPS cannot be guaranteed when the OS suspends/closes it.
+Keep the driver app visible during metering. No additional database migration is
+required for this FIFO/meter extension.
 
 The browser can cancel until the trip starts, refresh status every five seconds,
 and begin another request only after closure. POST retries reuse the existing
@@ -584,7 +606,7 @@ browsers require HTTPS, except localhost for development.
 | Event | Recipient |
 |---|---|
 | Customer or administrator creates a reservation | Customer owning the reservation (receipt acknowledgement, not payment confirmation), active administrators |
-| GPS-only request without registration | Active administrators immediately; assigned driver if automatically dispatched, otherwise every available active driver's subscribed devices with an explicit “awaiting assignment, do not depart” warning |
+| GPS-only request without registration | Active administrators immediately; only the assigned driver if automatically dispatched and accepted. Without a compatible free driver, admin decides; no driver broadcast |
 | A booking is assigned or reassigned to a driver | Newly assigned driver, active administrators |
 | Driver changes availability or their selected vehicle | Active administrators |
 | Driver confirms `DRIVER_ARRIVED`, manually or through backend GPS arrival detection | Customer owning that reservation |

@@ -53,8 +53,8 @@ async function view(access: NonNullable<Awaited<ReturnType<typeof findAccess>>>)
     ? await prisma.driverLocation.findFirst({ where: { bookingId: trip.id, driverId: trip.driverId }, orderBy: { recordedAt: "desc" }, select: { latitude: true, longitude: true, recordedAt: true } }) : null;
   return {
     reference: trip.reference, status: trip.status, fromAddress: trip.fromAddress,
-    toAddress: trip.pricingStatus === "AWAITING_DESTINATION" ? null : trip.toAddress,
-    priceCents: trip.pricingStatus === "AWAITING_DESTINATION" ? null : trip.priceCents,
+    toAddress: ["AWAITING_DESTINATION", "GPS_METER"].includes(trip.pricingStatus) ? null : trip.toAddress,
+    priceCents: ["AWAITING_DESTINATION", "GPS_METER"].includes(trip.pricingStatus) ? null : trip.priceCents,
     currency: trip.currency, driverName: trip.driver?.user.name ?? null, vehicle: trip.vehicle,
     location: point ? { latitude: Number(point.latitude), longitude: Number(point.longitude), recordedAt: point.recordedAt } : null,
   };
@@ -126,11 +126,11 @@ export async function guestRideRequest(request: Request) {
         guestAccess: { create: { tokenHash: hash, expiresAt: new Date(Date.now() + lifetimeSeconds * 1000) } },
       } });
       const selected = await automaticDriver(tx, trip);
-      if (selected && selected.distanceMeters !== null) {
-        trip = await tx.booking.update({ where: { id: trip.id }, data: { driverId: selected.driverId, vehicleId: selected.vehicleId, status: "DRIVER_ASSIGNED" } });
+      if (selected) {
+        trip = await tx.booking.update({ where: { id: trip.id }, data: { driverId: selected.driverId, vehicleId: selected.vehicleId, status: "DRIVER_ACCEPTED" } });
         await assertDispatchSlot(tx, trip);
       }
-      await tx.bookingStatusHistory.create({ data: { bookingId: trip.id, status: trip.status, note: "GUEST GPS-only request; destination, capacity and fare must be confirmed before departure" } });
+      await tx.bookingStatusHistory.create({ data: { bookingId: trip.id, status: trip.status, note: trip.driverId ? "GUEST FIFO automatic assignment and acceptance; GPS meter starts when passenger boards" : "GUEST no compatible free driver; administrator assignment required" } });
       await tx.auditLog.create({ data: { entity: "Booking", entityId: trip.id, action: "GUEST_REQUEST", metadata: { automaticallyAssigned: Boolean(trip.driverId), gpsAccuracy: parsed.data.accuracy } } });
       await enqueueBookingPush(tx, trip);
     });

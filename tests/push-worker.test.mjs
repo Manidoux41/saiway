@@ -79,3 +79,16 @@ test('notification clicks cannot open injected external URLs and malformed push 
   assert.equal(instance.shown.length, 0);
   assert.equal(instance.warnings.length, 1);
 });
+
+test('assigned driver push deep-links to the exact booking without permitting URL injection', async () => {
+  const instance = worker();
+  await instance.push({ body: 'Assigned', data: { subscriptionId: 'own-device', url: '/driver', bookingId: 'cm-driver-booking123', deviceToken: 'private' } });
+  await instance.click(instance.shown[0].data);
+  assert.equal(instance.opened[0], 'https://saiway.example/driver?booking=cm-driver-booking123');
+  assert.equal(instance.shown[0].data.deviceToken, undefined);
+  for (const bookingId of ['../admin', 'x&url=https://attacker.invalid', 'x'.repeat(201)]) {
+    await instance.push({ body: 'Assigned', data: { subscriptionId: 'own-device', url: '/driver', bookingId } });
+    await instance.click(instance.shown.at(-1).data);
+    assert.equal(instance.opened.at(-1), 'https://saiway.example/driver');
+  }
+});

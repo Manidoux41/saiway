@@ -10,6 +10,7 @@ import { schedulePushDelivery } from "@/lib/push-delivery";
 import { detectDriverArrival } from "@/lib/driver-arrival";
 import { metersBetween } from "@/lib/arrival-policy";
 import { driverPositionSchema } from "@/lib/driver-location-input";
+import { guestFarePending } from "@/lib/fare-policy";
 
 const noStore = { "Cache-Control": "no-store" };
 const minIntervalMs = 2_000;
@@ -130,7 +131,7 @@ export async function adminFleetLocations(request: Request) {
             where: { status: { in: customerLocationStatuses } },
             orderBy: [{ status: "desc" }, { pickupAt: "asc" }],
             take: 1,
-            select: { id: true, reference: true, status: true, fromAddress: true, toAddress: true, routeDetails: true, vehicle: { select: { id: true, name: true, plate: true, iconCategory: true } } },
+            select: { id: true, reference: true, status: true, pricingStatus: true, fromAddress: true, toAddress: true, routeDetails: true, vehicle: { select: { id: true, name: true, plate: true, iconCategory: true } } },
           },
         },
       }),
@@ -180,7 +181,7 @@ export async function adminFleetLocations(request: Request) {
             }, null)
             : null;
         const saved = booking?.routeDetails ? routeDetailsSchema.parse(booking.routeDetails) : null;
-        const target = booking && !stale
+        const target = booking?.status === "TRIP_STARTED" && guestFarePending(booking.pricingStatus) ? null : booking && !stale
           ? { address: saved ? coordinateAddress(status === "ON_TRIP" ? saved.to : saved.from) : status === "ON_TRIP" ? booking.toAddress : booking.fromAddress, hub: null }
           : nearestHub
             ? { address: null, hub: { id: nearestHub.id, name: nearestHub.name, address: nearestHub.address, latitude: Number(nearestHub.latitude), longitude: Number(nearestHub.longitude) } }

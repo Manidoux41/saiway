@@ -1,4 +1,4 @@
-const CACHE_NAME = "saiway-shell-v8";
+const CACHE_NAME = "saiway-shell-v9";
 const APP_SHELL = ["/icons/saiway-mark.svg", "/icons/icon-192.svg", "/icons/icon-512.svg", "/icons/icon-192.png", "/icons/icon-512.png", "/icons/apple-touch-icon.png", "/icons/favicon-32.png", "/manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {
@@ -34,7 +34,7 @@ self.addEventListener("push", (event) => {
       const url = ["/admin", "/driver", "/account"].includes(message.data.url) ? message.data.url : "/account";
       await self.registration.showNotification("SAIWAY", {
         body: message.body, icon: "/icons/icon-192.png", badge: "/icons/icon-192.png",
-        tag: message.tag, lang: message.lang, data: { url },
+        tag: message.tag, lang: message.lang, data: { url, ...(url === "/driver" && typeof message.data.bookingId === "string" && /^[a-zA-Z0-9-]{1,200}$/.test(message.data.bookingId) ? { bookingId: message.data.bookingId } : {}) },
         requireInteraction: message.urgent === true,
       });
     } catch (error) {
@@ -47,7 +47,9 @@ self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   event.waitUntil((async () => {
     const target = ["/admin", "/driver", "/account"].includes(event.notification.data?.url) ? event.notification.data.url : "/account";
-    const url = new URL(target, self.location.origin).href;
+    const destination = new URL(target, self.location.origin);
+    if (target === "/driver" && typeof event.notification.data?.bookingId === "string" && /^[a-zA-Z0-9-]{1,200}$/.test(event.notification.data.bookingId)) destination.searchParams.set("booking", event.notification.data.bookingId);
+    const url = destination.href;
     const tabs = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
     for (const tab of tabs) {
       if (new URL(tab.url).origin === self.location.origin) {

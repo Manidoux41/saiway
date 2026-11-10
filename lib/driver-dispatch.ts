@@ -56,11 +56,13 @@ export async function automaticDriver(tx: Prisma.TransactionClient, trip: Bookin
     },
   });
   const compatible = drivers.filter((driver) => !reservations.some((other) =>
-    (other.driverId === driver.id || other.vehicleId === driver.selectedVehicleId) && dispatchOverlaps(window, dispatchWindow(other, now)),
+    (other.driverId === driver.id || other.vehicleId === driver.selectedVehicleId) && (dispatchOverlaps(window, dispatchWindow(other, now))
+      || trip.originType === "GUEST" && other.pickupAt <= now && ["DRIVER_ASSIGNED", "DRIVER_ACCEPTED", ...inServiceStatuses].includes(other.status)),
   )).map((driver) => {
     const location = driver.locations[0];
     return { driver, distance: dispatchDistance(pickup, location ? { latitude: Number(location.latitude), longitude: Number(location.longitude), accuracy: location.accuracy === null ? null : Number(location.accuracy), recordedAt: location.recordedAt } : null, now) };
-  }).sort((first, second) => first.distance === second.distance ? 0 : first.distance - second.distance);
+  });
+  if (trip.originType !== "GUEST") compatible.sort((first, second) => first.distance === second.distance ? 0 : first.distance - second.distance);
   const selected = compatible[0];
   if (!selected) return null;
   return { driverId: selected.driver.id, vehicleId: selected.driver.selectedVehicleId!, distanceMeters: Number.isFinite(selected.distance) ? Math.round(selected.distance) : null };

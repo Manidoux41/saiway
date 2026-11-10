@@ -45,6 +45,8 @@ export const fareDetailsSchema = z.object({
   extraHours: z.number().int().nonnegative(),
   startedAt: z.iso.datetime().nullable(),
   finalized: z.boolean(),
+  guestMeter: z.boolean().optional(),
+  meterStartPoint: z.object({ latitude: z.number().min(-90).max(90), longitude: z.number().min(-180).max(180), accuracy: z.number().nonnegative() }).optional(),
   zeroGpsEstimateRetained: z.boolean().optional(),
   initialPriceCents: cents.nullable().optional(),
   negotiatedPriceCents: cents.nullable().optional(),
@@ -55,6 +57,10 @@ export const fareDetailsSchema = z.object({
   tariffId: z.string().nullable().optional(),
 });
 export type FareDetails = z.infer<typeof fareDetailsSchema>;
+
+export function guestFarePending(status?: string) {
+  return status === "AWAITING_DESTINATION" || status === "GPS_METER";
+}
 
 export function farePolicy(value?: string | null): FarePolicy {
   return value == null ? defaultFarePolicy : farePolicySchema.parse(JSON.parse(value));

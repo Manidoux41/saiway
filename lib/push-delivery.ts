@@ -61,11 +61,10 @@ export async function dispatchPush(limit = 100, bookingId?: string) {
       else if (delivery.kind === "BOOKED") allowed = delivery.recipientRole === "CUSTOMER" && booking.customerId === subscription.userId && !["CANCELLED", "NO_SHOW", "REFUNDED"].includes(booking.status);
       else if (delivery.kind === "NEW_BOOKING") allowed = delivery.recipientRole === "ADMIN";
       else if (delivery.kind === "GUEST_REQUEST") allowed = delivery.recipientRole === "ADMIN" && booking.originType === "GUEST" && !["CANCELLED", "NO_SHOW", "REFUNDED", "TRIP_COMPLETED"].includes(booking.status);
-      else if (delivery.kind === "PICKUP_WAITING") allowed = delivery.recipientRole === "DRIVER" && booking.originType === "GUEST" && !booking.driverId && booking.status === "DRIVER_ASSIGNMENT_PENDING"
-        && Boolean(await prisma.driverProfile.count({ where: { userId: subscription.userId, isAvailable: true } }));
+      else if (delivery.kind === "PICKUP_WAITING") allowed = false;
       else if (delivery.kind === "DISPATCHED") allowed = delivery.recipientRole === "ADMIN" && booking.driverId === delivery.driverId && !["CANCELLED", "NO_SHOW", "REFUNDED"].includes(booking.status);
       else if (delivery.kind === "ARRIVED") allowed = booking.customerId === subscription.userId && booking.driverId === delivery.driverId && booking.status === "DRIVER_ARRIVED";
-      else if (delivery.kind === "ASSIGNED") allowed = booking.driverId === delivery.driverId && booking.status === "DRIVER_ASSIGNED" &&
+      else if (delivery.kind === "ASSIGNED") allowed = booking.driverId === delivery.driverId && (booking.status === "DRIVER_ASSIGNED" || booking.originType === "GUEST" && ["DRIVER_ACCEPTED", "DRIVER_EN_ROUTE", "DRIVER_ARRIVED"].includes(booking.status)) &&
         Boolean(await prisma.driverProfile.count({ where: { id: booking.driverId ?? "", userId: subscription.userId } }));
     }
     if (allowed && delivery.driverId) allowed = Boolean(await prisma.driverProfile.count({
@@ -85,7 +84,7 @@ export async function dispatchPush(limit = 100, bookingId?: string) {
       title: "SAIWAY", body: `${copy[`push.${delivery.kind as PushKind}`]}${delivery.reference ? ` (${delivery.reference})` : ""}`,
       tag: delivery.eventKey, lang: language,
       urgent: urgentPushKinds.includes(delivery.kind),
-      data: { url, subscriptionId: subscription.id, deviceToken: pushDeviceToken(subscription.id, delivery.recipientRole, delivery.expiresAt) },
+      data: { url, ...(delivery.recipientRole === "DRIVER" && delivery.bookingId ? { bookingId: delivery.bookingId } : {}), subscriptionId: subscription.id, deviceToken: pushDeviceToken(subscription.id, delivery.recipientRole, delivery.expiresAt) },
     });
     try {
       await webpush.sendNotification({ endpoint: subscription.endpoint, keys: { p256dh: subscription.p256dh, auth: subscription.auth } }, payload, {

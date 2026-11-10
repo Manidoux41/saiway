@@ -8,6 +8,7 @@ import type { Course } from "@/components/booking/course-dashboard";
 import { demoLocations, type Coordinates } from "@/lib/driver-dashboard";
 import { locateMapAddress, mapTileAttribution, mapTileUrl, routeMapPoints } from "@/lib/map-client";
 import { useLanguage } from "@/components/i18n/language-provider";
+import { guestFarePending } from "@/lib/fare-policy";
 
 export async function locate(address: string, demo: boolean, signal: AbortSignal): Promise<Coordinates> {
   if (demo && demoLocations[address]) return demoLocations[address];
@@ -32,7 +33,7 @@ export default function TripMap({ course, demo }: { course: Course; demo: boolea
     observer.observe(container.current);
     async function draw() {
       try {
-        if (course.pricingStatus === "AWAITING_DESTINATION") {
+        if (guestFarePending(course.pricingStatus)) {
           const point = await locate(course.fromAddress, demo, signal);
           if (controller.signal.aborted) return;
           L.circleMarker(point, { radius: 9, color: "#fff", weight: 3, fillColor: "#032ea1", fillOpacity: 1 }).addTo(map);
@@ -71,7 +72,7 @@ export default function TripMap({ course, demo }: { course: Course; demo: boolea
   return <div className="relative">
     <div ref={container} className="relative z-0 h-80 w-full bg-slate-100 sm:h-97.5" role="region" aria-label={t("driver.map")} />
     <div className="border-t border-slate-200 bg-white px-4 py-3 text-sm" aria-live="polite">
-      {state.phase === "ready" ? course.pricingStatus === "AWAITING_DESTINATION" ? t("guest.price") : <><strong>{localizedNumber(language, { maximumFractionDigits: 1 }).format((state.distance ?? 0) / 1000)} {t("driver.kilometer")} · {Math.ceil((state.duration ?? 0) / 60)} {t("driver.minute")}</strong><span className="ml-2 text-slate-500">{t("driver.routeEstimate")}</span></> : t(state.phase === "loading" ? "driver.routeLoading" : state.phase === "error" ? "driver.routeError" : "driver.routeUnavailable")}
+      {state.phase === "ready" ? guestFarePending(course.pricingStatus) ? t("guest.price") : <><strong>{localizedNumber(language, { maximumFractionDigits: 1 }).format((state.distance ?? 0) / 1000)} {t("driver.kilometer")} · {Math.ceil((state.duration ?? 0) / 60)} {t("driver.minute")}</strong><span className="ml-2 text-slate-500">{t("driver.routeEstimate")}</span></> : t(state.phase === "loading" ? "driver.routeLoading" : state.phase === "error" ? "driver.routeError" : "driver.routeUnavailable")}
       {tilesFailed && <p className="mt-1 text-red-700" role="alert">{t("driver.mapTilesError")}</p>}
     </div>
   </div>;

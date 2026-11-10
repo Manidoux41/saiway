@@ -32,13 +32,13 @@ async function device(id, token) {
   return response.status;
 }
 
-test('GPS pending requests immediately notify every admin/available-driver device despite backlog, but never unavailable or customer devices', async () => {
+test('GPS pending requests immediately notify admin devices despite backlog, leaving manual assignment to admin without broadcasting to drivers', async () => {
   const ctx = await setup();
   const references = [];
   try {
     assert.ok(process.env.PUSH_VALIDATION_LOG);
     const driver = await guestDriver(ctx);
-    await ctx.prisma.driverLocation.updateMany({ where: { driverId: driver.profile.id }, data: { recordedAt: new Date(0) } });
+    await ctx.prisma.vehicle.update({ where: { id: driver.vehicle.id }, data: { active: false } });
     const unavailable = await createAccount(ctx, 'DRIVER', 'unavailable');
     await ctx.prisma.driverProfile.update({ where: { userId: unavailable.id }, data: { isAvailable: false } });
     const suspended = await createAccount(ctx, 'DRIVER', 'suspended');
@@ -58,24 +58,24 @@ test('GPS pending requests immediately notify every admin/available-driver devic
     references.push(created.data.booking.reference);
     const booking = await ctx.prisma.booking.findUniqueOrThrow({ where: { reference: references[0] } });
     assert.equal(booking.driverId, null);
-    await waitFor(() => ctx.prisma.pushDelivery.count({ where: { bookingId: booking.id, sentAt: { not: null } } }).then(count => count === 32));
+    await waitFor(() => ctx.prisma.pushDelivery.count({ where: { bookingId: booking.id, sentAt: { not: null } } }).then(count => count === 16));
     const deliveries = await ctx.prisma.pushDelivery.findMany({ where: { bookingId: booking.id } });
-    assert.equal(deliveries.length, 32);
+    assert.equal(deliveries.length, 16);
     assert.deepEqual(deliveries.filter(d => d.kind === 'GUEST_REQUEST').map(d => d.subscriptionId).sort(), adminIds.sort());
-    assert.deepEqual(deliveries.filter(d => d.kind === 'PICKUP_WAITING').map(d => d.subscriptionId).sort(), driverIds.sort());
+    assert.equal(deliveries.filter(d => d.recipientRole === 'DRIVER').length, 0);
     assert.ok(deliveries.every(d => !ignored.includes(d.subscriptionId) && d.attempts === 1));
     assert.equal(await ctx.prisma.pushDelivery.count({ where: { eventKey: { startsWith: `${ctx.prefix}:backlog:` }, sentAt: { not: null } } }), 0, 'New request is processed independently of the old queue');
     assert.equal((await request('/api/guest-rides', 'POST', gpsInput(), cookie)).data.booking.reference, booking.reference);
-    assert.equal(await ctx.prisma.pushDelivery.count({ where: { bookingId: booking.id } }), 32);
+    assert.equal(await ctx.prisma.pushDelivery.count({ where: { bookingId: booking.id } }), 16);
     const sent = transport().filter(item => item.payload.body.includes(booking.reference));
-    assert.equal(sent.length, 32);
+    assert.equal(sent.length, 16);
     assert.ok(sent.every(item => item.urgency === 'high' && item.payload.urgent && item.ttl > 0));
-    assert.ok(sent.filter(item => item.payload.data.url === '/driver').every(item => item.payload.body.includes('en attente d’attribution') && item.payload.body.includes('ne vous est pas attribuée')));
+    assert.ok(sent.every(item => item.payload.data.url === '/admin'));
     assert.ok(sent.every(item => !JSON.stringify(item.payload).includes('13.3601234') && !JSON.stringify(item.payload).includes('103.8501234')));
-    const proof = sent.find(item => item.payload.data.subscriptionId === driverIds[0]).payload.data.deviceToken;
-    assert.equal(await device(driverIds[0], proof), 200, 'Service worker proof works without a login cookie');
-    assert.equal(await device(driverIds[1], proof), 403);
-    assert.equal(await device(driverIds[0], `${proof}x`), 403);
+    const proof = sent.find(item => item.payload.data.subscriptionId === adminIds[0]).payload.data.deviceToken;
+    assert.equal(await device(adminIds[0], proof), 200, 'Service worker proof works without a login cookie');
+    assert.equal(await device(adminIds[1], proof), 403);
+    assert.equal(await device(adminIds[0], `${proof}x`), 403);
     await ctx.prisma.driverProfile.update({ where: { id: driver.profile.id }, data: { isAvailable: false } });
     const unavailableAlert = await ctx.prisma.pushDelivery.create({ data: {
       subscriptionId: driverIds[1], recipientRole: 'DRIVER', kind: 'PICKUP_WAITING', eventKey: `${ctx.prefix}:now-unavailable`,
@@ -83,11 +83,11 @@ test('GPS pending requests immediately notify every admin/available-driver devic
     } });
     assert.equal((await tick()).status, 200);
     assert.equal((await ctx.prisma.pushDelivery.findUniqueOrThrow({ where: { id: unavailableAlert.id } })).lastError, 'STALE_OR_UNAUTHORIZED');
-    assert.equal((await request('/api/auth/logout', 'POST', { pushEndpoint: sent.find(item => item.payload.data.subscriptionId === driverIds[0]).endpoint }, driver.cookie)).status, 200);
-    assert.equal(await device(driverIds[0], proof), 403, 'Logout revokes the proof by removing the subscription');
+    assert.equal((await request('/api/auth/logout', 'POST', { pushEndpoint: sent.find(item => item.payload.data.subscriptionId === adminIds[0]).endpoint }, ctx.cookie)).status, 200);
+    assert.equal(await device(adminIds[0], proof), 403, 'Logout revokes the proof by removing the subscription');
     assert.equal((await request('/api/guest-rides', 'DELETE', undefined, cookie)).status, 200);
     const cancelledAlert = await ctx.prisma.pushDelivery.create({ data: {
-      subscriptionId: adminIds[0], recipientRole: 'ADMIN', kind: 'GUEST_REQUEST', eventKey: `${ctx.prefix}:now-cancelled`,
+      subscriptionId: adminIds[1], recipientRole: 'ADMIN', kind: 'GUEST_REQUEST', eventKey: `${ctx.prefix}:now-cancelled`,
       bookingId: booking.id, expiresAt: new Date(Date.now() + 60000),
     } });
     assert.equal((await tick()).status, 200);
@@ -110,6 +110,7 @@ test('automatically assigned GPS requests alert only administrators and the assi
     references.push(created.data.booking.reference);
     const booking = await ctx.prisma.booking.findUniqueOrThrow({ where: { reference: references[0] } });
     assert.ok(booking.driverId);
+    assert.equal(booking.status, 'DRIVER_ACCEPTED');
     const assignedIds = booking.driverId === driver.profile.id ? driverIds : otherIds;
     const unassignedIds = booking.driverId === driver.profile.id ? otherIds : driverIds;
     await waitFor(() => ctx.prisma.pushDelivery.count({ where: { bookingId: booking.id, sentAt: { not: null } } }).then(count => count === 3));
@@ -127,6 +128,7 @@ test('automatically assigned GPS requests alert only administrators and the assi
     assert.equal(rejected.sentAt, null);
     const sent = transport().filter(item => item.payload.body.includes(booking.reference));
     assert.equal(sent.length, 3);
+    assert.equal(sent.find(item => item.payload.data.url === '/driver').payload.data.bookingId, booking.id);
     const proof = sent.find(item => item.payload.data.subscriptionId === assignedIds[0]).payload.data.deviceToken;
     const userId = booking.driverId === driver.profile.id ? driver.id : other.id;
     await ctx.prisma.user.update({ where: { id: userId }, data: { status: 'SUSPENDED' } });

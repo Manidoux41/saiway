@@ -20,8 +20,9 @@ import { distanceMeters, useLocationSharing } from "./use-location-sharing";
 import styles from "./driver-dashboard.module.css";
 import type { FleetDriver } from "@/components/maps/fleet-map";
 import { WalkupTrip } from "./walkup-trip";
+import { GuestMeter } from "./guest-meter";
 import { FareSummary } from "@/components/booking/fare-summary";
-import { circuitSchema } from "@/lib/fare-policy";
+import { circuitSchema, guestFarePending } from "@/lib/fare-policy";
 import { coordinateAddress } from "@/lib/booking-location";
 import { DriverAvailability } from "./driver-availability";
 import { VehicleExpenses } from "./vehicle-expenses";
@@ -47,6 +48,9 @@ export function DriverDashboard() {
   const [message, setMessage] = useState("");
   const [pending, setPending] = useState(false);
   const collectionLock = useRef(false);
+  const seenGuestIds = useRef(new Set<string>());
+  const openedLink = useRef(false);
+  const detailRef = useRef<HTMLElement>(null);
   const { courses, setCourses, loaded, loading, error, setError, refresh, driverAvailability, setDriverAvailability } = useBookings("/api/driver/bookings", pending);
   const [tab, setTab] = useState<DriverTab>("today");
   const [query, setQuery] = useState("");
@@ -59,6 +63,26 @@ export function DriverDashboard() {
   const [collection, setCollection] = useState<{ bookingId: string; method: "CASH" | "CARD" | "ABA" | "OTHER" } | null>(null);
   // The contact block only renders after trips load in the browser, so reading storage here cannot cause a hydration mismatch.
   const [contactApp, setContactApp] = useState<ContactApp>(() => typeof window !== "undefined" && window.localStorage.getItem("saiway.driver.contactApp") === "telegram" ? "telegram" : "whatsapp");
+
+  useEffect(() => {
+    if (!loaded || mode !== "real" || pending) return;
+    const linked = !openedLink.current ? new URLSearchParams(window.location.search).get("booking") : null;
+    const newGuest = courses.find((course) => course.originType === "GUEST" && !closedDriverStatuses.includes(course.status) && !seenGuestIds.current.has(course.id));
+    const activeSelection = courses.find((course) => course.id === selectedId && ["DRIVER_EN_ROUTE", "DRIVER_ARRIVED", "TRIP_STARTED"].includes(course.status));
+    const target = linked ? courses.find((course) => course.id === linked) : !activeSelection ? newGuest : undefined;
+    if (!target) {
+      openedLink.current = true;
+      seenGuestIds.current = new Set(courses.filter((course) => course.originType === "GUEST").map((course) => course.id));
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      openedLink.current = true;
+      seenGuestIds.current = new Set(courses.filter((course) => course.originType === "GUEST").map((course) => course.id));
+      setSelectedId(target.id); setTab(closedDriverStatuses.includes(target.status) ? "history" : "upcoming"); setQuery(""); setStatus("");
+      detailRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [courses, loaded, mode, pending, selectedId]);
 
   function chooseContactApp(value: ContactApp) {
     setContactApp(value);
@@ -103,7 +127,7 @@ export function DriverDashboard() {
     location: { ...sharing.point, recordedAt: sharing.point.capturedAt ?? sharing.lastSent?.toISOString() ?? new Date(0).toISOString() },
     booking: liveTrip ? { id: liveTrip.id, reference: liveTrip.reference, status: liveTrip.status } : null,
     vehicle: liveTrip?.vehicle ? { ...liveTrip.vehicle, iconCategory: liveTrip.vehicle.iconCategory } : sharing.vehicle,
-    target: liveTrip
+    target: liveTrip?.status === "TRIP_STARTED" && guestFarePending(liveTrip.pricingStatus) ? null : liveTrip
       ? { address: liveTrip.routeDetails ? coordinateAddress(liveTrip.status === "TRIP_STARTED" ? liveTrip.routeDetails.to : liveTrip.routeDetails.from) : liveTrip.status === "TRIP_STARTED" ? liveTrip.toAddress : liveTrip.fromAddress, hub: null }
       : sharing.returningToHub && nearestHub ? { address: null, hub: nearestHub } : null,
     stale: !sharing.point.capturedAt || now.getTime() - Date.parse(sharing.point.capturedAt) > 60_000 || sharing.phase !== "sharing",
@@ -138,7 +162,15 @@ export function DriverDashboard() {
           response = await fetch("/api/driver/bookings", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...body, confirmEstimatedDistance: true }) });
         }
       }
-      if (!response.ok) throw new Error("Update failed");
+      if (!response.ok) {
+        const failure = z.object({ error: z.string() }).safeParse(await response.json());
+        if (failure.success && ["GUEST_START_GPS_REQUIRED", "GUEST_DROPOFF_GPS_REQUIRED"].includes(failure.data.error)) {
+          setError(t(failure.data.error === "GUEST_START_GPS_REQUIRED" ? "guest.startGps" : "guest.dropoffGps"));
+          sharing.retry();
+          return;
+        }
+        throw new Error("Update failed");
+      }
       const result = z.object({ booking: courseSchema }).parse(await response.json());
       setCourses((current) => current.map((item) => item.id === result.booking.id ? result.booking : item));
       setMessage(t("driver.updated"));
@@ -228,7 +260,7 @@ export function DriverDashboard() {
 
     {next && <button type="button" className={styles.nextTrip} onClick={() => { setTab("upcoming"); setSelectedId(next.id); setStatus(""); setQuery(""); }}>
       <span className={styles.nextTime}><Clock3 size={18} /><span>{t("driver.next")}<strong>{formatDate(next.pickupAt, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</strong></span></span>
-      <span className={styles.nextRoute}><span>{next.fromAddress}</span><ArrowRight size={16} /><span>{next.pricingStatus === "AWAITING_DESTINATION" ? t("guest.destination") : next.toAddress}</span></span><ChevronRight size={20} className="shrink-0" />
+      <span className={styles.nextRoute}><span>{next.fromAddress}</span><ArrowRight size={16} /><span>{guestFarePending(next.pricingStatus) ? t("guest.destination") : next.toAddress}</span></span><ChevronRight size={20} className="shrink-0" />
     </button>}
 
     <div id="driver-planning-section" className={`${styles.workspace} scroll-mt-32`}>
@@ -248,16 +280,17 @@ export function DriverDashboard() {
             <span className={styles.tripTop}><strong>{formatDate(course.pickupAt, { hour: "2-digit", minute: "2-digit" })}</strong><span className={styles.badge} data-status={course.status}>{label(course.status)}</span></span>
             <span className={styles.reference}>{formatDate(course.pickupAt, { day: "numeric", month: "short" })} · {course.reference}</span>
             <span className={styles.addressLine}><span className={styles.pickupDot} />{course.fromAddress}</span>
-            <span className={styles.addressLine}><span className={styles.dropoffDot} />{course.pricingStatus === "AWAITING_DESTINATION" ? t("guest.destination") : course.toAddress}</span>
-            <span className={styles.tripBottom}><span>{course.originType === "GUEST" ? t("guest.anonymous") : course.passengerName || course.customer.name}{course.professionalCompany ? ` · ${course.professionalCompany}` : ""} · <Users size={14} /> {course.passengers}</span><strong>{course.pricingStatus === "AWAITING_DESTINATION" ? t("guest.price") : money(course.priceCents, course.currency)}</strong></span>
+            <span className={styles.addressLine}><span className={styles.dropoffDot} />{guestFarePending(course.pricingStatus) ? t("guest.destination") : course.toAddress}</span>
+            <span className={styles.tripBottom}><span>{course.originType === "GUEST" ? t("guest.anonymous") : course.passengerName || course.customer.name}{course.professionalCompany ? ` · ${course.professionalCompany}` : ""} · <Users size={14} /> {course.passengers}</span><strong>{guestFarePending(course.pricingStatus) ? t("guest.price") : money(course.priceCents, course.currency)}</strong></span>
             {!closedDriverStatuses.includes(course.status) && new Date(course.pickupAt) < now && course.status !== "TRIP_STARTED" && <span className={styles.overdue}>{t("driver.overdue")}</span>}
           </button>)}
         </div>
       </section>
 
-      <section className={styles.detail} aria-label={t("driver.selected")}>
+      <section ref={detailRef} className={styles.detail} aria-label={t("driver.selected")}>
         {selected ? <>
           <ProfessionalBookingDetails course={selected} />
+          {!demo && selected.fareDetails?.guestMeter && <GuestMeter key={`${selected.id}-${selected.status}-${selected.priceCents}`} course={selected} disabled={pending || loading} onPending={setPending} onSaved={(booking) => { setCourses((current) => current.map((item) => item.id === booking.id ? booking : item)); setMessage(t("driver.updated")); }} />}
           <div className={styles.sectionTitle}><h2>{t("driver.map")}</h2><a href={navigationUrl(selected)} target="_blank" rel="noopener noreferrer" className={styles.navigationLink}><Navigation size={16} />{t("driver.navigate")}<ExternalLink size={13} /></a></div>
           <div className={styles.mapFrame}>{selected.routeDetails ? <SavedRouteMap route={selected.routeDetails} position={selected.status === "TRIP_STARTED" ? currentPoint : null} vehicle={selected.vehicle} /> : <TripMap key={`${selected.id}-${selected.fromAddress}-${selected.toAddress}-${language}`} course={selected} demo={demo} />}</div>
           {selected.routeDetails && <p className="p-3 text-sm">{(selected.routeDetails.distanceMeters / 1000).toFixed(2)} km · {Math.ceil(selected.routeDetails.durationSeconds / 60)} min</p>}
@@ -265,12 +298,12 @@ export function DriverDashboard() {
           {selected.completedAt && <p className="p-3 text-sm">{t("auto.completed")}: {formatDate(selected.completedAt, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })} · {t("auto.actual")}: {Math.ceil((selected.actualDurationSeconds ?? 0) / 60)} min</p>}
           <p className={styles.mapNote}>{t("driver.mapPrivacy")}</p>
           <div className={styles.detailHeading}><div><p className={styles.eyebrow}>{selected.reference}</p><h3>{selected.passengerName || selected.customer.name}</h3></div><span className={styles.badge} data-status={selected.status}>{label(selected.status)}</span></div>
-          <div className={styles.routeDetail}><div><MapPin size={18} className="text-[var(--color-primary)]" /><span><small>{t("driver.pickupPoint")}</small>{selected.fromAddress}</span></div><ArrowDown size={16} className="ml-px text-slate-400" /><div><MapPin size={18} className="text-[var(--color-accent)]" /><span><small>{t("driver.dropoffPoint")}</small>{selected.pricingStatus === "AWAITING_DESTINATION" ? t("guest.destination") : selected.toAddress}</span></div></div>
+          <div className={styles.routeDetail}><div><MapPin size={18} className="text-[var(--color-primary)]" /><span><small>{t("driver.pickupPoint")}</small>{selected.fromAddress}</span></div><ArrowDown size={16} className="ml-px text-slate-400" /><div><MapPin size={18} className="text-[var(--color-accent)]" /><span><small>{t("driver.dropoffPoint")}</small>{guestFarePending(selected.pricingStatus) ? t("guest.destination") : selected.toAddress}</span></div></div>
           <dl className={styles.facts}>
             <div><dt><Clock3 size={16} />{t("courses.pickup")}</dt><dd>{formatDate(selected.pickupAt, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</dd></div>
             <div><dt><Plane size={16} />{t("booking.flightNumber")}</dt><dd>{selected.flightNumber ?? "—"}</dd></div>
             <div><dt><Users size={16} />{t("booking.passengers")}</dt><dd>{selected.passengers} · {selected.luggageCount} {t("booking.luggage")}</dd></div>
-            <div><dt><Wallet size={16} />{t("driver.tripFare")}</dt><dd>{money(selected.priceCents, selected.currency)}</dd></div>
+            <div><dt><Wallet size={16} />{t("driver.tripFare")}</dt><dd>{guestFarePending(selected.pricingStatus) ? t("guest.price") : money(selected.priceCents, selected.currency)}</dd></div>
             <div className="col-span-2"><dt><BriefcaseBusiness size={16} />{t("booking.vehicle")}</dt><dd>{selected.vehicle ? `${selected.vehicle.name} · ${selected.vehicle.plate} · ${selected.vehicle.seats} ${t("records.seats")}` : t("courses.vehiclePending")}</dd></div>
           </dl>
           {selected.pickupNotes && <div className={styles.notes}><h4>{t("booking.notes")}</h4><p>{selected.pickupNotes}</p></div>}
@@ -293,7 +326,7 @@ export function DriverDashboard() {
           {!demo && <section className={styles.collection} aria-label={t("customer.paymentLabel")}>
             <h4><Wallet size={17} />{t("customer.paymentLabel")}</h4>
             <p>{t(selected.payments?.some((item) => item.status === "PAID") ? "payment.collected" : selected.paymentMethod === "DRIVER" ? "payment.toCollect" : selected.paymentMethod === "ONLINE" ? "payment.online" : "payment.unselected")}</p>
-            <strong>{selected.pricingStatus === "AWAITING_DESTINATION" ? t("guest.price") : money(selected.priceCents, selected.currency)}</strong>
+            <strong>{guestFarePending(selected.pricingStatus) ? t("guest.price") : money(selected.priceCents, selected.currency)}</strong>
             {receipt?.collectionMethod && <p>{t(`payment.${receipt.collectionMethod}`)}</p>}
             {selected.payments?.some((item) => item.status === "PROCESSING") && <p>{t("payment.processingNotice")}</p>}
             {selected.status === "TRIP_COMPLETED" && !selected.payments?.some((item) => item.status === "PAID") && <fieldset disabled={pending || loading || selected.payments?.some((item) => item.status === "PROCESSING")} className="mt-3 space-y-3">
@@ -319,10 +352,10 @@ export function DriverDashboard() {
           {selected.status === "TRIP_STARTED" && !demo && <label className="block p-3 text-sm">{t("auto.observations")}<textarea maxLength={2000} value={observations[selected.id] ?? ""} onChange={(event) => setObservations((current) => ({ ...current, [selected.id]: event.target.value }))} className="mt-2 w-full rounded-xl border p-3" disabled={pending} /></label>}
           {selected.driverObservations && <p className="p-3 text-sm">{t("auto.observations")}: {selected.driverObservations}</p>}
           <div className={styles.actions}>
-            {driverNextStatus[selected.status] && !(selected.status === "DRIVER_ARRIVED" && selected.pricingStatus === "AWAITING_DESTINATION") && <button type="button" className={styles.primaryButton} disabled={pending || loading} onClick={() => void advance(selected)}>{pending ? t("admin.saving") : t(transitionKeys[selected.status as keyof typeof transitionKeys])}<ArrowRight size={18} /></button>}
+            {driverNextStatus[selected.status] && <button type="button" className={styles.primaryButton} disabled={pending || loading} onClick={() => void advance(selected)}>{pending ? t("admin.saving") : selected.originType === "GUEST" && selected.status === "DRIVER_ARRIVED" ? t("guest.board") : t(transitionKeys[selected.status as keyof typeof transitionKeys])}<ArrowRight size={18} /></button>}
             {!demo && selected.customer.email && <a className={styles.iconButton} href={`mailto:${selected.customer.email}`} title={t("driver.email")} aria-label={t("driver.email")}><Mail size={19} /></a>}
           </div>
-          {!demo && selected.status === "DRIVER_ARRIVED" && selected.pricingStatus === "AWAITING_DESTINATION" && <WalkupTrip key={selected.id} guest={selected} location={null} gpsPhase={sharing.phase} retryGps={sharing.retry} disabled={pending || loading} onStarted={refresh} />}
+          {!demo && selected.status === "DRIVER_ARRIVED" && selected.pricingStatus === "AWAITING_DESTINATION" && <p className="p-3 text-sm">{t("guest.driverHelp")}</p>}
         </> : <div className={styles.emptyMap}><MapPin size={36} /><p>{t("driver.selectTrip")}</p></div>}
       </section>
     </div>
