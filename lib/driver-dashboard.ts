@@ -26,7 +26,7 @@ export function filterDriverCourses(courses: Course[], tab: DriverTab, query = "
   return courses.filter((course) => {
     const isClosed = closedDriverStatuses.includes(course.status);
     const matchesTab = tab === "history" ? isClosed : !isClosed && (tab === "upcoming" || driverDay(course.pickupAt) === driverDay(now));
-    return matchesTab && (!search || [course.reference, course.fromAddress, course.toAddress, course.customer.name, course.flightNumber ?? ""].join(" ").toLocaleLowerCase().includes(search));
+    return matchesTab && (!search || [course.reference, course.fromAddress, course.toAddress, course.customer.name, course.passengerName ?? "", course.professionalCompany ?? "", course.flightNumber ?? ""].join(" ").toLocaleLowerCase().includes(search));
   }).sort((first, second) => tab === "history" ? Date.parse(second.pickupAt) - Date.parse(first.pickupAt) : Date.parse(first.pickupAt) - Date.parse(second.pickupAt));
 }
 
@@ -62,8 +62,8 @@ export function internationalPhone(value: string | null | undefined) {
   return digits.length >= 8 && digits.length <= 15 ? digits : null;
 }
 
-export function customerContact(course: Pick<Course, "contactPhone" | "customer">) {
-  return internationalPhone(course.contactPhone) ?? internationalPhone(course.customer.phone);
+export function customerContact(course: Pick<Course, "contactPhone" | "customer" | "professionalPhone">) {
+  return internationalPhone(course.contactPhone) ?? internationalPhone(course.professionalPhone) ?? internationalPhone(course.customer.phone);
 }
 
 export function contactLinks(phone: string, smsBody = "") {

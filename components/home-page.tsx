@@ -58,6 +58,13 @@ export default function HomePage({ background = defaultHeroBackground, featuredP
         </div>
       </section>
 
+      <section className="mx-auto max-w-7xl px-4 pt-8 sm:px-6 lg:px-8">
+        <div className="saiway-cultural-panel grid gap-6 rounded-3xl bg-blue-950 p-6 text-white sm:p-8 lg:grid-cols-[1fr_auto] lg:items-center">
+          <div className="min-w-0"><p className="flex items-center gap-2 text-sm font-bold text-blue-100"><Building2 size={20} aria-hidden="true" />{t("pro.eyebrow")}</p><h2 className="mt-3 text-2xl font-bold sm:text-3xl">{t("pro.title")}</h2><p className="mt-3 max-w-3xl leading-7 text-blue-50">{t("pro.pitch")}</p></div>
+          <Link href="/professionals" className="inline-flex min-h-12 items-center justify-center gap-3 rounded-xl bg-white px-5 py-3 text-center font-bold text-blue-900">{t("pro.join")}<ArrowRight size={19} className="shrink-0" aria-hidden="true" /></Link>
+        </div>
+      </section>
+
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
         <div className="grid gap-6 md:grid-cols-3">
           {experiences.map(({ icon: Icon, title, description }) => (
@@ -115,6 +122,7 @@ export default function HomePage({ background = defaultHeroBackground, featuredP
             <p className="mt-5 text-sm font-semibold uppercase tracking-[0.18em] text-white/70">{t("home.partnersEyebrow")}</p>
             <h2 id="partnerships-title" className="mt-3 text-3xl font-bold">{t("home.partnersTitle")}</h2>
             <p className="mt-4 leading-7 text-white/80">{t("home.partnersText")}</p>
+            <Link href="/professionals" className="mt-5 inline-flex min-h-12 items-center gap-2 rounded-xl border border-white/40 px-4 py-3 font-semibold">{t("pro.join")}<ArrowRight size={18} aria-hidden="true" /></Link>
             <a href="https://maps.app.goo.gl/fmXwg25Kor5XGM8f8" target="_blank" rel="noopener noreferrer" className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-white px-5 py-3 font-semibold text-[var(--color-primary)]">
               <MapPin size={20} className="shrink-0" aria-hidden="true" />{t("home.partnersMeet")}<ArrowUpRight size={18} className="shrink-0" aria-hidden="true" />
             </a>

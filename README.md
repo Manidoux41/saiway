@@ -39,6 +39,7 @@ autorisations ou des migrations dans l’environnement déployé.
 | 📍 **Commande immédiate sans inscription** | Bouton « Commander sans inscription » : position GPS actuelle uniquement, sans nom, téléphone, email ni compte. Référence privée, suivi chauffeur/véhicule et annulation depuis le même navigateur ; destination, capacité et tarif confirmés avec le chauffeur avant le départ. |
 | 💰 **Tarification** | Devis calculé côté serveur, politique tarifaire versionnée, zones et circuits, distance/temps et suppléments selon les règles configurées ; détail du prix et confirmation des ajustements. |
 | 👤 **Compte client** | Inscription et connexion, profil, réservations personnelles, prochaines courses, historique, annulation selon les règles applicables, choix du paiement et suivi du chauffeur affecté. |
+| 🏨 **Professionnels** | Présentation et inscription des hôtels, guesthouses et agences ; validation/refus/suspension depuis l’administration. Réservation au nom de l’établissement pour ses clients, nom du voyageur obligatoire, téléphone facultatif et contact de l’établissement accessible au chauffeur. Tarifs habituels, paiement course par course, sans commission ni facturation mensuelle. |
 | 🟢 **Disponibilité & attribution** | Interrupteur disponible/indisponible, véhicule actif sélectionné, statut en service ; attribution automatique d’une nouvelle réservation au chauffeur éligible le plus proche avec GPS fiable, puis ancienneté de disponibilité ; contrôle des places et conflits d’horaires. Attribution manuelle si aucun candidat ne convient. |
 | 🚘 **Espace chauffeur** | Planning, recherche/filtres, acceptation et progression de la course, trajet vers le client, arrivée, départ, fin de course, observations et encaissement. Mode démonstration distinct des données réelles. |
 | 🧳 **Courses autonomes** | Départ d’une course sans réservation préalable, passager de passage, type de trajet/circuit, itinéraire et points GPS, estimation puis tarif final ; confirmation explicite si le GPS ne suffit pas pour calculer la distance. |
@@ -70,6 +71,7 @@ autorisations ou des migrations dans l’environnement déployé.
 | `/ride` | Demande immédiate sans compte : GPS uniquement, référence et suivi privés dans le navigateur. |
 | `/auth` | Inscription client et connexion ; le rôle provient du compte, jamais d’un choix libre donnant des droits. |
 | `/account` | Réservations, paiements et profil du client connecté. |
+| `/professionals` | Présentation, inscription et statut de validation des établissements ; réservation pour leurs clients après approbation. |
 | `/booking/track` | Suivi de la course du client autorisé. |
 | `/driver` | Espace chauffeur : disponibilité, GPS, courses, carburant, paie et documents. |
 | `/admin` | Répartition, comptes, flotte/gestion, blog/photos, publicités/contrats et sécurité ; API réservées aux administrateurs actifs. |
@@ -77,6 +79,38 @@ autorisations ou des migrations dans l’environnement déployé.
 | `/contact` | Contacts de réservation configurés par l’administration. |
 | `/about`, `/help`, `/install` | Présentation, aide et installation mobile. |
 | `/terms`, `/privacy`, `/cancellation-policy` | Conditions, confidentialité et politique d’annulation. |
+
+### 🏨 Établissements partenaires
+
+Depuis le bouton de l’accueil ou **Professionnels**, un hôtel, une guesthouse,
+une agence ou un autre établissement renseigne sa société, sa catégorie, son
+adresse, son contact, son téléphone de réservation, son email et son mot de passe.
+L’inscription crée un compte client professionnel **en attente**, sans droits
+chauffeur ni administrateur. Dans **Administration → Inscriptions
+professionnelles**, l’administrateur peut rechercher, trier par date/société/
+catégorie/statut, corriger la fiche, valider, refuser ou suspendre les nouvelles
+réservations. Ces changements sont audités et les modifications concurrentes
+sont signalées plutôt qu’écrasées.
+
+Après validation, l’établissement utilise `/booking` : nom du voyageur
+obligatoire, téléphone facultatif, mêmes tarifs et choix de paiement que les
+clients particuliers. Le voyageur n’a pas à créer de compte. La réservation,
+les notifications, le suivi et les paiements appartiennent au compte de
+l’établissement. Nom et téléphone de la société sont conservés dans chaque
+course ; modifier ensuite la fiche ne réécrit pas les anciennes réservations.
+Le chauffeur affecté et l’administration voient distinctement le voyageur et
+le contact de l’établissement. Une suspension bloque les nouvelles commandes,
+pas l’accès à l’historique, aux paiements ou aux courses existantes.
+
+API : `POST /api/professionals` (inscription), `GET /api/professionals` (fiche du
+client connecté uniquement), `GET /api/admin/professionals` et
+`PATCH /api/admin/professionals/<id>` (administrateurs actifs uniquement).
+L’approbation est contrôlée côté serveur, y compris si l’administration réserve
+pour ce compte ou si un chauffeur le sélectionne pour une course autonome.
+L’envoi de champs société, tarif, propriétaire ou statut falsifiés dans la
+réservation client est refusé. Pas de commissions, tarifs négociés, facturation
+mensuelle, conversion automatique d’un ancien compte ou invitation email.
+La migration additive `20261110060000_professional_bookings` est requise.
 
 > 🟢 **Paiement validé ≠ course attribuée.** L’affectation ou la fin d’une course
 > ne prouvent jamais un paiement. Un PDF généré ne prouve pas non plus le

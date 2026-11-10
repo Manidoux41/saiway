@@ -24,12 +24,13 @@ const AccountCreationForm = dynamic(() => import("@/components/admin/account-cre
 const RecordEditor = dynamic(() => import("@/components/admin/record-editor").then((module) => module.RecordEditor));
 const AccountProfile = dynamic(() => import("@/components/admin/account-profile-editor").then((module) => module.AccountProfile));
 const EmployerSettingsForm = dynamic(() => import("@/components/admin/employer-settings-form").then((module) => module.EmployerSettingsForm));
+const ProfessionalsPanel = dynamic(() => import("@/components/admin/professionals-panel").then((module) => module.ProfessionalsPanel));
 
 export default function AdminPage() {
   const { t } = useLanguage();
   const { user } = useAuth();
   const { data, error, loading, refresh } = useAdminManagement(user?.role === "admin" ? user.id : undefined);
-  const [section, setSection] = useState<"operations" | "accounts" | "management" | "security" | "blog" | "advertising">("operations");
+  const [section, setSection] = useState<"operations" | "accounts" | "management" | "security" | "blog" | "advertising" | "professionals">("operations");
   const [visited, setVisited] = useState({ accounts: false, management: false, blog: false, advertising: false });
   const [accountRole, setAccountRole] = useState<"CUSTOMER" | "DRIVER" | "ADMIN">("CUSTOMER");
   const [profileId, setProfileId] = useState<string | null>(null);
@@ -41,11 +42,11 @@ export default function AdminPage() {
     { key: "role", label: t("ui.role"), value: (item) => enumLabel(item.role, t) },
     { key: "status", label: t("records.status"), value: (item) => enumLabel(item.status, t) },
   ], { key: "created", direction: "desc" });
-  const sections = [{ key: "operations", icon: BriefcaseBusiness }, { key: "accounts", icon: Users }, { key: "management", icon: CarFront }, { key: "blog", icon: BookOpen }, { key: "advertising", icon: Megaphone }, { key: "security", icon: ShieldCheck }] as const;
+  const sections = [{ key: "operations", icon: BriefcaseBusiness }, { key: "accounts", icon: Users }, { key: "professionals", icon: BriefcaseBusiness }, { key: "management", icon: CarFront }, { key: "blog", icon: BookOpen }, { key: "advertising", icon: Megaphone }, { key: "security", icon: ShieldCheck }] as const;
   return <div className={styles.page}>
     <header className={styles.heading}><div><span className={styles.eyebrow}>SAIWAY / {t("nav.adminDashboard")}</span><h1>{t("dispatch.title")}</h1><p>{t("driver.localTime")}</p></div><button type="button" className={styles.iconButton} disabled={loading} onClick={refresh} title={t("admin.retry")} aria-label={t("admin.retry")}><RefreshCw size={19} /></button></header>
     <DashboardWorkspace menu={<>
-      <nav className="grid gap-2" aria-label={t("nav.adminDashboard")}>{sections.map(({ key, icon: Icon }) => <button key={key} type="button" aria-pressed={section === key} className={`flex min-h-12 items-center gap-3 rounded-xl p-3 text-left text-sm font-semibold ${section === key ? "bg-[var(--color-primary)] text-white" : "text-slate-600 hover:bg-slate-50"}`} onClick={() => { setSection(key); if (key === "accounts" || key === "management" || key === "blog" || key === "advertising") setVisited((current) => ({ ...current, [key]: true })); }}><Icon size={17} aria-hidden="true" />{t(key === "blog" ? "blog.admin" : key === "advertising" ? "ads.admin" : `dispatch.${key}`)}</button>)}</nav>
+      <nav className="grid gap-2" aria-label={t("nav.adminDashboard")}>{sections.map(({ key, icon: Icon }) => <button key={key} type="button" aria-pressed={section === key} className={`flex min-h-12 items-center gap-3 rounded-xl p-3 text-left text-sm font-semibold ${section === key ? "bg-[var(--color-primary)] text-white" : "text-slate-600 hover:bg-slate-50"}`} onClick={() => { setSection(key); if (key === "accounts" || key === "management" || key === "blog" || key === "advertising") setVisited((current) => ({ ...current, [key]: true })); }}><Icon size={17} aria-hidden="true" />{t(key === "professionals" ? "pro.admin" : key === "blog" ? "blog.admin" : key === "advertising" ? "ads.admin" : `dispatch.${key}`)}</button>)}</nav>
       {section === "management" && data && <ManagementMenu />}
       {section === "accounts" && <DashboardMenu groups={[{ title: t("dispatch.accounts"), items: [
         { title: t("dashboard.createAccount"), target: "admin-create-account-section" },
@@ -55,6 +56,7 @@ export default function AdminPage() {
     </>}>
     {error && <div role="alert" className={styles.error}>{t(error)} <button onClick={refresh} disabled={loading} className="underline">{t("admin.retry")}</button> <Link href="/auth" className="underline">{t("admin.openSignIn")}</Link></div>}
     <div hidden={section !== "operations"}><FleetSupervision /><AdminBookings management={data} disabled={loading || Boolean(error)} /></div>
+    {section === "professionals" && <ProfessionalsPanel />}
     {visited.accounts && <div hidden={section !== "accounts"} className="space-y-4">
       <DashboardSection id="admin-create-account-section" title={t("dashboard.createAccount")}>
         <div className={styles.views} role="group" aria-label={t("records.users")}>{(["CUSTOMER", "DRIVER", "ADMIN"] as const).map((role) => <button key={role} type="button" aria-pressed={accountRole === role} onClick={() => setAccountRole(role)}>{t(role === "CUSTOMER" ? "courses.createCustomer" : role === "DRIVER" ? "admin.createDriver" : "admin.createAdministrator")}</button>)}</div>

@@ -12,6 +12,8 @@ import { fareDetailsSchema, type FareDetails } from "@/lib/fare-policy";
 import { FareSummary } from "@/components/booking/fare-summary";
 import { useAuth } from "@/components/auth/auth-provider";
 import { ArrowRight, Check, Compass, CreditCard, Hotel, Plane, Route, ShieldCheck, Users, Wallet } from "lucide-react";
+import { useProfessional } from "@/components/professionals/use-professional";
+import { ProfessionalStatus } from "@/components/professionals/professional-status";
 
 const tripOptions = [
   { value: "airport-transfer", label: "fare.airport", description: "booking.airportChoice", icon: Plane },
@@ -29,6 +31,8 @@ function BookingForm() {
   const params = useSearchParams();
   const { t } = useLanguage();
   const { user } = useAuth();
+  const { professional, loaded: professionalLoaded, error: professionalError, refresh: refreshProfessional } = useProfessional();
+  const [guestName, setGuestName] = useState("");
   const steps = [t("booking.route"), t("booking.details"), t("booking.flightNumber"), t("booking.review")];
   const [step, setStep] = useState(0);
   const [passengers, setPassengers] = useState(2);
@@ -63,7 +67,7 @@ function BookingForm() {
     const controller = new AbortController();
     async function loadQuote() {
       try {
-        if (!fromAddress.trim() || !toAddress.trim()) return;
+        if (!professionalLoaded || professionalError || professional && professional.status !== "APPROVED" || !fromAddress.trim() || !toAddress.trim()) return;
         const query = new URLSearchParams({ direction: apiDirection, tripType: apiTripType, fromAddress, toAddress, tourCircuit, tourHours: String(tourHours) });
         const response = await fetch(`/api/bookings/quote?${query}`, { cache: "no-store", signal: controller.signal });
         if (!response.ok) {
@@ -78,7 +82,7 @@ function BookingForm() {
     }
     const timer = setTimeout(() => void loadQuote(), 500);
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [apiDirection, apiTripType, selection, fromAddress, toAddress, tourCircuit, tourHours]);
+  }, [apiDirection, apiTripType, selection, fromAddress, toAddress, tourCircuit, tourHours, professionalLoaded, professionalError, professional]);
 
   async function continueBooking(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -92,11 +96,17 @@ function BookingForm() {
       const response = await fetch("/api/bookings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
         fromAddress, toAddress,
         direction: apiDirection, tripType: apiTripType, paymentMethod: effectivePaymentMethod, tourCircuit, tourHours, contactPhone: passenger.phone.trim(),
+        passengerName: professional ? guestName.trim() : passenger.name.trim(),
         pickupAt: new Date(`${pickupDate}T${pickupTime}:00+07:00`).toISOString(), passengers,
         luggageCount: passenger.luggageCount, specialNeeds: passenger.specialNeeds, flightNumber: passenger.flightNumber,
-        pickupNotes: `${passenger.pickupNotes}\nPassenger: ${passenger.name}; ${passenger.email}; ${passenger.phone}`,
+        pickupNotes: professional ? passenger.pickupNotes : `${passenger.pickupNotes}\nPassenger: ${passenger.name}; ${passenger.email}; ${passenger.phone}`,
       }) });
-      if (!response.ok) throw new Error("Booking rejected");
+      if (!response.ok) {
+        const body = await response.json();
+        if (body.error === "PRO_APPROVAL_REQUIRED") { setError(t("pro.blockedHelp")); refreshProfessional(); return; }
+        if (body.error === "PRO_PASSENGER_REQUIRED") { setError(t("pro.guest")); setStep(1); return; }
+        throw new Error("Booking rejected");
+      }
       const result = z.object({ booking: z.object({ id: z.string(), reference: z.string(), priceCents: z.number(), currency: z.string(), fareDetails: fareDetailsSchema }) }).parse(await response.json());
       setQuoteState({ selection, priceCents: result.booking.priceCents, currency: result.booking.currency, fareDetails: result.booking.fareDetails });
       setBookingId(result.booking.id); setReference(result.booking.reference); setFinalPrice(result.booking.priceCents); setFinalCurrency(result.booking.currency); setSubmitted(true);
@@ -104,9 +114,15 @@ function BookingForm() {
     finally { setPending(false); }
   }
 
+  if (user?.role === "customer" && (!professionalLoaded || professionalError || professional && professional.status !== "APPROVED")) return <div className="mx-auto max-w-3xl space-y-4 px-4 py-8">
+    {professional ? <ProfessionalStatus professional={professional} /> : <p role={professionalError ? "alert" : "status"}>{t(professionalError ? "pro.error" : "admin.loading")}</p>}
+    <button type="button" className="rounded-xl border p-3" onClick={refreshProfessional}>{t("admin.retry")}</button>
+  </div>;
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
       <Link href="/ride" className="mb-5 inline-flex min-h-12 items-center rounded-xl border border-blue-200 bg-white px-4 py-3 font-bold text-blue-900">{t("guest.open")}</Link>
+      {professional && <section className="mb-5 space-y-2 rounded-2xl border border-blue-200 bg-blue-50 p-5"><h2 className="font-bold">{t("pro.bookedBy")} · {professional.companyName}</h2><p className="text-sm leading-6">{t("pro.bookingHelp")}</p></section>}
       <header className="relative mb-8 overflow-hidden rounded-[32px] bg-[var(--color-primary-dark)] px-6 py-9 text-white md:px-10 md:py-12">
         <Plane aria-hidden="true" className="pointer-events-none absolute -right-8 top-4 h-64 w-64 -rotate-12 text-white/5" />
         <p className="relative text-xs font-semibold uppercase tracking-[0.24em] text-white/70">SAIWAY · SIEM REAP</p>
@@ -203,17 +219,17 @@ function BookingForm() {
               {step === 1 && (
                 <div className="space-y-5">
                   <div>
-                    <label htmlFor="name" className="mb-2 block text-sm font-semibold text-[var(--color-text)]">{t("booking.leadPassenger")}</label>
-                    <input id="name" required value={passenger.name} onChange={(event) => setPassenger({ ...passenger, name: event.target.value })} placeholder={t("booking.fullName")} className="w-full rounded-2xl border border-slate-200 bg-[var(--color-input)] px-4 py-3.5 text-[var(--color-text)] outline-none focus:border-[var(--color-primary)]" />
+                    <label htmlFor="name" className="mb-2 block text-sm font-semibold text-[var(--color-text)]">{t(professional ? "pro.guest" : "booking.leadPassenger")}</label>
+                    <input id="name" required maxLength={200} value={professional ? guestName : passenger.name} onChange={(event) => professional ? setGuestName(event.target.value) : setPassenger({ ...passenger, name: event.target.value })} placeholder={t(professional ? "pro.guest" : "booking.fullName")} className="w-full rounded-2xl border border-slate-200 bg-[var(--color-input)] px-4 py-3.5 text-[var(--color-text)] outline-none focus:border-[var(--color-primary)]" />
                   </div>
                   <div className="grid gap-5 sm:grid-cols-2">
-                    <div>
+                    <div hidden={Boolean(professional)}>
                       <label htmlFor="email" className="mb-2 block text-sm font-semibold text-[var(--color-text)]">{t("booking.email")}</label>
-                      <input id="email" type="email" required value={passenger.email} onChange={(event) => setPassenger({ ...passenger, email: event.target.value })} placeholder="you@example.com" className="w-full rounded-2xl border border-slate-200 bg-[var(--color-input)] px-4 py-3.5 text-[var(--color-text)] outline-none focus:border-[var(--color-primary)]" />
+                      <input id="email" type="email" required={!professional} disabled={Boolean(professional)} value={passenger.email} onChange={(event) => setPassenger({ ...passenger, email: event.target.value })} placeholder="you@example.com" className="w-full rounded-2xl border border-slate-200 bg-[var(--color-input)] px-4 py-3.5 text-[var(--color-text)] outline-none focus:border-[var(--color-primary)]" />
                     </div>
                     <div>
-                      <label htmlFor="phone" className="mb-2 block text-sm font-semibold text-[var(--color-text)]">{t("booking.phone")}</label>
-                      <input id="phone" type="tel" required maxLength={30} pattern="\+?[\d\s\(\)\.\-]{8,}" autoComplete="tel" value={passenger.phone} onChange={(event) => setPassenger({ ...passenger, phone: event.target.value })} placeholder="+855 ..." className="w-full rounded-2xl border border-slate-200 bg-[var(--color-input)] px-4 py-3.5 text-[var(--color-text)] outline-none focus:border-[var(--color-primary)]" />
+                      <label htmlFor="phone" className="mb-2 block text-sm font-semibold text-[var(--color-text)]">{t(professional ? "pro.guestPhone" : "booking.phone")}</label>
+                      <input id="phone" type="tel" required={!professional} maxLength={30} pattern="\+?[\d\s\(\)\.\-]{8,}" autoComplete="tel" value={passenger.phone} onChange={(event) => setPassenger({ ...passenger, phone: event.target.value })} placeholder="+855 ..." className="w-full rounded-2xl border border-slate-200 bg-[var(--color-input)] px-4 py-3.5 text-[var(--color-text)] outline-none focus:border-[var(--color-primary)]" />
                     </div>
                   </div>
                   <div className="grid gap-5 sm:grid-cols-2">
@@ -246,6 +262,7 @@ function BookingForm() {
               {step === 3 && (
                 <div className="space-y-5"><div className="rounded-3xl bg-[var(--color-background)] p-5 text-sm text-slate-600">
                   <h2 className="mb-5 text-lg font-bold text-[var(--color-text)]">{t("booking.reviewDetails")}</h2>
+                  {professional && <div className="mb-4 space-y-2"><p><strong>{t("pro.bookedBy")} :</strong> {professional.companyName}</p><p><strong>{t("pro.guest")} :</strong> {guestName}</p><p>{t("pro.contactHotel")} : {professional.contactPhone}</p></div>}
                   <div className="flex flex-wrap justify-between gap-4"><span>{t("booking.route")}</span><strong className="min-w-0 break-words text-right text-[var(--color-text)]">{fromAddress} → {toAddress}</strong></div>
                   <div className="mt-4 flex justify-between gap-4"><span>{t("booking.pickup")}</span><strong className="text-[var(--color-text)]">{pickupDate} · {pickupTime}</strong></div>
                   <div className="mt-4 flex justify-between gap-4"><span>{t("booking.passengers")}</span><strong className="text-[var(--color-text)]">{passengers}</strong></div>

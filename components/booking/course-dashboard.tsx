@@ -20,6 +20,7 @@ export const courseSchema = z.object({
   metered: z.boolean().optional(),
   fareDetails: fareDetailsSchema.nullable().optional(),
   passengerName: z.string().nullable().optional(), originType: z.string().optional(), pricingStatus: z.string().optional(),
+  professionalCompany: z.string().nullable().optional(), professionalPhone: z.string().nullable().optional(),
   routeDetails: routeDetailsSchema.nullable().optional(), estimatedPriceCents: z.number().nullable().optional(),
   startedAt: z.string().nullable().optional(), completedAt: z.string().nullable().optional(),
   adminArchivedAt: z.string().nullable().optional(),

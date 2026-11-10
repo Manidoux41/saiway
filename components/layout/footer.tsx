@@ -24,6 +24,7 @@ export function Footer() {
           <ul className="mt-4 space-y-3 text-sm text-white/80">
             <li><Link href="/about">{t("nav.about")}</Link></li>
             <li><Link href="/blog">{t("blog.title")}</Link></li>
+            <li><Link href="/professionals">{t("pro.nav")}</Link></li>
             {(!user || user.role === "customer") && <><li><Link href="/booking">{t("nav.book")}</Link></li><li><Link href="/booking/track">{t("nav.track")}</Link></li></>}
             <li><Link href="/contact">{t("footer.contact")}</Link></li>
             <li><Link href="/install">{t("ui.install")}</Link></li>

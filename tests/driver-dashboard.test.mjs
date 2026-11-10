@@ -65,6 +65,8 @@ test('passenger contact links normalise numbers for WhatsApp, Telegram and SMS',
   assert.equal(internationalPhone(''), null);
   assert.equal(customerContact({ contactPhone: null, customer: { phone: '+1 202 555 0100' } }), '12025550100');
   assert.equal(customerContact({ contactPhone: '097 111 2222', customer: { phone: '+1 202 555 0100' } }), '855971112222');
+  assert.equal(customerContact({ contactPhone: null, professionalPhone: '+855 12 345 678', customer: { phone: '+1 202 555 0100' } }), '85512345678');
+  assert.equal(customerContact({ contactPhone: '+33 6 12 34 56 78', professionalPhone: '+855 12 345 678', customer: { phone: null } }), '33612345678');
   const links = contactLinks('85512345678', 'Hello & welcome');
   assert.equal(links.whatsapp, 'https://wa.me/85512345678');
   assert.equal(links.telegram, 'https://t.me/+85512345678');

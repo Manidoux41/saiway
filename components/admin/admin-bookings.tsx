@@ -17,6 +17,7 @@ import styles from "./admin-dashboard.module.css";
 import { useListSort } from "@/components/admin/list-sort";
 import { sortDate } from "@/lib/list-sort";
 import { enumLabel } from "@/components/i18n/enum-label";
+import { ProfessionalBookingDetails } from "@/components/professionals/professional-booking-details";
 
 const TripMap = dynamic(() => import("@/components/driver/trip-map"), { ssr: false, loading: () => <div className="h-80 animate-pulse bg-slate-100" /> });
 const SavedRouteMap = dynamic(() => import("@/components/maps/saved-route-map").then((module) => module.SavedRouteMap), { ssr: false });
@@ -45,7 +46,7 @@ function BookingForm({ course, management, courses, pending, onSave, onClose }: 
     const pickup = new Date(`${value("pickupAt")}:00+07:00`);
     if (!Number.isFinite(pickup.getTime())) return;
     onSave({
-      ...(course ? { id: course.id } : { customerId: value("customerId") }),
+      ...(course ? { id: course.id } : { customerId: value("customerId"), ...(value("passengerName").trim() ? { passengerName: value("passengerName").trim() } : {}) }),
       fromAddress: value("fromAddress"), toAddress: value("toAddress"), pickupAt: guestPending && course ? course.pickupAt : pickup.toISOString(),
       passengers, luggageCount: Number(value("luggageCount")), priceCents: Math.round(Number(value("price")) * 100),
       direction: guestPending && course ? course.direction : value("direction"), tripType: guestPending && course ? course.tripType : value("tripType"), flightNumber: value("flightNumber"), pickupNotes: value("pickupNotes"), specialNeeds: value("specialNeeds"),
@@ -59,6 +60,7 @@ function BookingForm({ course, management, courses, pending, onSave, onClose }: 
     {!course && !customers.length && <p role="alert" className={styles.warning}>{t("dispatch.noCustomers")}</p>}
     <form onSubmit={submit}><fieldset disabled={pending || !course && !customers.length} className={styles.formGrid}>
       {!course && <label className={styles.wide}>{t("courses.customer")}<select name="customerId" required defaultValue=""><option value="">{t("courses.select")}</option>{customers.map((user) => <option key={user.id} value={user.id}>{user.name} · {user.email}</option>)}</select></label>}
+      {!course && <label>{t("pro.guest")}<input name="passengerName" maxLength={200} /><small>{t("pro.approvalHelp")}</small></label>}
       {guestPending && <p className={styles.wide}>{t("guest.driverHelp")}</p>}
       <label>{t("courses.from")}<input name="fromAddress" required readOnly={guestPending} maxLength={500} defaultValue={course?.fromAddress ?? "SAI Airport"} /></label>
       <label>{t("courses.to")}{guestPending ? <><p>{t("guest.destination")}</p><input type="hidden" name="toAddress" value={course?.toAddress ?? ""} /></> : <input name="toAddress" required maxLength={500} defaultValue={course?.toAddress ?? ""} />}</label>
@@ -118,7 +120,7 @@ export function AdminBookings({ management, disabled }: { management: Management
   const visible = sorted.items.filter((course) => matchesView(course, view) && (!driverId || course.driverId === driverId) && (!date || driverDay(course.pickupAt) === date)
     && (!vehicleId || course.vehicleId === vehicleId) && (!status || course.status === status) && (!origin || course.originType === origin)
     && (!zoneId || course.fareDetails?.zoneId === zoneId) && (!fromDate || driverDay(course.pickupAt) >= fromDate) && (!toDate || driverDay(course.pickupAt) <= toDate)
-    && (!search || [course.reference, course.customer.name, course.customer.email, course.fromAddress, course.toAddress, course.flightNumber ?? "", course.vehicle?.plate ?? ""].join(" ").toLocaleLowerCase().includes(search)));
+    && (!search || [course.reference, course.customer.name, course.passengerName ?? "", course.professionalCompany ?? "", course.customer.email, course.fromAddress, course.toAddress, course.flightNumber ?? "", course.vehicle?.plate ?? ""].join(" ").toLocaleLowerCase().includes(search)));
   const selected = visible.find((course) => course.id === selectedId) ?? visible[0];
   const receipt = selected?.payments?.find((item) => item.status === "PAID");
   const statusLabel = (status: string) => t(statusKeys[status as keyof typeof statusKeys] ?? "courses.pending");
@@ -183,19 +185,19 @@ export function AdminBookings({ management, disabled }: { management: Management
         <div className="grid gap-3 p-4 text-sm sm:grid-cols-2 lg:grid-cols-3">
           <label>{t("auto.allVehicles")}<select className="mt-1 w-full rounded-xl border p-2" value={vehicleId} onChange={(event) => setVehicleId(event.target.value)}><option value="">{t("auto.allVehicles")}</option>{management?.vehicles.map((vehicle) => <option key={vehicle.id} value={vehicle.id}>{vehicle.name} · {vehicle.plate}</option>)}</select></label>
           <label>{t("records.status")}<select className="mt-1 w-full rounded-xl border p-2" value={status} onChange={(event) => setStatus(event.target.value)}><option value="">{t("auto.allStatuses")}</option>{Object.keys(statusKeys).map((key) => <option key={key} value={key}>{statusLabel(key)}</option>)}</select></label>
-          <label>{t("auto.origin")}<select className="mt-1 w-full rounded-xl border p-2" value={origin} onChange={(event) => setOrigin(event.target.value)}><option value="">{t("auto.allOrigins")}</option><option value="GUEST">{t("guest.anonymous")}</option><option value="DRIVER">{t("auto.driverOrigin")}</option><option value="CUSTOMER">{t("courses.customer")}</option><option value="ADMIN">{t("nav.adminDashboard")}</option></select></label>
+          <label>{t("auto.origin")}<select className="mt-1 w-full rounded-xl border p-2" value={origin} onChange={(event) => setOrigin(event.target.value)}><option value="">{t("auto.allOrigins")}</option><option value="PROFESSIONAL">{t("pro.nav")}</option><option value="GUEST">{t("guest.anonymous")}</option><option value="DRIVER">{t("auto.driverOrigin")}</option><option value="CUSTOMER">{t("courses.customer")}</option><option value="ADMIN">{t("nav.adminDashboard")}</option></select></label>
           <label>{t("auto.city")}<select className="mt-1 w-full rounded-xl border p-2" value={zoneId} onChange={(event) => setZoneId(event.target.value)}><option value="">{t("auto.allZones")}</option>{[...zones].map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>
           <label>{t("auto.fromDate")}<input type="date" className="mt-1 w-full rounded-xl border p-2" value={fromDate} onChange={(event) => setFromDate(event.target.value)} /></label>
           <label>{t("auto.toDate")}<input type="date" className="mt-1 w-full rounded-xl border p-2" min={fromDate || undefined} value={toDate} onChange={(event) => setToDate(event.target.value)} /></label>
         </div>
         <div className={styles.tableWrap}><table className={styles.table}><thead><tr><th>{t("booking.route")}</th><th>{t("courses.customer")}</th><th>{t("admin.driver")}</th><th>{t("records.status")}</th><th>{t("auto.estimate")}</th><th>{t("auto.started")} / {t("auto.completed")}</th><th>{t("auto.origin")}</th></tr></thead><tbody>{visible.map((course) => <tr key={course.id} data-selected={selected?.id === course.id}>
           <td><button type="button" className={styles.routeButton} onClick={() => setSelectedId(course.id)} aria-pressed={selected?.id === course.id}><small>{time(course.pickupAt)} · {course.reference}</small><strong>{course.fromAddress}</strong><span><ArrowRight size={13} />{course.pricingStatus === "AWAITING_DESTINATION" ? t("guest.destination") : course.toAddress}</span><small className={styles.mobileMeta}>{course.originType === "GUEST" ? t("guest.anonymous") : course.customer.name} · {money(course)}</small></button></td>
-          <td className={styles.customerCell}><strong>{course.originType === "GUEST" ? t("guest.anonymous") : course.customer.name}</strong><small><Users size={12} />{course.passengers} · {money(course)}</small></td>
+          <td className={styles.customerCell}><strong>{course.originType === "GUEST" ? t("guest.anonymous") : course.passengerName || course.customer.name}</strong>{course.professionalCompany && <small>{course.professionalCompany}</small>}<small><Users size={12} />{course.passengers} · {money(course)}</small></td>
           <td className={styles.driverCell}>{course.driver?.user.name ?? t("courses.unassigned")}<small>{course.vehicle ? `${course.vehicle.name} · ${course.vehicle.plate}` : "—"}</small></td>
           <td><span className={styles.badge} data-status={course.status}>{statusLabel(course.status)}</span><small>{t(course.payments?.some((payment) => payment.status === "PAID") ? "auto.received" : "auto.pending")}</small></td>
           <td>{course.routeDetails ? `${(course.routeDetails.distanceMeters / 1000).toFixed(2)} km · ${Math.ceil(course.routeDetails.durationSeconds / 60)} min` : "—"}<small>{course.estimatedPriceCents == null ? "—" : money({ ...course, priceCents: course.estimatedPriceCents })} → {money(course)}</small></td>
           <td>{course.startedAt ? time(course.startedAt) : "—"}<small>{course.completedAt ? time(course.completedAt) : "—"}</small></td>
-          <td>{t(course.originType === "GUEST" ? "guest.anonymous" : course.originType === "DRIVER" ? "auto.driverOrigin" : course.originType === "ADMIN" ? "nav.adminDashboard" : "courses.customer")}</td>
+          <td>{t(course.originType === "PROFESSIONAL" ? "pro.nav" : course.originType === "GUEST" ? "guest.anonymous" : course.originType === "DRIVER" ? "auto.driverOrigin" : course.originType === "ADMIN" ? "nav.adminDashboard" : "courses.customer")}</td>
         </tr>)}</tbody></table></div>
         {!loading && !visible.length && <p className={styles.empty}>{t("courses.empty")}</p>}
         {loading && !loaded && <p role="status" className={styles.empty}>{t("admin.loading")}</p>}
@@ -203,6 +205,7 @@ export function AdminBookings({ management, disabled }: { management: Management
       </section>
       <section className={styles.inspector} aria-label={t("driver.selected")}>
         {selected ? <>
+          <ProfessionalBookingDetails course={selected} />
           <div className={styles.sectionHeading}><h2>{t("driver.selected")}</h2><a href={navigationUrl(selected)} target="_blank" rel="noopener noreferrer" className={styles.iconButton} title={t("driver.navigate")} aria-label={t("driver.navigate")}><Navigation size={18} /></a></div>
           <FareSummary details={selected.fareDetails} />
           <div className={styles.mapFrame}>{selected.routeDetails ? <SavedRouteMap route={selected.routeDetails} /> : <TripMap key={`${selected.id}-${selected.fromAddress}-${selected.toAddress}-${language}`} course={selected} demo={false} />}</div>

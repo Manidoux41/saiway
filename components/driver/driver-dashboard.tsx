@@ -1,5 +1,7 @@
 "use client";
 
+import { ProfessionalBookingDetails } from "@/components/professionals/professional-booking-details";
+
 import { localizedDate, localizedNumber } from "@/lib/locale-format";
 import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
@@ -75,7 +77,7 @@ export function DriverDashboard() {
   const selected = visible.find((course) => course.id === selectedId) ?? visible[0];
   const receipt = selected?.payments?.find((item) => item.status === "PAID");
   const phone = selected && !demo ? customerContact(selected) : null;
-  const links = phone && selected ? contactLinks(phone, t("contact.smsBody").replace("{name}", selected.customer.name.split(" ")[0]).replace("{reference}", selected.reference)) : null;
+  const links = phone && selected ? contactLinks(phone, t("contact.smsBody").replace("{name}", (selected.passengerName || selected.customer.name).split(" ")[0]).replace("{reference}", selected.reference)) : null;
   const scheduled = filterDriverCourses(source, "upcoming", "", now);
   const next = scheduled.find((course) => ["DRIVER_EN_ROUTE", "DRIVER_ARRIVED", "TRIP_STARTED"].includes(course.status)) ?? scheduled[0];
   const liveTrip = demo ? undefined : courses.filter((course) => ["DRIVER_ASSIGNED", "DRIVER_ACCEPTED", "DRIVER_EN_ROUTE", "DRIVER_ARRIVED", "TRIP_STARTED"].includes(course.status))
@@ -200,7 +202,7 @@ export function DriverDashboard() {
       {sharing.phase === "sharing" || sharing.phase === "starting" ? <LocateFixed size={20} aria-hidden="true" /> : <LocateOff size={20} aria-hidden="true" />}
       <div>
         <strong>{t(`live.${sharing.phase === "error" ? "sendError" : sharing.phase}`)}</strong>
-        <span>{liveTrip ? `${liveTrip.reference} · ${liveTrip.customer.name}` : t("live.adminOnlySharing")}{sharing.lastSent ? ` · ${t("live.lastSent")} ${formatDate(sharing.lastSent, { hour: "2-digit", minute: "2-digit", second: "2-digit" })}` : ""}</span>
+        <span>{liveTrip ? `${liveTrip.reference} · ${liveTrip.passengerName || liveTrip.customer.name}` : t("live.adminOnlySharing")}{sharing.lastSent ? ` · ${t("live.lastSent")} ${formatDate(sharing.lastSent, { hour: "2-digit", minute: "2-digit", second: "2-digit" })}` : ""}</span>
         <small>{t("live.keepOpen")}</small>
         {liveTrip?.status === "DRIVER_EN_ROUTE" && <small>{t("live.autoArrival")}</small>}
       </div>
@@ -247,7 +249,7 @@ export function DriverDashboard() {
             <span className={styles.reference}>{formatDate(course.pickupAt, { day: "numeric", month: "short" })} · {course.reference}</span>
             <span className={styles.addressLine}><span className={styles.pickupDot} />{course.fromAddress}</span>
             <span className={styles.addressLine}><span className={styles.dropoffDot} />{course.pricingStatus === "AWAITING_DESTINATION" ? t("guest.destination") : course.toAddress}</span>
-            <span className={styles.tripBottom}><span>{course.originType === "GUEST" ? t("guest.anonymous") : course.customer.name} · <Users size={14} /> {course.passengers}</span><strong>{course.pricingStatus === "AWAITING_DESTINATION" ? t("guest.price") : money(course.priceCents, course.currency)}</strong></span>
+            <span className={styles.tripBottom}><span>{course.originType === "GUEST" ? t("guest.anonymous") : course.passengerName || course.customer.name}{course.professionalCompany ? ` · ${course.professionalCompany}` : ""} · <Users size={14} /> {course.passengers}</span><strong>{course.pricingStatus === "AWAITING_DESTINATION" ? t("guest.price") : money(course.priceCents, course.currency)}</strong></span>
             {!closedDriverStatuses.includes(course.status) && new Date(course.pickupAt) < now && course.status !== "TRIP_STARTED" && <span className={styles.overdue}>{t("driver.overdue")}</span>}
           </button>)}
         </div>
@@ -255,13 +257,14 @@ export function DriverDashboard() {
 
       <section className={styles.detail} aria-label={t("driver.selected")}>
         {selected ? <>
+          <ProfessionalBookingDetails course={selected} />
           <div className={styles.sectionTitle}><h2>{t("driver.map")}</h2><a href={navigationUrl(selected)} target="_blank" rel="noopener noreferrer" className={styles.navigationLink}><Navigation size={16} />{t("driver.navigate")}<ExternalLink size={13} /></a></div>
           <div className={styles.mapFrame}>{selected.routeDetails ? <SavedRouteMap route={selected.routeDetails} position={selected.status === "TRIP_STARTED" ? currentPoint : null} vehicle={selected.vehicle} /> : <TripMap key={`${selected.id}-${selected.fromAddress}-${selected.toAddress}-${language}`} course={selected} demo={demo} />}</div>
           {selected.routeDetails && <p className="p-3 text-sm">{(selected.routeDetails.distanceMeters / 1000).toFixed(2)} km · {Math.ceil(selected.routeDetails.durationSeconds / 60)} min</p>}
           {selected.startedAt && <p className="p-3 text-sm">{t("auto.started")}: {formatDate(selected.startedAt, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</p>}
           {selected.completedAt && <p className="p-3 text-sm">{t("auto.completed")}: {formatDate(selected.completedAt, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })} · {t("auto.actual")}: {Math.ceil((selected.actualDurationSeconds ?? 0) / 60)} min</p>}
           <p className={styles.mapNote}>{t("driver.mapPrivacy")}</p>
-          <div className={styles.detailHeading}><div><p className={styles.eyebrow}>{selected.reference}</p><h3>{selected.customer.name}</h3></div><span className={styles.badge} data-status={selected.status}>{label(selected.status)}</span></div>
+          <div className={styles.detailHeading}><div><p className={styles.eyebrow}>{selected.reference}</p><h3>{selected.passengerName || selected.customer.name}</h3></div><span className={styles.badge} data-status={selected.status}>{label(selected.status)}</span></div>
           <div className={styles.routeDetail}><div><MapPin size={18} className="text-[var(--color-primary)]" /><span><small>{t("driver.pickupPoint")}</small>{selected.fromAddress}</span></div><ArrowDown size={16} className="ml-px text-slate-400" /><div><MapPin size={18} className="text-[var(--color-accent)]" /><span><small>{t("driver.dropoffPoint")}</small>{selected.pricingStatus === "AWAITING_DESTINATION" ? t("guest.destination") : selected.toAddress}</span></div></div>
           <dl className={styles.facts}>
             <div><dt><Clock3 size={16} />{t("courses.pickup")}</dt><dd>{formatDate(selected.pickupAt, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</dd></div>

@@ -13,6 +13,9 @@ import { useBookings } from "@/components/booking/use-bookings";
 import { courseSchema, type Course } from "@/components/booking/course-dashboard";
 import { closedDriverStatuses, driverTimeZone } from "@/lib/driver-dashboard";
 import styles from "./customer-dashboard.module.css";
+import { useProfessional } from "@/components/professionals/use-professional";
+import { ProfessionalStatus } from "@/components/professionals/professional-status";
+import { ProfessionalBookingDetails } from "@/components/professionals/professional-booking-details";
 
 const paymentResult = z.object({ paid: z.boolean(), checkoutUrl: z.url().optional(), sandbox: z.boolean().optional() });
 const profileSchema = z.object({ name: z.string(), email: z.string(), phone: z.string().nullable(), customer: z.object({ address: z.string().nullable() }).nullable() });
@@ -56,6 +59,7 @@ function CustomerProfile() {
 
 export function CustomerDashboard() {
   const { user } = useAuth();
+  const { professional, error: professionalError } = useProfessional();
   const { t, language } = useLanguage();
   const [pending, setPending] = useState(false);
   const lock = useRef(false);
@@ -75,7 +79,7 @@ export function CustomerDashboard() {
   const payable = (course: Course) => !["CANCELLED", "NO_SHOW", "REFUNDED"].includes(course.status) && !paid(course);
   const awaiting = courses.filter(payable);
   const search = query.trim().toLocaleLowerCase();
-  const visible = courses.filter((course) => (view === "all" || (view === "history" ? closed(course) : view === "payment" ? payable(course) : !closed(course))) && (!search || [course.reference, course.fromAddress, course.toAddress, course.flightNumber ?? ""].join(" ").toLocaleLowerCase().includes(search)))
+  const visible = courses.filter((course) => (view === "all" || (view === "history" ? closed(course) : view === "payment" ? payable(course) : !closed(course))) && (!search || [course.reference, course.fromAddress, course.toAddress, course.passengerName ?? "", course.professionalCompany ?? "", course.flightNumber ?? ""].join(" ").toLocaleLowerCase().includes(search)))
     .sort((first, second) => Number(closed(first)) - Number(closed(second)) || (closed(first) ? Date.parse(second.pickupAt) - Date.parse(first.pickupAt) : Date.parse(first.pickupAt) - Date.parse(second.pickupAt)));
   const selected = visible.find((course) => course.id === selectedId) ?? visible[0];
   const receipt = selected?.payments?.find((item) => item.status === "PAID");
@@ -157,6 +161,8 @@ export function CustomerDashboard() {
   }
 
   return <div className={styles.dashboard}>
+    {professional && <ProfessionalStatus professional={professional} />}
+    {professionalError && <p role="alert">{t("pro.error")} <Link href="/professionals" className="underline">{t("pro.nav")}</Link></p>}
     <header className={styles.heading}><div><p className={styles.eyebrow}>SAIWAY / {user?.name}</p><h1>{t("customer.title")}</h1><p>{t("customer.greeting")}</p></div><Link className={styles.primaryButton} href="/booking"><Plus size={18} />{t("customer.book")}</Link></header>
     <nav className={styles.navigation} aria-label={t("nav.account")}><button type="button" aria-pressed={section === "trips"} onClick={() => setSection("trips")}><CalendarDays size={17} />{t("customer.trips")}</button><button type="button" aria-pressed={section === "profile"} onClick={() => setSection("profile")}><UserRound size={17} />{t("customer.profile")}</button><Link href="/help"><Headphones size={17} />{t("nav.help")}</Link></nav>
     {section === "profile" ? <CustomerProfile /> : <>
@@ -167,10 +173,11 @@ export function CustomerDashboard() {
         <section className={styles.list} aria-busy={loading}><div className={styles.sectionHeading}><h2>{t("customer.trips")}</h2><button type="button" className={styles.iconButton} disabled={loading || pending} onClick={refresh} title={t("customer.refresh")} aria-label={t("customer.refresh")}><RefreshCw size={17} /></button></div>
           <div className={styles.filters} role="group" aria-label={t("customer.trips")}>{(["all", "upcoming", "payment", "history"] as const).map((value) => <button key={value} type="button" aria-pressed={view === value} onClick={() => setView(value)}>{t(value === "payment" ? "customer.waitingPayment" : `customer.${value}`)}</button>)}</div>
           <label className={styles.search}><Search size={17} /><input type="search" aria-label={t("customer.search")} placeholder={t("customer.search")} value={query} onChange={(event) => setQuery(event.target.value)} /></label>
-          <div className={styles.tripList}>{visible.map((course) => <button type="button" key={course.id} className={styles.trip} aria-pressed={selected?.id === course.id} onClick={() => setSelectedId(course.id)}><span className={styles.tripTop}><strong>{date(course.pickupAt)}</strong><span className={styles.badge} data-paid={paid(course)}>{statusLabel(course.status)}</span></span><small>{course.reference}</small><span className={styles.route}><MapPin size={15} />{course.fromAddress}</span><span className={styles.route}><ArrowRight size={15} />{course.toAddress}</span><span className={styles.tripBottom}><span><Users size={14} />{course.passengers}</span><strong>{money(course)}</strong></span></button>)}</div>
+          <div className={styles.tripList}>{visible.map((course) => <button type="button" key={course.id} className={styles.trip} aria-pressed={selected?.id === course.id} onClick={() => setSelectedId(course.id)}><span className={styles.tripTop}><strong>{date(course.pickupAt)}</strong><span className={styles.badge} data-paid={paid(course)}>{statusLabel(course.status)}</span></span><small>{course.reference}</small>{course.professionalCompany && <strong>{course.passengerName}</strong>}<span className={styles.route}><MapPin size={15} />{course.fromAddress}</span><span className={styles.route}><ArrowRight size={15} />{course.toAddress}</span><span className={styles.tripBottom}><span><Users size={14} />{course.passengers}</span><strong>{money(course)}</strong></span></button>)}</div>
           {!loaded && loading && <p role="status" className={styles.empty}>{t("admin.loading")}</p>}{loaded && !visible.length && <div className={styles.empty}><p>{t("customer.empty")}</p><Link href="/booking" className={styles.textLink}>{t("customer.book")}<ArrowRight size={15} /></Link></div>}
         </section>
         <section className={styles.details} aria-label={t("customer.details")}>{selected ? <>
+          <ProfessionalBookingDetails course={selected} />
           <div className={styles.sectionHeading}><h2>{t("customer.details")}</h2><span className={styles.badge} data-paid={paid(selected)}>{statusLabel(selected.status)}</span></div>
           <p className={styles.eyebrow}>{selected.reference}</p><div className={styles.detailRoute}><MapPin size={19} /><div><small>{t("booking.from")}</small><strong>{selected.fromAddress}</strong><ArrowRight size={17} /><small>{t("booking.to")}</small><strong>{selected.toAddress}</strong></div></div>
           <dl className={styles.facts}><div><dt>{t("courses.pickup")}</dt><dd>{date(selected.pickupAt)}</dd></div><div><dt>{t("dispatch.price")}</dt><dd>{money(selected)}</dd></div><div><dt>{t("booking.passengers")}</dt><dd>{selected.passengers} · {selected.luggageCount} {t("booking.luggage")}</dd></div><div><dt>{t("booking.flightNumber")}</dt><dd>{selected.flightNumber ?? "—"}</dd></div><div><dt>{t("customer.paymentLabel")}</dt><dd>{t(paid(selected) ? "customer.confirmed" : selected.payments?.some((item) => item.status === "PROCESSING") ? "customer.paymentInProgress" : "customer.noPayment")}</dd></div><div><dt>{t("admin.driver")}</dt><dd>{selected.driver?.user.name ?? t("courses.unassigned")}</dd></div></dl>

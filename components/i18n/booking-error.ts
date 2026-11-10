@@ -1,6 +1,8 @@
 import type { TranslationKey } from "@/components/i18n/language-provider";
 
 const errors: Record<string, TranslationKey> = {
+  "PRO_APPROVAL_REQUIRED": "pro.blockedHelp",
+  "PRO_PASSENGER_REQUIRED": "pro.guest",
   "Cancel the ongoing trip before archiving": "archive.ongoing",
   "Restore the archived booking before editing": "archive.edit",
   "Invalid trip quote; calculate a new route": "ui.quoteExpired",

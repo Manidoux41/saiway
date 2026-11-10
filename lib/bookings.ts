@@ -29,8 +29,9 @@ const details = z.object({
   pickupNotes: z.string().trim().max(2000).optional(),
   specialNeeds: z.string().trim().max(2000).optional(),
 });
-const adminCreate = details.extend({ customerId: text, driverId: nullableId, vehicleId: nullableId, priceCents: z.number().int().nonnegative().max(100000000) });
-const customerCreate = details.extend({ paymentMethod: z.enum(["ONLINE", "DRIVER"]).optional(), contactPhone: z.string().trim().max(30).regex(/^\+?[\d\s().-]*$/, "Invalid phone number").optional(), tourCircuit: circuitSchema.optional(), tourHours: z.number().min(1).max(48).optional() });
+const guestName = z.string().trim().min(1).max(200).optional();
+const adminCreate = details.extend({ customerId: text, passengerName: guestName, driverId: nullableId, vehicleId: nullableId, priceCents: z.number().int().nonnegative().max(100000000) });
+const customerCreate = details.extend({ passengerName: guestName, paymentMethod: z.enum(["ONLINE", "DRIVER"]).optional(), contactPhone: z.string().trim().max(30).regex(/^\+?[\d\s().-]*$/, "Invalid phone number").optional(), tourCircuit: circuitSchema.optional(), tourHours: z.number().min(1).max(48).optional() });
 const adminEdit = details.partial().extend({ id: text, pickupAt: z.iso.datetime({ offset: true }).optional(), driverId: nullableId, vehicleId: nullableId, priceCents: z.number().int().nonnegative().max(100000000).optional() });
 const adminConfirm = z.object({ id: text, status: z.literal("CONFIRMED") }).strict();
 const priceCorrection = z.object({ id: text, finalPriceCents: z.number().int().nonnegative().max(10000000), priceReason: z.string().trim().min(3).max(2000) }).strict();
@@ -75,7 +76,10 @@ async function fare(value: { fromAddress: string; toAddress: string; tripType: T
 
 export async function bookingQuote(request: Request) {
   try {
-    if (!await authorize(request, "CUSTOMER")) return Response.json({ error: "Customer access required" }, { status: 403 });
+    const account = await authorize(request, "CUSTOMER");
+    if (!account) return Response.json({ error: "Customer access required" }, { status: 403 });
+    const professional = await prisma.professionalProfile.findUnique({ where: { userId: account.id }, select: { status: true } });
+    if (professional && professional.status !== "APPROVED") return Response.json({ error: "PRO_APPROVAL_REQUIRED" }, { status: 403 });
     const url = new URL(request.url);
     const selection = customerCreate.pick({ fromAddress: true, toAddress: true, direction: true, tripType: true, tourCircuit: true, tourHours: true }).safeParse({
       direction: url.searchParams.get("direction"), tripType: url.searchParams.get("tripType"),
@@ -179,8 +183,10 @@ export async function bookingRequest(request: Request, role: SessionRole) {
           await tx.driverProfile.update({ where: { id: driver.id }, data: { returningToHub: false } });
           if (await tx.booking.count({ where: { ...(guest ? { id: { not: guest.id } } : {}), driverId: driver.id, status: { in: ["DRIVER_EN_ROUTE", "DRIVER_ARRIVED", "TRIP_STARTED"] } } })) throw new BookingError("Finish the current trip first", 409);
           if (await tx.booking.count({ where: { ...(guest ? { id: { not: guest.id } } : {}), vehicleId: quote.selection.vehicleId, status: { in: ["DRIVER_EN_ROUTE", "DRIVER_ARRIVED", "TRIP_STARTED"] } } })) throw new BookingError("Vehicle already in use", 409);
-          const customer = passenger.customerEmail ? await tx.user.findUnique({ where: { email: passenger.customerEmail.toLowerCase() } }) : null;
+          const customer = passenger.customerEmail ? await tx.user.findUnique({ where: { email: passenger.customerEmail.toLowerCase() }, include: { professional: true } }) : null;
           if (passenger.customerEmail && (!customer || customer.role !== "CUSTOMER" || customer.status !== "ACTIVE")) throw new BookingError("Select an existing active customer");
+          if (customer?.professional && customer.professional.status !== "APPROVED") throw new BookingError("PRO_APPROVAL_REQUIRED", 403);
+          if (customer?.professional && !passenger.passengerName?.trim()) throw new BookingError("PRO_PASSENGER_REQUIRED");
           const vehicle = await tx.vehicle.findUnique({ where: { id: quote.selection.vehicleId } });
           if (!vehicle?.active || vehicle.seats < passenger.passengers) throw new BookingError("Invalid vehicle capacity");
           if (vehicle.iconCategory !== quote.vehicleCategory) throw new BookingError("Vehicle category changed; calculate a new quote", 409);
@@ -188,6 +194,7 @@ export async function bookingRequest(request: Request, role: SessionRole) {
           const startedAt = new Date();
           const snapshot: FareDetails = { ...quote.fareDetails, initialPriceCents: priceCents, negotiatedPriceCents: outside ? priceCents : null, startedAt: startedAt.toISOString() };
           const tripData = { fromAddress: quote.selection.fromAddress, toAddress: quote.selection.toAddress, vehicleId: vehicle.id, passengers: passenger.passengers, passengerName: passenger.passengerName || null, contactPhone: passenger.contactPhone || null,
+              professionalCompany: customer?.professional?.companyName ?? null, professionalPhone: customer?.professional?.contactPhone ?? null,
               direction: airportEndpoint(quote.selection.toAddress, quote.route.to) ? "CITY_TO_AIRPORT" : "AIRPORT_TO_CITY", tripType: snapshot.mode === "AIRPORT" ? "AIRPORT_TRANSFER" : "CITY_TRANSFER",
               priceCents, currency: "USD", fareDetails: snapshot, metered: snapshot.mode === "CITY", routeDetails: quote.route, estimatedPriceCents: priceCents, pricingStatus: outside ? "DRIVER_AGREED" : "AUTOMATIC",
               originType: guest ? "GUEST" : "DRIVER", startRequestId: quote.requestId, startedAt, dispatchEndsAt: plannedDispatchEnd({ pickupAt: startedAt, tripType: snapshot.mode === "AIRPORT" ? "AIRPORT_TRANSFER" : "CITY_TRANSFER", fareDetails: snapshot, routeDetails: quote.route }), customerId: customer?.id, driverId: driver.id, pickupAt: guest?.pickupAt ?? startedAt, paymentMethod: "DRIVER", status: "TRIP_STARTED",
@@ -214,17 +221,28 @@ export async function bookingRequest(request: Request, role: SessionRole) {
       if (!parsed.success) return Response.json({ error: parsed.error.issues.map((issue) => issue.message).join("; ") }, { status: 400 });
       const value = parsed.data;
       const admin = role === "ADMIN" ? adminCreate.parse(body) : null;
+      if (!admin) {
+        const professional = await prisma.professionalProfile.findUnique({ where: { userId: account.id }, select: { status: true } });
+        if (professional && professional.status !== "APPROVED") throw new BookingError("PRO_APPROVAL_REQUIRED", 403);
+        if (professional && !customerCreate.parse(value).passengerName) throw new BookingError("PRO_PASSENGER_REQUIRED");
+      }
       const quote = admin ? { priceCents: admin.priceCents, currency: "USD" } : await fare(customerCreate.parse(value));
       if (admin && isAirportTrip(admin) && admin.priceCents > 3000) throw new BookingError("Airport transfers cannot exceed USD 30");
       if (!admin && quote.currency === "USD" && value.tripType === "TOURIST_TOUR" && customerCreate.parse(value).paymentMethod === "ONLINE") throw new BookingError("Tour supplements are settled with the driver; select pay at driver");
       const booking = await dispatchTransaction(async (tx) => {
         const customerId = admin?.customerId ?? account.id;
-        const customer = await tx.user.findUnique({ where: { id: customerId } });
+        const customer = await tx.user.findUnique({ where: { id: customerId }, include: { professional: true } });
         if (customer?.role !== "CUSTOMER" || customer.status !== "ACTIVE") throw new BookingError("Select an active customer");
+        const professional = customer.professional;
+        if (professional && professional.status !== "APPROVED") throw new BookingError("PRO_APPROVAL_REQUIRED", 403);
+        const passengerName = admin ? admin.passengerName : customerCreate.parse(value).passengerName;
+        if (professional && !passengerName) throw new BookingError("PRO_PASSENGER_REQUIRED");
         await assignment(tx, admin?.driverId, admin?.vehicleId, value.passengers);
         const status: BookingStatus = admin?.driverId ? "DRIVER_ASSIGNED" : "PENDING_PAYMENT";
         let created = await tx.booking.create({
-          data: { ...details.parse(value), ...(admin ? {} : (({ paymentMethod, contactPhone }) => ({ paymentMethod, contactPhone: contactPhone || null }))(customerCreate.parse(value))), customerId, originType: admin ? "ADMIN" : "CUSTOMER", estimatedPriceCents: quote.priceCents, reference: `SW-${randomUUID().toUpperCase()}`, pickupAt: new Date(value.pickupAt), ...quote, driverId: admin?.driverId, vehicleId: admin?.vehicleId, status, statusHistory: { create: { status, note: "Booking created; payment is tracked separately" } } },
+          data: { ...details.parse(value), ...(admin ? {} : (({ paymentMethod, contactPhone }) => ({ paymentMethod, contactPhone: contactPhone || null }))(customerCreate.parse(value))), passengerName: passengerName ?? null,
+            professionalCompany: professional?.companyName ?? null, professionalPhone: professional?.contactPhone ?? null,
+            customerId, originType: professional ? "PROFESSIONAL" : admin ? "ADMIN" : "CUSTOMER", estimatedPriceCents: quote.priceCents, reference: `SW-${randomUUID().toUpperCase()}`, pickupAt: new Date(value.pickupAt), ...quote, driverId: admin?.driverId, vehicleId: admin?.vehicleId, status, statusHistory: { create: { status, note: "Booking created; payment is tracked separately" } } },
           include: bookingInclude,
         });
         created = await tx.booking.update({ where: { id: created.id }, data: { dispatchEndsAt: plannedDispatchEnd(created) }, include: bookingInclude });

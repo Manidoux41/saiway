@@ -82,6 +82,7 @@ model User {
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
   customer      CustomerProfile?
+  professional  ProfessionalProfile?
   driver        DriverProfile?
   administrator AdminProfile?
   bookings      Booking[]    @relation("CustomerBookings")
@@ -173,6 +174,30 @@ model CustomerProfile {
   paymentLast4 String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+enum ProfessionalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+model ProfessionalProfile {
+  id           String             @id @default(cuid())
+  userId       String             @unique
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyName  String
+  category     String
+  address      String
+  contactName  String
+  contactPhone String
+  status       ProfessionalStatus @default(PENDING)
+  reviewedAt   DateTime?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@index([status, createdAt])
 }
 
 model DriverProfile {
@@ -509,6 +534,8 @@ model Booking {
   customerId     String?
   customer       User?           @relation("CustomerBookings", fields: [customerId], references: [id], onDelete: Restrict)
   passengerName  String?
+  professionalCompany String?
+  professionalPhone String?
   originType     String          @default("CUSTOMER")
   startRequestId String?         @unique
   routeDetails   Json?
