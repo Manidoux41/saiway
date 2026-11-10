@@ -10,6 +10,7 @@ import { enqueueAvailabilityPush } from "@/lib/push-events";
 import { schedulePushDelivery } from "@/lib/push-delivery";
 import { contactSettingKey, contactSettingsSchema } from "@/lib/contact-settings";
 import { publicContact } from "@/lib/public-contact";
+import { mutateFinance } from "@/lib/admin-finance";
 
 export const runtime = "nodejs";
 
@@ -20,10 +21,7 @@ const fields = {
   user: z.object({ name, email: z.string().trim().toLowerCase().pipe(z.email()), status: z.enum(["ACTIVE", "SUSPENDED", "INVITED"]), phone: z.string().max(50).nullable().optional(), isAvailable: z.boolean().optional(), licenseNo: z.string().trim().max(100).nullable().optional(), licenseExpiresAt: z.union([z.literal("").transform(() => null), z.string().regex(/^\d{4}-\d{2}-\d{2}$/).transform((value) => new Date(`${value}T00:00:00Z`))]).nullable().optional() }),
   vehicle: z.object({ name, plate: name, seats: z.coerce.number().int().min(1).max(50), active: z.boolean().optional(), iconCategory: z.enum(["TUK_TUK", "PASSAPP", "SEDAN", "SUV", "MINIVAN", "MINIBUS", "VAN", "OTHER"]).optional() }),
   hub: z.object({ name, address: z.string().trim().max(500).nullable().optional(), latitude: z.coerce.number().finite().min(-90).max(90), longitude: z.coerce.number().finite().min(-180).max(180), active: z.boolean().optional() }),
-  accounting: z.object({ type: z.enum(["REVENUE", "EXPENSE", "CREDIT", "PURCHASE"]), label: name, amountCents: cents, currency: z.literal("USD").optional(), notes: z.string().max(2000).optional(), paidAt: date.nullable().optional(), entryDate: date.optional(), category: z.enum(["TRIP", "FUEL", "MAINTENANCE", "SALARY", "OTHER"]).optional(), vehicleId: z.string().min(1).nullable().optional(), expectedUpdatedAt: z.iso.datetime().optional() }),
-  forecast: z.object({ month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/).transform((value) => new Date(`${value}-01T00:00:00Z`)), expectedRevenueCents: cents, expectedExpenseCents: cents, notes: z.string().max(2000).optional() }),
   pricing: z.object({ name, amountCents: cents, currency: z.literal("USD").optional(), direction: z.enum(["AIRPORT_TO_CITY", "CITY_TO_AIRPORT"]).nullable().optional(), tripType: z.enum(["AIRPORT_TRANSFER", "PRIVATE_TRANSFER", "HOTEL_TRANSFER"]).nullable().optional(), active: z.boolean().optional(), effectiveAt: date }),
-  contract: z.object({ vehicleId: name, provider: name, monthlyCents: cents, startsAt: date, endsAt: date.nullable().optional(), status: z.enum(["ACTIVE", "INACTIVE"]) }),
   setting: z.discriminatedUnion("key", [
     z.object({ key: z.literal(contactSettingKey), value: contactSettingsSchema.transform((value) => JSON.stringify(value)) }).strict(),
     z.object({ key: z.literal("heroBackground"), value: z.url().refine((value) => value.startsWith("https://"), "HTTPS image required") }).strict(),
@@ -41,8 +39,8 @@ export async function GET(request: Request) {
       prisma.vehicle.findMany({ include: { iconImage: { select: { uploadedAt: true, sizeBytes: true } } }, orderBy: { createdAt: "desc" } }),
       prisma.hub.findMany({ orderBy: [{ active: "desc" }, { name: "asc" }] }),
       prisma.accountingEntry.findMany({ orderBy: { createdAt: "desc" } }),
-      prisma.forecastLine.findMany({ orderBy: { month: "asc" } }),
-      prisma.vehicleContract.findMany({ include: { vehicle: { select: { name: true, plate: true } } }, orderBy: { startsAt: "desc" } }),
+      prisma.forecastLine.findMany({ where: { deletedAt: null }, orderBy: { month: "asc" } }),
+      prisma.vehicleContract.findMany({ where: { deletedAt: null }, include: { vehicle: { select: { name: true, plate: true } } }, orderBy: { startsAt: "desc" } }),
       prisma.pricingRule.findMany({ where: { policy: { equals: Prisma.DbNull } }, orderBy: { effectiveAt: "desc" } }),
       prisma.systemSetting.findMany({ where: { key: { in: ["heroBackground", gpsRetentionSettingKey, farePolicyKey, contactSettingKey] } } }),
       prisma.payment.findMany({
@@ -69,9 +67,10 @@ async function mutate(request: Request) {
     const removing = request.method === "DELETE";
     if ((updating || removing) && !id) return Response.json({ error: "Missing record id" }, { status: 400 });
     if ((updating || removing) && entity === "user" && id === actor.id) return Response.json({ error: "An administrator cannot modify or suspend their own account here" }, { status: 409 });
-    if (removing && !["user", "vehicle", "hub", "pricing", "contract"].includes(entity)) return Response.json({ error: "Financial history cannot be deleted. Edit the record instead." }, { status: 409 });
+    if (removing && !["user", "vehicle", "hub", "pricing", "contract", "accounting", "forecast"].includes(entity)) return Response.json({ error: "This record cannot be deleted." }, { status: 409 });
     if (!updating && !removing && entity === "user") return Response.json({ error: "Use account creation" }, { status: 400 });
     const item = await dispatchTransaction(async (tx) => {
+      if (entity === "accounting" || entity === "forecast" || entity === "contract") return mutateFinance(tx, entity, id, data, actor.id, request.method);
       let result;
       if (removing) {
         if (entity === "user") result = await tx.user.update({ where: { id }, data: { status: "SUSPENDED" } });
@@ -81,7 +80,6 @@ async function mutate(request: Request) {
           if ((await tx.pricingRule.findUniqueOrThrow({ where: { id } })).policy !== null) throw new z.ZodError([{ code: "custom", path: ["id"], message: "Tariff history is immutable" }]);
           result = await tx.pricingRule.update({ where: { id }, data: { active: false } });
         }
-        if (entity === "contract") result = await tx.vehicleContract.update({ where: { id }, data: { status: "INACTIVE" } });
       } else {
         if (entity === "user") {
           const { isAvailable, licenseNo, licenseExpiresAt, ...value } = fields.user.partial().strict().parse(data);
@@ -101,39 +99,9 @@ async function mutate(request: Request) {
           const value = updating ? fields.hub.partial().parse(data) : fields.hub.parse(data);
           result = updating ? await tx.hub.update({ where: { id }, data: value }) : await tx.hub.create({ data: fields.hub.parse(data) });
         }
-        if (entity === "accounting") {
-          const { expectedUpdatedAt, ...value } = (updating ? fields.accounting.partial() : fields.accounting).parse(data);
-          const existing = updating ? await tx.accountingEntry.findUniqueOrThrow({ where: { id } }) : null;
-          if (existing?.sourceKey) throw new DispatchError("Generated financial entries are immutable", 409);
-          if (updating && (!expectedUpdatedAt || existing?.updatedAt.getTime() !== Date.parse(expectedUpdatedAt))) throw new DispatchError("Financial entry changed; refresh and retry", 409);
-          const category = value.category ?? existing?.category;
-          const type = value.type ?? existing?.type;
-          const vehicleId = value.vehicleId === undefined ? existing?.vehicleId : value.vehicleId;
-          if ((category === "FUEL" || category === "MAINTENANCE") && (type !== "EXPENSE" || !vehicleId)) throw new z.ZodError([{ code: "custom", path: ["category"], message: "Vehicle costs require expense type and vehicle" }]);
-          if (vehicleId && !await tx.vehicle.count({ where: { id: vehicleId } })) throw new z.ZodError([{ code: "custom", path: ["vehicleId"], message: "Invalid vehicle" }]);
-          if (existing) result = await tx.accountingEntry.update({ where: { id: existing.id, updatedAt: existing.updatedAt }, data: value });
-          else {
-            const { expectedUpdatedAt: ignoredVersion, ...creating } = fields.accounting.parse(data);
-            void ignoredVersion;
-            result = await tx.accountingEntry.create({ data: creating });
-          }
-          if (existing) await tx.auditLog.create({ data: { actorId: actor.id, entity: "AccountingEntry", entityId: existing.id, action: "CORRECT", metadata: { before: { type: existing.type, category: existing.category, amountCents: existing.amountCents, entryDate: existing.entryDate.toISOString(), notes: existing.notes }, after: JSON.parse(JSON.stringify(value)) } } });
-        }
-        if (entity === "forecast") result = updating ? await tx.forecastLine.update({ where: { id }, data: fields.forecast.partial().parse(data) }) : await tx.forecastLine.create({ data: fields.forecast.parse(data) });
         if (entity === "pricing") {
           if (updating && (await tx.pricingRule.findUniqueOrThrow({ where: { id } })).policy !== null) throw new z.ZodError([{ code: "custom", path: ["id"], message: "Tariff history is immutable" }]);
           result = updating ? await tx.pricingRule.update({ where: { id }, data: fields.pricing.partial().parse(data) }) : await tx.pricingRule.create({ data: fields.pricing.parse(data) });
-        }
-        if (entity === "contract") {
-          const value = updating ? fields.contract.partial().parse(data) : fields.contract.parse(data);
-          const existing = updating ? await tx.vehicleContract.findUniqueOrThrow({ where: { id } }) : null;
-          const startsAt = value.startsAt ?? existing?.startsAt;
-          const endsAt = value.endsAt === undefined ? existing?.endsAt : value.endsAt;
-          const vehicleId = value.vehicleId ?? existing?.vehicleId;
-          const vehicle = vehicleId ? await tx.vehicle.findUnique({ where: { id: vehicleId } }) : null;
-          if (!vehicle || (!vehicle.active && (!existing || existing.vehicleId !== vehicleId || value.status === "ACTIVE" && existing.status !== "ACTIVE"))) throw new z.ZodError([{ code: "custom", path: ["vehicleId"], message: "Select an active vehicle" }]);
-          if (startsAt && endsAt && endsAt < startsAt) throw new z.ZodError([{ code: "custom", path: ["endsAt"], message: "Contract end must follow start" }]);
-          result = updating ? await tx.vehicleContract.update({ where: { id }, data: value }) : await tx.vehicleContract.create({ data: fields.contract.parse(data) });
         }
         if (entity === "setting") {
           const value = fields.setting.parse(data);

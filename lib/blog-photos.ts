@@ -29,7 +29,10 @@ export async function mutateBlogPhoto(request: Request, postId: string, photoId?
     const post = await prisma.$transaction(async (tx) => {
       const parent = await tx.blogPost.update({ where: { id: postId }, data: { updatedAt: new Date() } });
       let id = photoId;
-      if (request.method === "POST" && upload) id = (await tx.blogPhoto.create({ data: { postId, caption: parent.title, ...upload }, select: { id: true } })).id;
+      if (request.method === "POST" && upload) {
+        const last = await tx.blogPhoto.aggregate({ where: { postId }, _max: { sortOrder: true } });
+        id = (await tx.blogPhoto.create({ data: { postId, caption: parent.title, sortOrder: (last._max.sortOrder ?? -1) + 1, ...upload }, select: { id: true } })).id;
+      }
       else if (request.method === "DELETE") await tx.blogPhoto.delete({ where: { id: photoId, postId } });
       else await tx.blogPhoto.update({ where: { id: photoId, postId }, data: { ...(upload ?? {}), ...(caption !== undefined ? { caption } : {}) } });
       await tx.auditLog.create({ data: { actorId: actor.id, entity: "BlogPhoto", entityId: id, action: request.method === "DELETE" ? "DELETE" : request.method === "POST" ? "UPLOAD" : "UPDATE", metadata: { postId } } });

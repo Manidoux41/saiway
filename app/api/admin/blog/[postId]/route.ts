@@ -13,11 +13,12 @@ export async function PATCH(request: Request, { params }: Context) {
     const actor = await authorize(request, "ADMIN");
     if (!actor) return Response.json({ error: "Administrator access required" }, { status: 403 });
     const { postId } = await params;
-    const input = blogInputSchema.extend({ expectedUpdatedAt: z.iso.datetime() }).safeParse(await request.json());
+    const input = blogInputSchema.safeExtend({ expectedUpdatedAt: z.iso.datetime() }).safeParse(await request.json());
     if (!input.success) return Response.json({ error: "Invalid article" }, { status: 400 });
     const { expectedUpdatedAt, ...data } = input.data;
     const post = await prisma.$transaction(async (tx) => {
       if (data.bookingId && !await tx.booking.count({ where: { id: data.bookingId, status: "TRIP_COMPLETED" } })) return null;
+      if (data.coverPhotoId && !await tx.blogPhoto.count({ where: { id: data.coverPhotoId, postId } })) return null;
       const previous = await tx.blogPost.findUniqueOrThrow({ where: { id: postId, updatedAt: new Date(expectedUpdatedAt) } });
       const post = await tx.blogPost.update({ where: { id: postId, updatedAt: previous.updatedAt }, data: { ...data, publishedAt: data.published ? previous.publishedAt ?? new Date() : null }, include: blogAdminInclude });
       await tx.auditLog.create({ data: { actorId: actor.id, entity: "BlogPost", entityId: postId, action: "UPDATE" } });

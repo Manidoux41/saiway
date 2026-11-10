@@ -7,17 +7,14 @@ import type { operations } from "@/components/i18n/operations";
 import { useAuth } from "@/components/auth/auth-provider";
 import { enumLabel } from "@/components/i18n/enum-label";
 
-type Entity = "user" | "vehicle" | "accounting" | "forecast" | "pricing" | "contract" | "setting";
+type Entity = "user" | "vehicle" | "pricing" | "setting";
 type Label = keyof typeof operations.en;
 type Field = { key: string; label: Label; type?: "number" | "datetime-local" | "date" | "month" | "url" | "email"; options?: string[]; optional?: boolean };
-const categories: Record<Entity, Label> = { user: "records.users", vehicle: "records.vehicles", accounting: "records.accounting", forecast: "records.forecasts", pricing: "records.pricing", contract: "records.contracts", setting: "records.settings" };
+const categories: Record<Entity, Label> = { user: "records.users", vehicle: "records.vehicles", pricing: "records.pricing", setting: "records.settings" };
 const fields: Record<Entity, Field[]> = {
   user: [{ key: "name", label: "records.name" }, { key: "email", label: "records.email", type: "email" }, { key: "phone", label: "records.phone", optional: true }, { key: "status", label: "records.status", options: ["ACTIVE", "SUSPENDED", "INVITED"] }, { key: "isAvailable", label: "records.available", options: ["true", "false"] }, { key: "licenseNo", label: "records.license", optional: true }, { key: "licenseExpiresAt", label: "license.expiry", type: "date", optional: true }],
   vehicle: [{ key: "name", label: "records.name" }, { key: "plate", label: "records.plate" }, { key: "seats", label: "records.seats", type: "number" }, { key: "active", label: "records.active", options: ["true", "false"] }],
-  accounting: [{ key: "type", label: "records.type", options: ["REVENUE", "EXPENSE", "CREDIT", "PURCHASE"] }, { key: "label", label: "records.description" }, { key: "amountCents", label: "records.amount", type: "number" }, { key: "entryDate", label: "finance.date", type: "datetime-local" }, { key: "category", label: "finance.category", options: ["TRIP", "FUEL", "MAINTENANCE", "SALARY", "OTHER"] }, { key: "vehicleId", label: "records.vehicles", optional: true }, { key: "notes", label: "finance.notes", optional: true }],
-  forecast: [{ key: "month", label: "records.month", type: "month" }, { key: "expectedRevenueCents", label: "records.revenue", type: "number" }, { key: "expectedExpenseCents", label: "records.expenses", type: "number" }],
   pricing: [{ key: "name", label: "records.name" }, { key: "amountCents", label: "records.fare", type: "number" }, { key: "effectiveAt", label: "records.effective", type: "datetime-local" }, { key: "active", label: "records.active", options: ["true", "false"] }, { key: "direction", label: "records.direction", options: ["", "AIRPORT_TO_CITY", "CITY_TO_AIRPORT"], optional: true }, { key: "tripType", label: "records.tripType", options: ["", "AIRPORT_TRANSFER", "PRIVATE_TRANSFER", "HOTEL_TRANSFER"], optional: true }],
-  contract: [{ key: "vehicleId", label: "records.vehicles" }, { key: "provider", label: "records.provider" }, { key: "monthlyCents", label: "records.monthly", type: "number" }, { key: "startsAt", label: "records.start", type: "datetime-local" }, { key: "endsAt", label: "records.end", type: "datetime-local", optional: true }, { key: "status", label: "records.status", options: ["ACTIVE", "INACTIVE"] }],
   setting: [{ key: "value", label: "records.image", type: "url" }],
 };
 
@@ -31,8 +28,8 @@ export function RecordEditor({ data, disabled, refresh }: { data: ManagementData
   const [saved, setSaved] = useState(false);
   const records: Record<Entity, Array<Record<string, unknown>>> = {
     user: data.users.filter((item) => item.id !== user?.id).map((item) => ({ ...item, ...(item.driver ? { isAvailable: item.driver.isAvailable, licenseNo: item.driver.licenseNo, licenseExpiresAt: item.driver.licenseExpiresAt } : {}) })),
-    vehicle: data.vehicles, accounting: data.entries.filter((entry) => !entry.sourceKey), forecast: data.forecasts,
-    pricing: data.pricing, contract: data.contracts, setting: data.settings.filter((setting) => setting.key === "heroBackground"),
+    vehicle: data.vehicles,
+    pricing: data.pricing, setting: data.settings.filter((setting) => setting.key === "heroBackground"),
   };
   const record = records[entity].find((item) => (item.id ?? item.key) === selected);
   const visibleFields = fields[entity].filter((field) => entity !== "user" || record?.role === "DRIVER" || !["isAvailable", "licenseNo", "licenseExpiresAt"].includes(field.key));
@@ -57,10 +54,6 @@ export function RecordEditor({ data, disabled, refresh }: { data: ManagementData
       payload[field.key] = field.type === "number" ? Number(value) : field.type === "datetime-local" ? value ? new Date(value).toISOString() : null : ["active", "isAvailable"].includes(field.key) ? value === "true" : ["direction", "tripType"].includes(field.key) ? value || null : value;
     }
     if (entity === "setting") payload.key = "heroBackground";
-    if (entity === "accounting") {
-      if (record) payload.expectedUpdatedAt = record.updatedAt;
-      payload.vehicleId = payload.vehicleId || null;
-    }
     setPending(true); setError(null); setSaved(false);
     try {
       await adminRequest("/api/admin/management", { method: record ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ entity, id: selected || undefined, data: payload }) });

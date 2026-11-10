@@ -7,7 +7,7 @@ export type LedgerRow = {
 };
 export function ledgerRows(data: Pick<ManagementData, "entries" | "receipts">): LedgerRow[] {
   const recorded = new Set(data.entries.map((entry) => entry.sourceKey).filter(Boolean));
-  const entries: LedgerRow[] = data.entries.map((entry) => ({
+  const entries: LedgerRow[] = data.entries.filter((entry) => !entry.deletedAt).map((entry) => ({
     id: entry.id, type: entry.type, category: entry.category, label: entry.label,
     amountCents: entry.amountCents, currency: entry.currency, date: entry.entryDate,
     sourceKey: entry.sourceKey, vehicleId: entry.vehicleId, historicalDate: false,
@@ -27,6 +27,11 @@ export function ledgerRows(data: Pick<ManagementData, "entries" | "receipts">): 
 
 export function accountingMonth(date: string) {
   return new Date(Date.parse(date) + 7 * 3_600_000).toISOString().slice(0, 7);
+}
+
+export function contractPeriod(contract: { status: string; startsAt: string; endsAt: string | null }, now = Date.now()) {
+  if (contract.status !== "ACTIVE" || contract.endsAt && Date.parse(contract.endsAt) < now) return "PAST";
+  return Date.parse(contract.startsAt) > now ? "UPCOMING" : "CURRENT";
 }
 
 export function accountingBalance(rows: LedgerRow[], currency = "USD") {

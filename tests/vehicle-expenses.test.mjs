@@ -26,6 +26,13 @@ test('driver fuel declarations enforce ownership, dates and odometers; approval 
     assert.ok(responses.every(response => response.status === 200));
     const entries = await ctx.prisma.accountingEntry.findMany({ where: { sourceKey: `vehicle-expense:${approve.id}` } });
     assert.equal(entries.length, 1); assert.equal(entries[0].amountCents, 1000); assert.equal(entries[0].category, 'FUEL');
+    const adjusted = await request('/api/admin/management', 'PATCH', { entity: 'accounting', id: entries[0].id, data: { expectedUpdatedAt: entries[0].updatedAt.toISOString(), reason: 'Correct bookkeeping only', amountCents: 900 } }, ctx.cookie);
+    assert.equal(adjusted.status, 200);
+    assert.equal((await request('/api/admin/vehicle-expenses', 'PATCH', approve, ctx.cookie)).status, 200);
+    assert.equal((await ctx.prisma.vehicleExpense.findUniqueOrThrow({ where: { id: approve.id } })).usdCents, 1000);
+    assert.equal((await request('/api/admin/management', 'DELETE', { entity: 'accounting', id: entries[0].id, data: { expectedUpdatedAt: adjusted.data.item.updatedAt, reason: 'Exclude from accounts' } }, ctx.cookie)).status, 200);
+    assert.equal((await request('/api/admin/vehicle-expenses', 'PATCH', approve, ctx.cookie)).status, 200);
+    assert.ok((await ctx.prisma.accountingEntry.findUniqueOrThrow({ where: { id: entries[0].id } })).deletedAt);
     assert.equal((await request('/api/admin/vehicle-expenses', 'PATCH', { id: approve.id, action: 'REJECT', reason: 'Cannot change approved' }, ctx.cookie)).status, 409);
     const maintenance = await request('/api/admin/vehicle-expenses', 'POST', { requestId: randomUUID(), vehicleId: vehicle.id, occurredAt: '2026-10-02T10:00:00+07:00', odometerKm: '1100', amountCents: 2500, currency: 'USD', notes: 'Oil change' }, ctx.cookie);
     assert.equal(maintenance.status, 201);

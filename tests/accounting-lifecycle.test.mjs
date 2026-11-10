@@ -2,7 +2,7 @@ import test from 'node:test';
 import { assert, request, setup, createAccount } from './helpers.mjs';
 import { randomUUID } from 'node:crypto';
 
-test('confirmed receipts persist one dated accounting source; generated entries are immutable and manual corrections are audited', async () => {
+test('confirmed receipts persist one dated accounting source; corrections change only accounts and are audited', async () => {
   const ctx = await setup();
   let manualId;
   try {
@@ -19,11 +19,15 @@ test('confirmed receipts persist one dated accounting source; generated entries 
     assert.equal(entries.length, 1);
     assert.equal(entries[0].amountCents, 3000);
     assert.equal(entries[0].entryDate.getTime(), payment.confirmedAt.getTime());
-    assert.equal((await request('/api/admin/management', 'PATCH', { entity: 'accounting', id: entries[0].id, data: { amountCents: 1, expectedUpdatedAt: entries[0].updatedAt.toISOString() } }, ctx.cookie)).status, 409);
+    assert.equal((await request('/api/admin/management', 'PATCH', { entity: 'accounting', id: entries[0].id, data: { amountCents: 1, expectedUpdatedAt: entries[0].updatedAt.toISOString() } }, ctx.cookie)).status, 400);
+    assert.equal((await request('/api/admin/management', 'PATCH', { entity: 'accounting', id: entries[0].id, data: { amountCents: 2900, expectedUpdatedAt: entries[0].updatedAt.toISOString(), reason: 'Correct bookkeeping amount only' } }, ctx.cookie)).status, 200);
+    assert.equal((await ctx.prisma.payment.findUniqueOrThrow({ where: { id: payment.id } })).amountCents, 3000);
+    assert.equal((await request('/api/driver/payments', 'POST', receipt, driver.cookie)).status, 200);
+    assert.equal((await ctx.prisma.accountingEntry.findUniqueOrThrow({ where: { id: entries[0].id } })).amountCents, 2900);
     const created = await request('/api/admin/management', 'POST', { entity: 'accounting', data: { type: 'EXPENSE', category: 'OTHER', label: ctx.prefix, amountCents: 200, entryDate: '2026-10-31T17:00:00.000Z' } }, ctx.cookie);
     assert.equal(created.status, 201);
     manualId = created.data.item.id;
-    const update = { entity: 'accounting', id: manualId, data: { amountCents: 250, notes: 'Correction fixture', expectedUpdatedAt: created.data.item.updatedAt } };
+    const update = { entity: 'accounting', id: manualId, data: { amountCents: 250, notes: 'Correction fixture', reason: 'Correct amount', expectedUpdatedAt: created.data.item.updatedAt } };
     assert.equal((await request('/api/admin/management', 'PATCH', update, ctx.cookie)).status, 200);
     assert.equal((await request('/api/admin/management', 'PATCH', update, ctx.cookie)).status, 409);
     const corrected = await ctx.prisma.accountingEntry.findUniqueOrThrow({ where: { id: manualId } });

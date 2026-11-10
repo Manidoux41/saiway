@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 
 const code = ts.transpileModule(readFileSync(new URL('../lib/accounting-policy.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
-const { ledgerRows, accountingMonth, accountingBalance } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
+const { ledgerRows, accountingMonth, accountingBalance, contractPeriod } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
 
 test('accounting deduplicates linked trip payments, separates currencies and credits, and uses Phnom Penh month boundaries', () => {
   const date = '2026-10-31T17:00:00.000Z';
@@ -19,4 +19,14 @@ test('accounting deduplicates linked trip payments, separates currencies and cre
   const legacy = ledgerRows({ entries: [], receipts: [{ ...receipt, confirmedAt: null }] });
   assert.equal(legacy[0].historicalDate, true);
   assert.equal(legacy[0].date, receipt.updatedAt);
+  assert.equal(ledgerRows({ entries: [{ ...entry, deletedAt: date }], receipts: [receipt] }).length, 0, 'Deleted payment entries must not fall back to their receipt');
+});
+
+test('vehicle contract periods include historical, current and future dates', () => {
+  const now = Date.parse('2026-11-10T00:00:00Z');
+  const contract = { status: 'ACTIVE', startsAt: '2026-01-01T00:00:00Z', endsAt: null };
+  assert.equal(contractPeriod(contract, now), 'CURRENT');
+  assert.equal(contractPeriod({ ...contract, startsAt: '2027-01-01T00:00:00Z' }, now), 'UPCOMING');
+  assert.equal(contractPeriod({ ...contract, endsAt: '2026-02-01T00:00:00Z' }, now), 'PAST');
+  assert.equal(contractPeriod({ ...contract, status: 'INACTIVE' }, now), 'PAST');
 });

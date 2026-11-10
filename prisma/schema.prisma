@@ -343,6 +343,7 @@ model AccountingEntry {
   entryDate   DateTime            @default(now())
   category    AccountingCategory  @default(OTHER)
   sourceKey   String?             @unique
+  deletedAt   DateTime?
   vehicleId   String?
   vehicle     Vehicle?            @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
 
@@ -431,8 +432,15 @@ model VehicleContract {
   startsAt    DateTime
   endsAt      DateTime?
   status      String    @default("ACTIVE")
+  kind        VehicleContractKind @default(RENTAL)
+  deletedAt   DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+}
+
+enum VehicleContractKind {
+  RENTAL
+  FINANCING
 }
 
 model ForecastLine {
@@ -441,6 +449,7 @@ model ForecastLine {
   expectedRevenueCents Int @default(0)
   expectedExpenseCents Int @default(0)
   notes       String?
+  deletedAt   DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
@@ -599,8 +608,17 @@ model BlogPost {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   photos      BlogPhoto[]
+  layout      BlogLayout @default(STACKED)
+  coverPhotoId String?
+  coverPhoto  BlogPhoto? @relation("BlogCover", fields: [coverPhotoId], references: [id], onDelete: SetNull)
 
   @@index([published, featured, publishedAt])
+}
+
+enum BlogLayout {
+  STACKED
+  GRID
+  ALTERNATING
 }
 
 model BlogPhoto {
@@ -613,6 +631,8 @@ model BlogPhoto {
   sizeBytes Int
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  sortOrder Int      @default(0)
+  coverFor  BlogPost[] @relation("BlogCover")
 
   @@index([postId, createdAt])
 }

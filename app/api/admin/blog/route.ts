@@ -24,6 +24,7 @@ export async function POST(request: Request) {
     if (!actor) return Response.json({ error: "Administrator access required" }, { status: 403 });
     const input = blogInputSchema.safeParse(await request.json());
     if (!input.success) return Response.json({ error: "Invalid article" }, { status: 400 });
+    if (input.data.coverPhotoId) return Response.json({ error: "Save the draft before selecting a header photo" }, { status: 400 });
     const post = await prisma.$transaction(async (tx) => {
       if (input.data.bookingId && !await tx.booking.count({ where: { id: input.data.bookingId, status: "TRIP_COMPLETED" } })) return null;
       const post = await tx.blogPost.create({ data: { ...input.data, publishedAt: input.data.published ? new Date() : null }, include: blogAdminInclude });

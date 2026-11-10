@@ -245,14 +245,28 @@ The header and footer link to the journal. Only published articles marked
 Administration → **Blog & photos** creates drafts, edits/publishes/unpublishes
 articles, links a completed trip internally (including archived completed trips),
 and deletes articles without changing the related trip or financial records.
-Photos can be uploaded, replaced, captioned and deleted. The first uploaded photo
-is used as the cover. Uploads accept JPEG/PNG/WebP up to 5 MB; Sharp validates and
-resizes to 2000 px, converts to WebP and removes metadata including GPS.
+Save buttons are available at the top and bottom of the article form.
+Only a title is required to save a draft; introduction and text are required for
+publication. Photos can be selected before the first save: the editor creates a
+private draft first. Multiple JPEG/PNG/WebP files can be selected together
+(20 MB maximum per original). The browser reduces large images to at most
+2000 px and 3 MB before sequential uploads, staying below the hosting request
+limit. The server still accepts at most 5 MB per image, validates and resizes
+with Sharp, converts to WebP and removes metadata including GPS.
+Successful photos are retained if a later file fails; retry only failed files.
+Photos can be replaced, captioned, deleted and reordered with the earlier/later
+buttons. Select an explicit header photo for the article and its public card;
+without one, cards use the first gallery photo. Choose text then photos, a
+two-column gallery, or alternating paragraphs/photos. Blank lines delimit
+paragraphs for the alternating layout. Layout and header selection are saved
+with the article. Deleting its header photo clears the selection.
 Only publish photos and passenger stories with permission.
 
 Admin APIs: `GET/POST /api/admin/blog`, `PATCH/DELETE /api/admin/blog/<postId>`,
 `POST /api/admin/blog/<postId>/photos`,
 `PUT/PATCH/DELETE /api/admin/blog/<postId>/photos/<photoId>`.
+`PATCH /api/admin/blog/<postId>/photos/order` takes `expectedUpdatedAt` and
+the complete, unique `photoIds` array belonging to the article.
 Article edits/deletion require `expectedUpdatedAt` to prevent stale overwrites.
 Draft images require an admin session and `?preview=true` on
 `GET /api/blog/photos/<photoId>`; published images are public, uncached and become
@@ -321,9 +335,34 @@ transaction as confirmation, with a stable `Payment.confirmedAt` date. The
 source key `payment:<paymentId>` prevents duplication. Existing paid records
 without a linked entry remain visible once using their historical update date,
 explicitly labelled as such; the exact historic confirmation date cannot be
-reconstructed. Do not manually enter the same receipts again. Manual entries can
-be corrected through Manage records, with optimistic concurrency and an audit
-of the previous values. Generated financial source entries are immutable.
+reconstructed. Do not manually enter the same receipts again.
+
+Administrators can add manual revenue/expense/purchase/credit entries and
+edit or delete entries directly in **Monthly accounts**, including linked
+trip receipts, approved vehicle-cost entries and paid salary entries.
+Amounts, dates, paid dates, notes and vehicle association are editable.
+Linked sources retain their type/category/currency and original payment,
+expense declaration or payslip: this changes **bookkeeping only**, not the
+receipt, driver commission or payroll calculation. The separate receipt list
+continues to show the actual original payment.
+
+Every correction/deletion requires a reason and `expectedUpdatedAt`.
+Concurrent stale writes are rejected. Deletion retains the database record and
+an audit snapshot, removes it from balances and keeps its source key occupied.
+The original receipt therefore cannot silently reappear through the legacy
+receipt fallback or payment synchronization. Audit snapshots include the
+administrator, reason and complete before/after values.
+
+Monthly forecasts can also be added, edited and deleted in their own section.
+**Vehicle rentals & financing** manages contracts of both kinds for any
+registered vehicle, including historical records for an inactive vehicle.
+Dates classify them as current, upcoming or past; inactive contracts are past.
+Deleting a contract removes it from the list while retaining its audit/history.
+Contracts and forecasts do not automatically generate paid expenses or receipts.
+Migration files: `20261110020000_financial_record_management` and
+`20261110030000_blog_editor_layout`. Existing contracts default to rental;
+their kind can be corrected explicitly. Existing article layout is preserved
+as text followed by photos until changed by an administrator.
 
 Fuel declarations record the vehicle, date, odometer, litres, total amount and
 currency. KHR declarations require a captured KHR-per-USD exchange rate; the
@@ -1397,10 +1436,12 @@ the PDF route by `next.config.ts`. Schema changes are in the migration
 `20261023010000_admin_profiles_employment_contracts`
 (run `npx prisma migrate deploy`).
 
-Accounts, vehicles, fares and contracts are deactivated rather than deleted.
-Trips are cancelled, not removed. Financial history cannot be deleted through the
-management API. Use **Edit records and settings** to edit existing records or
-create fares/contracts; account roles remain immutable, and administrators cannot
+Accounts, vehicles and fares are deactivated rather than deleted.
+Trips may be cancelled and reversibly archived. Accounting entries, monthly
+forecasts and vehicle contracts can be edited or soft-deleted in their respective
+finance sections, with version checks and a mandatory audited reason.
+Use **Edit records and settings** for accounts, vehicles, fares and homepage
+settings; account roles remain immutable, and administrators cannot
 suspend themselves. Driver availability and license details are editable.
 Use **Edit profile** in the Accounts section for the complete customer and driver files.
 Homepage image settings are now shared through the database.

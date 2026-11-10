@@ -354,7 +354,8 @@ async function reviewExpense(input: z.infer<typeof reviewCommand>, accountId: st
       const sourceKey = `vehicle-expense:${expense.id}`;
       const existingEntry = await tx.accountingEntry.findUnique({ where: { sourceKey } });
       if (expense.status === VehicleExpenseStatus.APPROVED) {
-        if (!existingEntry || !ledgerEntryMatches(existingEntry, expense)) throw new VehicleExpenseError("LEDGER_ENTRY_INCONSISTENT", 409);
+        const corrected = existingEntry && await tx.auditLog.count({ where: { entity: "AccountingEntry", entityId: existingEntry.id, action: { in: ["CORRECT", "DELETE"] } } });
+        if (!existingEntry || !ledgerEntryMatches(existingEntry, expense) && !corrected) throw new VehicleExpenseError("LEDGER_ENTRY_INCONSISTENT", 409);
         return { expense: expenseView(expense), duplicate: true };
       }
       if (existingEntry && !ledgerEntryMatches(existingEntry, expense)) throw new VehicleExpenseError("LEDGER_ENTRY_CONFLICT", 409);

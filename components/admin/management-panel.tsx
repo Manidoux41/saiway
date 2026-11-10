@@ -20,6 +20,8 @@ import { VehicleExpenses } from "@/components/driver/vehicle-expenses";
 import { PayrollPanel } from "@/components/admin/payroll-panel";
 import { DashboardMenu, DashboardSection } from "@/components/layout/dashboard-menu";
 import { contactSettingKey } from "@/lib/contact-settings";
+import { FinanceRecordForm } from "@/components/admin/finance-record-form";
+import { FinancePlanning } from "@/components/admin/finance-planning";
 
 const VehicleIconPreview = dynamic(() => import("@/components/maps/vehicle-icon-preview").then((module) => module.VehicleIconPreview), { ssr: false, loading: () => <div className="h-[320px] animate-pulse rounded-xl bg-slate-100" /> });
 const vehicleIconCategories = ["TUK_TUK", "PASSAPP", "SEDAN", "SUV", "MINIVAN", "MINIBUS", "VAN", "OTHER"] as const;
@@ -31,7 +33,7 @@ const vehicleCategoryLabels = {
 export function ManagementMenu() {
   const { t } = useLanguage();
   return <DashboardMenu groups={[
-    { title: t("dashboard.fleet"), items: [{ title: t("fleet.management"), target: "admin-vehicles-section" }, { title: t("fleet.hubs"), target: "admin-hubs-section" }, { title: t("ui.rentals"), target: "admin-rentals-section" }, { title: t("dashboard.driverDocuments"), target: "admin-driver-documents-section" }] },
+    { title: t("dashboard.fleet"), items: [{ title: t("fleet.management"), target: "admin-vehicles-section" }, { title: t("fleet.hubs"), target: "admin-hubs-section" }, { title: t("finance.contracts"), target: "admin-rentals-section" }, { title: t("dashboard.driverDocuments"), target: "admin-driver-documents-section" }] },
     { title: t("dashboard.finance"), items: [{ title: t("dashboard.summary"), target: "admin-summary-section" }, { title: t("finance.title"), target: "admin-ledger-section" }, { title: t("finance.add"), target: "admin-entry-section" }, { title: t("payment.ledger"), target: "admin-receipts-section" }, { title: t("fuel.adminTitle"), target: "admin-expenses-section" }, { title: t("payroll.title"), target: "admin-payroll-section" }, { title: t("ui.forecasts"), target: "admin-forecasts-section" }, { title: t("dashboard.records"), target: "admin-records-section" }] },
     { title: t("dashboard.settings"), items: [{ title: t("contact.settings"), target: "admin-contact-section" }, { title: t("fare.settings"), target: "admin-fare-section" }, { title: t("cron.title"), target: "admin-cron-section" }, { title: t("ui.accounts"), target: "admin-users-section" }] },
   ]} />;
@@ -60,16 +62,6 @@ export function ManagementPanel({ data, loading, loadError, onReload }: { data: 
     const form = event.currentTarget;
     const input = new FormData(form);
     const data: Record<string, unknown> = Object.fromEntries(input.entries());
-    if (entity === "accounting") {
-      data.amountCents = Math.round(Number(data.amount) * 100);
-      data.entryDate = new Date(`${data.entryDate}T00:00:00+07:00`).toISOString();
-      data.paidAt = data.isPaid === "on" ? data.entryDate : null;
-      data.vehicleId = data.vehicleId || null;
-    }
-    if (entity === "forecast") {
-      data.expectedRevenueCents = Math.round(Number(data.revenue) * 100);
-      data.expectedExpenseCents = Math.round(Number(data.expense) * 100);
-    }
     void mutate(id ? "PATCH" : "POST", { entity, ...(id ? { id } : {}), data }, form);
   }
 
@@ -155,17 +147,7 @@ export function ManagementPanel({ data, loading, loadError, onReload }: { data: 
           </div>)}</div>
         </div>
       </DashboardSection>
-      <DashboardSection id="admin-entry-section" title={t("finance.add")}><div className="min-w-0 rounded-[28px] bg-white p-6 shadow-sm"><h2 className="text-xl font-bold">{t("finance.add")}</h2><p className="mt-2 text-sm text-slate-500">{t("finance.manualHelp")}</p><form onSubmit={(event) => create(event, "accounting")} className="mt-4 grid gap-3 sm:grid-cols-2">
-          <label>{t("records.type")}<select name="type" className={inputClass}>{["REVENUE", "EXPENSE", "CREDIT", "PURCHASE"].map((value) => <option key={value} value={value}>{enumLabel(value, t)}</option>)}</select></label>
-          <label>{t("finance.category")}<select name="category" className={inputClass}>{(["OTHER", "TRIP", "FUEL", "MAINTENANCE", "SALARY"] as const).map((value) => <option key={value} value={value}>{t(`finance.${value}`)}</option>)}</select></label>
-          <label>{t("records.description")}<input name="label" required maxLength={500} className={inputClass} /></label>
-          <label>{t("finance.amount")} (USD)<input name="amount" required type="number" min="0" max="1000000" step="0.01" className={inputClass} /></label>
-          <label>{t("finance.date")}<input name="entryDate" required type="date" className={inputClass} /></label>
-          <label>{t("records.vehicles")}<select name="vehicleId" className={inputClass}><option value="">{t("records.all")}</option>{data.vehicles.map((vehicle) => <option key={vehicle.id} value={vehicle.id}>{vehicle.name} · {vehicle.plate}</option>)}</select></label>
-          <label>{t("finance.notes")}<input name="notes" maxLength={2000} className={inputClass} /></label>
-          <label className="flex items-center gap-3"><input name="isPaid" type="checkbox" className="h-5 w-5" />{t("finance.isPaid")}</label>
-          <button className={`${buttonClass} sm:col-span-2`}>{t("ui.addEntry")}</button>
-        </form></div>
+      <DashboardSection id="admin-entry-section" title={t("finance.add")}><div className="min-w-0 rounded-[28px] bg-white p-6 shadow-sm"><h2 className="mb-4 text-xl font-bold">{t("finance.add")}</h2><FinanceRecordForm entity="accounting" data={data} disabled={pending || loading || Boolean(loadError)} onSaved={onReload} /></div>
       </DashboardSection>
       <DashboardSection id="admin-driver-documents-section" title={t("dashboard.driverDocuments")}><DriverLicenses users={data.users} /><DriverBusinessCards users={data.users} onChanged={onReload} /></DashboardSection>
       <DashboardSection id="admin-hubs-section" title={t("fleet.hubs")}><section className="rounded-[28px] bg-white p-6 shadow-sm">
@@ -186,10 +168,10 @@ export function ManagementPanel({ data, loading, loadError, onReload }: { data: 
           <div className="flex flex-wrap gap-2"><button type="submit" className={buttonClass}>{t("dispatch.save")}</button>{hub.active && <button type="button" className="text-[var(--color-error)]" onClick={() => void mutate("DELETE", { entity: "hub", id: hub.id })}>{t("fleet.disableHub")}</button>}</div>
         </form>)}</div>
       </section></DashboardSection>
-      <DashboardSection id="admin-forecasts-section" title={t("ui.forecasts")}><section className="rounded-[28px] bg-white p-6 shadow-sm"><h2 className="text-xl font-bold">{t("ui.forecasts")}</h2><form onSubmit={(event) => create(event, "forecast")} className="mt-4 grid gap-3 md:grid-cols-4"><input name="month" required type="month" aria-label={t("records.month")} className={inputClass} /><input name="revenue" required type="number" min="0" step="0.01" placeholder={t("ui.expectedRevenue")} className={inputClass} /><input name="expense" required type="number" min="0" step="0.01" placeholder={t("ui.expectedExpenses")} className={inputClass} /><button className={buttonClass}>{t("ui.addForecast")}</button></form><div className="mt-5 grid gap-3 md:grid-cols-3">{data.forecasts.map((item) => <div key={item.id} className="rounded-2xl bg-[var(--color-input)] p-4 text-sm"><div>{localizedDate(language, { month: "long", year: "numeric", timeZone: "Asia/Phnom_Penh" }).format(new Date(item.month))}</div><div>+{localizedNumber(language, { style: "currency", currency: "USD" }).format(item.expectedRevenueCents / 100)}</div><div>−{localizedNumber(language, { style: "currency", currency: "USD" }).format(item.expectedExpenseCents / 100)}</div></div>)}</div></section></DashboardSection>
-      <DashboardSection id="admin-rentals-section" title={t("ui.rentals")}><section className="rounded-[28px] bg-white p-6 shadow-sm"><h2 className="text-xl font-bold">{t("ui.rentals")}</h2><div className="mt-4 grid gap-3 md:grid-cols-3">{data.contracts.map((item) => <div key={item.id} className="rounded-2xl border p-4">{item.vehicle.name} · {item.vehicle.plate}<p>{item.provider} · {localizedNumber(language, { style: "currency", currency: "USD" }).format(item.monthlyCents / 100)} {t("ui.perMonth")} · {enumLabel(item.status, t)}</p></div>)}</div></section></DashboardSection>
+      <DashboardSection id="admin-forecasts-section" title={t("ui.forecasts")}><FinancePlanning entity="forecast" data={data} disabled={loading || Boolean(loadError)} onChanged={onReload} /></DashboardSection>
+      <DashboardSection id="admin-rentals-section" title={t("finance.contracts")}><FinancePlanning entity="contract" data={data} disabled={loading || Boolean(loadError)} onChanged={onReload} /></DashboardSection>
     </fieldset>
-    <DashboardSection id="admin-ledger-section" title={t("finance.title")}><AccountingLedger data={data} /></DashboardSection>
+    <DashboardSection id="admin-ledger-section" title={t("finance.title")}><AccountingLedger data={data} disabled={loading || Boolean(loadError)} onChanged={onReload} /></DashboardSection>
     <DashboardSection id="admin-expenses-section" title={t("fuel.adminTitle")}><VehicleExpenses admin onChanged={onReload} /></DashboardSection>
     <DashboardSection id="admin-payroll-section" title={t("payroll.title")}><PayrollPanel admin onChanged={onReload} /></DashboardSection>
     {previewVehicleId && (() => {

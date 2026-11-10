@@ -16,7 +16,7 @@ export function BlogImage({ photo, cover = false, admin = false }: { photo: { id
 export function BlogCards({ posts }: { posts: BlogCardData[] }) {
   const { t, language } = useLanguage();
   return <div className="grid min-w-0 gap-6 md:grid-cols-2 xl:grid-cols-3">{posts.map((post) => <article lang={post.language} key={post.id} className="min-w-0 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-    {post.photos[0] && <BlogImage key={`${post.photos[0].id}-${post.photos[0].updatedAt}`} photo={post.photos[0]} cover />}
+    {(post.coverPhoto ?? post.photos[0]) && <BlogImage key={`${(post.coverPhoto ?? post.photos[0]).id}-${(post.coverPhoto ?? post.photos[0]).updatedAt}`} photo={post.coverPhoto ?? post.photos[0]} cover />}
     <div className="mt-4 flex flex-wrap gap-3 text-xs text-slate-500"><span>{post.language.toUpperCase()}</span>{post.publishedAt && <time dateTime={post.publishedAt}>{localizedDate(language, { dateStyle: "medium", timeZone: "Asia/Phnom_Penh" }).format(new Date(post.publishedAt))}</time>}</div>
     <h2 className="mt-3 break-words text-xl font-bold"><Link href={`/blog/${post.id}`}>{post.title}</Link></h2>
     <p className="mt-3 whitespace-pre-wrap break-words leading-7 text-slate-600">{post.excerpt}</p>
@@ -39,14 +39,27 @@ export function BlogIndex({ posts, page }: { posts: BlogCardData[]; page: number
 
 export function BlogArticle({ post }: { post: PublicBlogPost }) {
   const { t, language } = useLanguage();
+  const photos = post.photos.filter((photo) => photo.id !== post.coverPhoto?.id);
+  const paragraphs = post.content.split(/\n\s*\n/).filter(Boolean);
+  const figure = (photo: PublicBlogPost["photos"][number]) => <figure key={`${photo.id}-${photo.updatedAt}`} className="min-w-0"><BlogImage photo={photo} /><figcaption className="mt-2 break-words text-sm text-slate-600">{photo.caption}</figcaption></figure>;
   return <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
     <Link href="/blog" className="inline-flex min-h-11 items-center font-semibold text-[var(--color-primary)]">{t("blog.back")}</Link>
     <article lang={post.language} className="mt-4 min-w-0 rounded-3xl bg-white p-5 shadow-sm sm:p-8">
       <p className="text-sm text-slate-500">{post.language.toUpperCase()}{post.publishedAt && <> · <time dateTime={post.publishedAt}>{localizedDate(language, { dateStyle: "long", timeZone: "Asia/Phnom_Penh" }).format(new Date(post.publishedAt))}</time></>}</p>
       <h1 className="mt-4 break-words text-3xl font-black sm:text-4xl">{post.title}</h1>
       <p className="mt-5 whitespace-pre-wrap break-words text-lg leading-8 text-slate-600">{post.excerpt}</p>
-      <div className="mt-8 whitespace-pre-wrap break-words leading-8">{post.content}</div>
-      {!!post.photos.length && <div className="mt-8 grid min-w-0 gap-6">{post.photos.map((photo) => <figure key={`${photo.id}-${photo.updatedAt}`} className="min-w-0"><BlogImage photo={photo} /><figcaption className="mt-2 break-words text-sm text-slate-600">{photo.caption}</figcaption></figure>)}</div>}
+      {post.coverPhoto && <figure className="mt-6 min-w-0"><BlogImage photo={post.coverPhoto} cover /><figcaption className="mt-2 break-words text-sm text-slate-600">{post.coverPhoto.caption}</figcaption></figure>}
+      <div data-blog-layout={post.layout}>
+        {post.layout === "ALTERNATING" && photos.length ? <>
+          {photos.map((photo, index) => <div key={photo.id} className="mt-8 grid min-w-0 items-center gap-6 md:grid-cols-2">
+            <div className={`min-w-0 whitespace-pre-wrap break-words leading-8 ${index % 2 ? "md:order-2" : ""}`}>{paragraphs[index] ?? ""}</div>{figure(photo)}
+          </div>)}
+          {paragraphs.slice(photos.length).map((paragraph, index) => <p key={index} className="mt-6 whitespace-pre-wrap break-words leading-8">{paragraph}</p>)}
+        </> : <>
+          <div className="mt-8 whitespace-pre-wrap break-words leading-8">{post.content}</div>
+          {!!photos.length && <div className={`mt-8 grid min-w-0 gap-6 ${post.layout === "GRID" ? "sm:grid-cols-2" : ""}`}>{photos.map(figure)}</div>}
+        </>}
+      </div>
     </article>
     <Link href="/booking" className="mt-8 inline-flex min-h-11 max-w-full items-center rounded-xl bg-[var(--color-primary)] px-5 py-3 font-semibold text-white">{t("nav.bookNow")}</Link>
   </div>;
