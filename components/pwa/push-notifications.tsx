@@ -11,8 +11,13 @@ function applicationKey(value: string) {
   const bytes = atob(value.replace(/-/g, "+").replace(/_/g, "/"));
   return Uint8Array.from(bytes, (letter) => letter.charCodeAt(0));
 }
+function matchingKey(subscription: PushSubscription, publicKey: string) {
+  const current = subscription.options.applicationServerKey;
+  const expected = applicationKey(publicKey);
+  return Boolean(current && current.byteLength === expected.length && new Uint8Array(current).every((byte, index) => byte === expected[index]));
+}
 async function registration() {
-  const worker = await navigator.serviceWorker.register("/sw.js");
+  const worker = await navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" });
   if (worker.active) return worker;
   return Promise.race([
     navigator.serviceWorker.ready,
@@ -20,7 +25,7 @@ async function registration() {
   ]);
 }
 async function configuration(endpoint?: string): Promise<Configuration> {
-  const response = await fetch(`/api/notifications/subscriptions${endpoint ? `?endpoint=${encodeURIComponent(endpoint)}` : ""}`, { cache: "no-store" });
+  const response = await fetch(`/api/notifications/subscriptions${endpoint ? `?endpoint=${encodeURIComponent(endpoint)}` : ""}`, { cache: "no-store", signal: AbortSignal.timeout(10000) });
   if (!response.ok) throw new Error("Notification configuration unavailable");
   return response.json();
 }
@@ -35,6 +40,7 @@ export function PushNotifications() {
   const [pending, setPending] = useState(true);
   const [message, setMessage] = useState<TranslationKey | null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
+  const changing = useRef(false);
 
   useEffect(() => {
     if (open) dialog.current?.showModal();
@@ -43,32 +49,48 @@ export function PushNotifications() {
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
+    let syncing = false;
     const available = window.isSecureContext && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
     async function sync() {
+      if (syncing || changing.current) return;
+      syncing = true;
       try {
         const worker = available ? await registration() : null;
         const subscription = await worker?.pushManager.getSubscription();
         const config = await configuration(subscription?.endpoint);
-        if (subscription && config.subscription && Notification.permission === "granted") {
+        let saved = Boolean(subscription && config.subscription);
+        if (subscription && config.publicKey && matchingKey(subscription, config.publicKey) && Notification.permission === "granted") {
           const value = subscription.toJSON();
-          const response = await fetch("/api/notifications/subscriptions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ endpoint: value.endpoint, keys: value.keys, language }) });
+          const response = await fetch("/api/notifications/subscriptions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ endpoint: value.endpoint, keys: value.keys, language }), signal: AbortSignal.timeout(10000) });
           if (!response.ok) throw new Error("Notification language update failed");
+          saved = true;
         }
         if (!cancelled) {
           setSupported(available); setPublicKey(config.publicKey);
-          setEnabled(Boolean(subscription && config.subscription));
-          setMessage(subscription && config.subscription && Notification.permission !== "granted" ? "push.denied" : null);
+          const needsRepair = Boolean(subscription && config.publicKey && !matchingKey(subscription, config.publicKey));
+          setEnabled(saved && !needsRepair && Notification.permission === "granted");
+          setMessage(available && Notification.permission === "denied" ? "push.denied" : needsRepair ? "push.repair" : null);
         }
       } catch {
-        if (!cancelled) setMessage("push.error");
-      } finally { if (!cancelled) setPending(false); }
+        if (!cancelled) { setEnabled(false); setMessage("push.error"); }
+      } finally { syncing = false; if (!cancelled) setPending(false); }
     }
     void sync();
-    return () => { cancelled = true; };
+    const visible = () => { if (document.visibilityState === "visible") void sync(); };
+    window.addEventListener("online", sync);
+    window.addEventListener("focus", sync);
+    document.addEventListener("visibilitychange", visible);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("online", sync);
+      window.removeEventListener("focus", sync);
+      document.removeEventListener("visibilitychange", visible);
+    };
   }, [user?.id, user, language]);
 
   async function change(action: "enable" | "disable" | "test") {
-    if (pending) return;
+    if (pending || changing.current) return;
+    changing.current = true;
     setPending(true); setMessage(null);
     try {
       if (action === "enable" && await Notification.requestPermission() !== "granted") {
@@ -78,18 +100,18 @@ export function PushNotifications() {
       let subscription = await worker.pushManager.getSubscription();
       if (action === "enable") {
         if (!publicKey) { setMessage("push.unconfigured"); return; }
-        if (subscription && !(await configuration(subscription.endpoint)).subscription) {
+        if (subscription && (!matchingKey(subscription, publicKey) || !(await configuration(subscription.endpoint)).subscription)) {
           if (!await subscription.unsubscribe()) throw new Error("Old device subscription could not be removed");
           subscription = null;
         }
         subscription ??= await worker.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: applicationKey(publicKey) });
         const value = subscription.toJSON();
-        const response = await fetch("/api/notifications/subscriptions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ endpoint: value.endpoint, keys: value.keys, language }) });
+        const response = await fetch("/api/notifications/subscriptions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ endpoint: value.endpoint, keys: value.keys, language }), signal: AbortSignal.timeout(10000) });
         if (!response.ok) throw new Error("Push subscription save failed");
         setEnabled(true); setMessage("push.enabled");
       } else if (action === "disable") {
         if (subscription) {
-          const response = await fetch("/api/notifications/subscriptions", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ endpoint: subscription.endpoint }) });
+          const response = await fetch("/api/notifications/subscriptions", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ endpoint: subscription.endpoint }), signal: AbortSignal.timeout(10000) });
           if (!response.ok) throw new Error("Push subscription removal failed");
           if (!await subscription.unsubscribe()) throw new Error("Browser unsubscribe failed");
         }
@@ -103,7 +125,7 @@ export function PushNotifications() {
       }
     } catch {
       setMessage("push.error");
-    } finally { setPending(false); }
+    } finally { changing.current = false; setPending(false); }
   }
 
   if (!user) return null;
@@ -114,6 +136,8 @@ export function PushNotifications() {
         <header className="flex items-center justify-between gap-3"><h2 id="push-title" className="min-w-0 text-lg font-bold">{t("push.title")}</h2><button type="button" onClick={() => setOpen(false)} aria-label={t("push.closed")} className="inline-flex h-11 w-11 shrink-0 items-center justify-center"><X aria-hidden="true" /></button></header>
         <p className="text-sm">{t("push.help")}</p>
         {user.role === "admin" && <p className="text-sm">{t("push.adminHelp")}</p>}
+        {user.role === "driver" && <p className="text-sm">{t("push.driverHelp")}</p>}
+        <p className="text-sm text-slate-600">{t("push.backgroundHelp")}</p>
         <p role="status" className="text-sm">{t(pending ? "push.loading" : !supported ? "push.unsupported" : !publicKey ? "push.unconfigured" : enabled ? "push.enabled" : "push.disabled")}</p>
         {message && <p role={message === "push.error" || message === "push.denied" ? "alert" : "status"} className="text-sm">{t(message)}</p>}
         <div className="flex flex-wrap gap-3">

@@ -4,7 +4,8 @@ import webpush from "web-push";
 import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { pushCopy } from "@/components/i18n/push-copy";
-import { allowedPushEndpoint, pushKinds, type PushKind } from "@/lib/push-policy";
+import { allowedPushEndpoint, pushKinds, urgentPushKinds, type PushKind } from "@/lib/push-policy";
+import { pushDeviceToken } from "@/lib/push-device-token";
 
 export function pushConfiguration() {
   const publicKey = process.env.VAPID_PUBLIC_KEY;
@@ -21,16 +22,22 @@ export function pushConfiguration() {
   }
 }
 
-export async function dispatchPush(limit = 25) {
+export async function dispatchPush(limit = 100, bookingId?: string) {
   const deadline = Date.now() + 15_000;
   const config = pushConfiguration();
   if (!config) return { configured: false, sent: 0, failed: 0 };
   const vapidDetails = config;
   const now = new Date();
-  const pending = await prisma.pushDelivery.findMany({
-    where: { sentAt: null, failedAt: null, expiresAt: { gt: now }, availableAt: { lte: now }, OR: [{ lockedUntil: null }, { lockedUntil: { lt: now } }] },
+  const ready = { sentAt: null, failedAt: null, expiresAt: { gt: now }, availableAt: { lte: now }, OR: [{ lockedUntil: null }, { lockedUntil: { lt: now } }] };
+  const urgent = await prisma.pushDelivery.findMany({
+    where: { ...ready, ...(bookingId ? { bookingId } : {}), kind: { in: [...urgentPushKinds] } },
     orderBy: { createdAt: "asc" }, take: limit, select: { id: true },
   });
+  const rest = urgent.length < limit ? await prisma.pushDelivery.findMany({
+    where: { ...ready, ...(bookingId ? { bookingId } : {}), kind: { notIn: [...urgentPushKinds] } },
+    orderBy: { createdAt: "asc" }, take: limit - urgent.length, select: { id: true },
+  }) : [];
+  const pending = [...urgent, ...rest];
   let sent = 0, failed = 0;
   async function deliver(id: string) {
     const token = randomUUID();
@@ -49,10 +56,13 @@ export async function dispatchPush(limit = 25) {
     const { subscription } = delivery;
     let allowed = subscription.user.status === "ACTIVE" && subscription.user.role === delivery.recipientRole && allowedPushEndpoint(subscription.endpoint);
     if (allowed && delivery.bookingId) {
-      const booking = await prisma.booking.findUnique({ where: { id: delivery.bookingId }, select: { customerId: true, driverId: true, status: true } });
+      const booking = await prisma.booking.findUnique({ where: { id: delivery.bookingId }, select: { customerId: true, driverId: true, status: true, originType: true } });
       if (!booking) allowed = false;
       else if (delivery.kind === "BOOKED") allowed = delivery.recipientRole === "CUSTOMER" && booking.customerId === subscription.userId && !["CANCELLED", "NO_SHOW", "REFUNDED"].includes(booking.status);
       else if (delivery.kind === "NEW_BOOKING") allowed = delivery.recipientRole === "ADMIN";
+      else if (delivery.kind === "GUEST_REQUEST") allowed = delivery.recipientRole === "ADMIN" && booking.originType === "GUEST" && !["CANCELLED", "NO_SHOW", "REFUNDED", "TRIP_COMPLETED"].includes(booking.status);
+      else if (delivery.kind === "PICKUP_WAITING") allowed = delivery.recipientRole === "DRIVER" && booking.originType === "GUEST" && !booking.driverId && booking.status === "DRIVER_ASSIGNMENT_PENDING"
+        && Boolean(await prisma.driverProfile.count({ where: { userId: subscription.userId, isAvailable: true } }));
       else if (delivery.kind === "DISPATCHED") allowed = delivery.recipientRole === "ADMIN" && booking.driverId === delivery.driverId && !["CANCELLED", "NO_SHOW", "REFUNDED"].includes(booking.status);
       else if (delivery.kind === "ARRIVED") allowed = booking.customerId === subscription.userId && booking.driverId === delivery.driverId && booking.status === "DRIVER_ARRIVED";
       else if (delivery.kind === "ASSIGNED") allowed = booking.driverId === delivery.driverId && booking.status === "DRIVER_ASSIGNED" &&
@@ -74,11 +84,12 @@ export async function dispatchPush(limit = 25) {
     const payload = JSON.stringify({
       title: "SAIWAY", body: `${copy[`push.${delivery.kind as PushKind}`]}${delivery.reference ? ` (${delivery.reference})` : ""}`,
       tag: delivery.eventKey, lang: language,
-      data: { url, subscriptionId: subscription.id },
+      urgent: urgentPushKinds.includes(delivery.kind),
+      data: { url, subscriptionId: subscription.id, deviceToken: pushDeviceToken(subscription.id, delivery.recipientRole, delivery.expiresAt) },
     });
     try {
       await webpush.sendNotification({ endpoint: subscription.endpoint, keys: { p256dh: subscription.p256dh, auth: subscription.auth } }, payload, {
-        vapidDetails, timeout: 5_000, TTL: Math.max(1, Math.floor((delivery.expiresAt.getTime() - Date.now()) / 1000)),
+        vapidDetails, urgency: urgentPushKinds.includes(delivery.kind) ? "high" : "normal", timeout: 5_000, TTL: Math.max(1, Math.floor((delivery.expiresAt.getTime() - Date.now()) / 1000)),
       });
       await prisma.pushDelivery.updateMany({ where: { id, lockToken: token }, data: { sentAt: new Date(), lockToken: null, lockedUntil: null, lastError: null } });
       sent++;
@@ -104,14 +115,18 @@ export async function dispatchPush(limit = 25) {
   return { configured: true, sent, failed };
 }
 
-export async function dispatchPushSafely() {
-  try { return await dispatchPush(); }
+export async function dispatchPushSafely(bookingId?: string) {
+  try {
+    const result = await dispatchPush(100, bookingId);
+    if (!result.configured) console.error("Push delivery unavailable: VAPID configuration missing or invalid; events remain queued");
+    return result;
+  }
   catch {
     console.error("Push queue processing unavailable; committed events remain queued");
     return { configured: false, sent: 0, failed: 0 };
   }
 }
 
-export function schedulePushDelivery() {
-  after(dispatchPushSafely);
+export function schedulePushDelivery(bookingId?: string) {
+  after(() => dispatchPushSafely(bookingId));
 }

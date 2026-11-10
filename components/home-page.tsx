@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowUpRight, Building2, Compass, Handshake, MapPin, Plane, Route } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Building2, CalendarDays, Compass, Handshake, LocateFixed, MapPin, Navigation, Plane, Route } from "lucide-react";
 import { BookingWidget } from "@/components/booking/booking-widget";
 import { useLanguage } from "@/components/i18n/language-provider";
 import { defaultHeroBackground } from "@/lib/site";
 import { FeaturedBlog } from "@/components/blog/blog-public";
 import type { BlogCardData } from "@/lib/blog-client";
+import styles from "./home-page.module.css";
 
 export default function HomePage({ background = defaultHeroBackground, featuredPosts = [], featuredError = false }: { background?: string; featuredPosts?: BlogCardData[]; featuredError?: boolean }) {
   const { t } = useLanguage();
@@ -23,8 +24,26 @@ export default function HomePage({ background = defaultHeroBackground, featuredP
       <section className="saiway-hero relative overflow-hidden bg-[var(--color-primary-dark)]">
         <div aria-hidden="true" className="saiway-hero-landscape" style={{ backgroundImage: `linear-gradient(90deg, rgba(3, 31, 115, 0.85) 0%, rgba(3, 46, 161, 0.55) 42%, rgba(3, 46, 161, 0.15) 100%), url("${heroBackground}")` }} />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.14),_transparent_60%)]" />
-        <div className="relative mx-auto max-w-7xl px-4 pb-16 pt-10 sm:px-6 lg:px-8">
-          <div className="mb-10 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+        <div className="relative mx-auto max-w-7xl px-4 pb-16 pt-4 sm:px-6 sm:pt-6 lg:px-8">
+          <div className={styles.quickAccess}>
+            <p className={styles.intro}>{t("home.subtitle")}</p>
+            <nav className={styles.actions} aria-label={t("nav.book")}>
+              <Link href="/ride" className={`${styles.action} ${styles.primary}`}>
+                <span className={styles.icon}><LocateFixed size={21} aria-hidden="true" /></span>
+                <span>{t("guest.open")}</span>
+                <ArrowRight size={18} aria-hidden="true" className={styles.arrow} />
+              </Link>
+              <Link href="/booking" className={`${styles.action} ${styles.booking}`}>
+                <span className={styles.icon}><CalendarDays size={20} aria-hidden="true" /></span>
+                <span>{t("home.book")}</span>
+              </Link>
+              <Link href="/booking/track" className={styles.action}>
+                <span className={styles.icon}><Navigation size={20} aria-hidden="true" /></span>
+                <span>{t("home.track")}</span>
+              </Link>
+            </nav>
+          </div>
+          <div className="mb-6 mt-6 sm:mb-8 sm:mt-8">
             <div className="max-w-2xl">
               <p className="mb-4 inline-flex rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-white">
                 {t("home.eyebrow")}
@@ -32,19 +51,6 @@ export default function HomePage({ background = defaultHeroBackground, featuredP
               <h1 className="text-4xl font-black tracking-[-0.05em] text-white sm:text-5xl lg:text-6xl">
                 {t("home.title")}
               </h1>
-              <p className="mt-5 max-w-xl text-lg text-white/85">
-                {t("home.subtitle")}
-              </p>
-            </div>
-
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <Link href="/ride" className="saiway-action inline-flex items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-bold text-[var(--color-primary)]">{t("guest.open")}</Link>
-              <Link href="/booking" className="saiway-action inline-flex min-w-[220px] items-center justify-center rounded-full bg-[var(--color-primary)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-primary-dark)]">
-                {t("home.book")}
-              </Link>
-              <Link href="/booking/track" className="inline-flex min-w-[180px] items-center justify-center rounded-full border border-[var(--color-primary)] bg-white px-5 py-3 text-sm font-semibold text-[var(--color-primary)] transition hover:bg-[var(--color-primary)]/5">
-                {t("home.track")}
-              </Link>
             </div>
           </div>
 

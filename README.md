@@ -35,7 +35,7 @@ autorisations ou des migrations dans l’environnement déployé.
 
 | Espace | Fonctionnalités |
 |---|---|
-| 🔵 **Accueil & réservation** | Formulaire unifié ; transfert aéroport, trajet urbain, transfert privé, hôtel et circuit touristique ; départ GPS/carte ou adresse, suggestions de lieux, destination, passagers, bagages, vol, date/heure et besoins particuliers. |
+| 🔵 **Accueil & réservation** | Accès prioritaires visibles dès l’ouverture : commande sans inscription, réservation et suivi chauffeur, dans un bloc compact adapté au mobile avec icônes et focus clavier. Formulaire unifié ; transfert aéroport, trajet urbain, transfert privé, hôtel et circuit touristique ; départ GPS/carte ou adresse, suggestions de lieux, destination, passagers, bagages, vol, date/heure et besoins particuliers. |
 | 📍 **Commande immédiate sans inscription** | Bouton « Commander sans inscription » : position GPS actuelle uniquement, sans nom, téléphone, email ni compte. Référence privée, suivi chauffeur/véhicule et annulation depuis le même navigateur ; destination, capacité et tarif confirmés avec le chauffeur avant le départ. |
 | 💰 **Tarification** | Devis calculé côté serveur, politique tarifaire versionnée, zones et circuits, distance/temps et suppléments selon les règles configurées ; détail du prix et confirmation des ajustements. |
 | 👤 **Compte client** | Inscription et connexion, profil, réservations personnelles, prochaines courses, historique, annulation selon les règles applicables, choix du paiement et suivi du chauffeur affecté. |
@@ -550,6 +550,7 @@ browsers require HTTPS, except localhost for development.
 | Event | Recipient |
 |---|---|
 | Customer or administrator creates a reservation | Customer owning the reservation (receipt acknowledgement, not payment confirmation), active administrators |
+| GPS-only request without registration | Active administrators immediately; assigned driver if automatically dispatched, otherwise every available active driver's subscribed devices with an explicit “awaiting assignment, do not depart” warning |
 | A booking is assigned or reassigned to a driver | Newly assigned driver, active administrators |
 | Driver changes availability or their selected vehicle | Active administrators |
 | Driver confirms `DRIVER_ARRIVED`, manually or through backend GPS arrival detection | Customer owning that reservation |
@@ -692,16 +693,46 @@ notification rather than create a separate card. Provider
 times. Status notifications expire after 15 minutes; movement/test notifications
 after one minute. Reassigned, cancelled or already-started arrival/assignment
 notifications are discarded before sending. Delivery is best-effort: browsers,
-offline devices, expired login sessions and operating-system settings can prevent
+offline devices and operating-system settings can prevent
 or delay receipt. Queue failures are logged with identifiers/status codes, never
 endpoint tokens or encryption keys.
 
-The service worker validates the logged-in recipient before displaying a push
-and only opens the appropriate authenticated dashboard. Logging out removes that
+GPS requests trigger a booking-scoped delivery pass so old fleet movement or test
+alerts cannot occupy their first batch. Queue passes select up to 100 deliveries,
+urgent GPS/assignment/arrival events first, in batches of five within the existing
+15-second budget. Urgent messages use Web Push `urgency: high`; the worker requests
+a persistent notification where supported. This requests prompt delivery from the
+provider; it is not proof of receipt or an override of silent/focus modes.
+Pending-request alerts are rechecked before sending and discarded when assigned,
+cancelled, or when the driver is no longer available. They do not assign a trip,
+give access to its GPS coordinates, or authorize a driver to leave.
+
+The service worker validates a short-lived signed device proof carried inside the
+encrypted push against the still-active server subscription and account role,
+without requiring a current login cookie. A temporarily expired login therefore
+does not suppress the alert; opening its dashboard still requires authentication.
+The authorization fetch retries one transient network/server failure (four-second
+timeout per attempt) and fails closed if the server cannot confirm the device.
+Explicit revocation is never retried. Proofs are bound to one subscription and expire
+with the delivery; they are neither logged nor copied into click data.
+Legacy payloads still use the authenticated device check.
+Logging out removes that
 device's server subscription and queued deliveries, then unsubscribes the browser.
 Other devices remain subscribed. Permission revoked in system settings may
 require re-enabling from the bell. A private key rotation requires resubscribing
-devices; do not regenerate keys on every deployment.
+devices; do not regenerate keys on every deployment. The bell detects changed
+VAPID keys and offers renewal. An existing browser subscription with permission
+granted is resynchronised on app return, focus, reconnection or language change;
+missing server bindings can be restored without another permission prompt.
+Subscription ownership conflicts are not silently reassigned.
+
+App closure or minimisation does not stop server-side delivery or service worker
+push reception. Each recipient must first enable notifications on that device.
+On iPhone, the installed Home Screen web app requires iOS 16.4 or newer. Offline
+devices, OS battery restrictions, focus modes, or a force-stopped browser may
+delay/block reception. Configure the authenticated one-minute recovery job above
+to retry provider failures even when nobody has the app open; no Vercel Cron or
+external scheduler is enabled automatically by this code change.
 
 New existing-API extensions:
 
@@ -714,7 +745,9 @@ New existing-API extensions:
   owner's device is removed.
 - `POST /api/notifications/test`: `{ endpoint }`, authenticated own device only.
   HTTP 202 means queued, not proof of OS display; 429 means wait one minute.
-- `GET /api/notifications/device?id=...`: service-worker ownership check.
+- `GET /api/notifications/device?id=...`: service-worker device check, with an
+  expiring `Authorization: Bearer <device-proof>` from encrypted push, or the
+  existing authenticated owner cookie for legacy workers.
 - `GET /api/cron/push-notifications`: `CRON_SECRET` only; retries and retention.
 - `POST /api/auth/logout` also accepts optional `{ pushEndpoint }` for device cleanup.
 

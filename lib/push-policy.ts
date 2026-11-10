@@ -1,5 +1,6 @@
 export const movementPushIntervalMs = 60_000;
-export const pushKinds = ["AVAILABLE", "UNAVAILABLE", "BOOKED", "NEW_BOOKING", "DISPATCHED", "ASSIGNED", "ARRIVED", "EN_ROUTE", "STARTED", "COMPLETED", "MOVING", "TEST"] as const;
+export const pushKinds = ["AVAILABLE", "UNAVAILABLE", "BOOKED", "NEW_BOOKING", "GUEST_REQUEST", "PICKUP_WAITING", "DISPATCHED", "ASSIGNED", "ARRIVED", "EN_ROUTE", "STARTED", "COMPLETED", "MOVING", "TEST"] as const;
+export const urgentPushKinds: readonly string[] = ["GUEST_REQUEST", "PICKUP_WAITING", "ASSIGNED", "ARRIVED"];
 export type PushKind = typeof pushKinds[number];
 
 export function allowedPushEndpoint(endpoint: string): boolean {

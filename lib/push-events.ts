@@ -6,7 +6,7 @@ async function enqueue(
   tx: Prisma.TransactionClient, where: Prisma.PushSubscriptionWhereInput,
   event: { kind: PushKind; bookingId?: string | null; driverId?: string | null; reference?: string; recipientRole: UserRole; eventKey: string },
 ) {
-  const subscriptions = await tx.pushSubscription.findMany({ where: { ...where, user: { status: "ACTIVE", role: event.recipientRole } }, select: { id: true } });
+  const subscriptions = await tx.pushSubscription.findMany({ where: { AND: [where, { user: { status: "ACTIVE", role: event.recipientRole } }] }, select: { id: true } });
   if (subscriptions.length) await tx.pushDelivery.createMany({
     data: subscriptions.map(({ id }) => ({
       ...event, subscriptionId: id,
@@ -22,7 +22,10 @@ export async function enqueueBookingPush(tx: Prisma.TransactionClient, booking: 
   if (!previous && booking.originType !== "DRIVER") {
     const receivedKey = `booking:${booking.id}:received`;
     if (booking.customerId) await enqueue(tx, { userId: booking.customerId }, { eventKey: receivedKey, kind: "BOOKED", bookingId: booking.id, reference: booking.reference, recipientRole: "CUSTOMER" });
-    await enqueue(tx, {}, { eventKey: receivedKey, kind: "NEW_BOOKING", bookingId: booking.id, reference: booking.reference, recipientRole: "ADMIN" });
+    await enqueue(tx, {}, { eventKey: receivedKey, kind: booking.originType === "GUEST" ? "GUEST_REQUEST" : "NEW_BOOKING", bookingId: booking.id, reference: booking.reference, recipientRole: "ADMIN" });
+    if (booking.originType === "GUEST" && booking.status === "DRIVER_ASSIGNMENT_PENDING" && !booking.driverId) {
+      await enqueue(tx, { user: { driver: { isAvailable: true } } }, { eventKey: receivedKey, kind: "PICKUP_WAITING", bookingId: booking.id, reference: booking.reference, recipientRole: "DRIVER" });
+    }
   }
   if (booking.status === "DRIVER_ASSIGNED" && booking.driverId && (!previous || previous.driverId !== booking.driverId)) {
     const driver = await tx.driverProfile.findUniqueOrThrow({ where: { id: booking.driverId }, select: { userId: true } });

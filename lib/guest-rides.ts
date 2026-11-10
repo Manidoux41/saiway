@@ -134,9 +134,9 @@ export async function guestRideRequest(request: Request) {
       await tx.auditLog.create({ data: { entity: "Booking", entityId: trip.id, action: "GUEST_REQUEST", metadata: { automaticallyAssigned: Boolean(trip.driverId), gpsAccuracy: parsed.data.accuracy } } });
       await enqueueBookingPush(tx, trip);
     });
-    schedulePushDelivery();
     const created = await findAccess(token);
     if (!created) throw new GuestRideError("SESSION_REQUIRED", 401);
+    schedulePushDelivery(created.bookingId);
     return json({ booking: await view(created) }, 201);
   } catch (error) { return failure(error); }
 }
