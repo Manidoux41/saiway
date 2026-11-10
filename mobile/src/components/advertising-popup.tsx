@@ -1,3 +1,4 @@
+import { useLanguage } from '@/providers/language';
 import { useCallback, useEffect, useState } from 'react';
 import { AppState, Linking, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
@@ -41,6 +42,7 @@ function AdvertisingSession({ ready }: { ready: boolean }) {
 function CampaignPopup({ placement, consumed, onShow }: {
   placement: AdPlacement; consumed: boolean; onShow: (placement: AdPlacement) => void;
 }) {
+  const { t } = useLanguage();
   const campaigns = useApi(`/api/advertising?placement=${placement}`, advertisementsSchema, 60000);
   const now = useNow();
   const [selected, setSelected] = useState<Advertisement | null>(null);
@@ -55,30 +57,30 @@ function CampaignPopup({ placement, consumed, onShow }: {
   const current = selected && campaigns.data?.advertisements.find(ad => ad.id === selected.id && Date.parse(ad.endsAt) > now);
   function close() { setDismissed(true); }
   useEffect(() => {
-    if (campaigns.error) console.warn('Publicités SAIWAY indisponibles :', campaigns.error);
-  }, [campaigns.error]);
+    if (campaigns.error) console.warn(t("Publicités SAIWAY indisponibles :"), campaigns.error);
+  }, [campaigns.error, t]);
   if (!current || dismissed || campaigns.error) return null;
   return <Modal transparent animationType="fade" visible onRequestClose={close} onShow={() => onShow(placement)} statusBarTranslucent>
     <SafeAreaView style={popupStyles.backdrop}>
-      <View style={popupStyles.dialog} accessibilityViewIsModal accessibilityLabel="Publicité SAIWAY">
+      <View style={popupStyles.dialog} accessibilityViewIsModal accessibilityLabel={t("Publicité SAIWAY")}>
         <ScrollView contentContainerStyle={{ padding: 22, gap: 16 }} keyboardShouldPersistTaps="handled">
           <View style={[styles.row, { justifyContent: 'space-between' }]}>
             <BrandLogo />
-            <Pressable onPress={close} accessibilityRole="button" accessibilityLabel="Fermer la publicité"
+            <Pressable onPress={close} accessibilityRole="button" accessibilityLabel={t("Fermer la publicité")}
               hitSlop={8} style={popupStyles.close}><Text style={{ color: colors.dark, fontSize: 24 }}>×</Text></Pressable>
           </View>
-          <Text style={styles.eyebrow}>PUBLICITÉ · PARTENAIRE</Text>
+          <Text style={styles.eyebrow}>{t("PUBLICITÉ · PARTENAIRE")}</Text>
           {current.image && <CampaignImage key={`${current.id}-${current.image.updatedAt}`} ad={current} />}
-          <Text style={styles.muted}>Sponsorisé par {current.advertiser}</Text>
+          <Text style={styles.muted}>{t("Sponsorisé par")}{' '}{current.advertiser}</Text>
           <Text accessibilityRole="header" style={styles.heading}>{current.title}</Text>
           <Text style={styles.text}>{current.description}</Text>
           <Notice error={operation.error} />
-          <Button title="Découvrir l’offre" disabled={operation.pending} onPress={() => void operation.run(async () => {
+          <Button title={t("Découvrir l’offre")} disabled={operation.pending} onPress={() => void operation.run(async () => {
             const validated = advertisementsSchema.shape.advertisements.element.parse(current);
             await Linking.openURL(validated.targetUrl);
             close();
           })} />
-          <Button title="Continuer dans SAIWAY" secondary onPress={close} />
+          <Button title={t("Continuer dans SAIWAY")} secondary onPress={close} />
         </ScrollView>
       </View>
     </SafeAreaView>
@@ -86,8 +88,9 @@ function CampaignPopup({ placement, consumed, onShow }: {
 }
 
 function CampaignImage({ ad }: { ad: Advertisement }) {
+  const { t } = useLanguage();
   const [failed, setFailed] = useState(false);
-  return failed ? <Notice error="L’image de cette publicité est indisponible." /> :
+  return failed ? <Notice error={t("L’image de cette publicité est indisponible.")} /> :
     <Image source={{ uri: `${configuredOrigin()}${advertisementImagePath(ad)}` }} accessibilityLabel={ad.title}
       style={{ width: '100%', aspectRatio: 2, borderRadius: 16 }} contentFit="cover" cachePolicy="none" onError={() => setFailed(true)} />;
 }

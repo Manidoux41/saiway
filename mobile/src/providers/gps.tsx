@@ -1,4 +1,5 @@
-import { createContext, useContext, useEffect, useRef, useState, type PropsWithChildren } from 'react';
+import { useLanguage } from '@/providers/language';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type PropsWithChildren } from 'react';
 import { AppState } from 'react-native';
 import * as Location from 'expo-location';
 import { z } from 'zod';
@@ -20,6 +21,7 @@ export function GpsProvider({ children }: PropsWithChildren) {
 }
 
 function GpsSessionProvider({ children }: PropsWithChildren) {
+  const { t } = useLanguage();
   const { user } = useSession();
   const access = useApi(user?.role === 'driver' ? '/api/driver/location' : null, locationAccessSchema, 15000);
   const [enabled, setEnabled] = useState(false);
@@ -34,9 +36,9 @@ function GpsSessionProvider({ children }: PropsWithChildren) {
     return () => listener.remove();
   }, []);
 
-  async function send(position: Location.LocationObject, signal?: AbortSignal) {
+  const send = useCallback(async (position: Location.LocationObject, signal?: AbortSignal) => {
     const { latitude, longitude, accuracy, heading } = position.coords;
-    if (Date.now() - position.timestamp > 15000) throw new Error('Position GPS trop ancienne. Reessayez en exterieur.');
+    if (Date.now() - position.timestamp > 15000) throw new Error(t("Position GPS trop ancienne. Reessayez en exterieur."));
     const result = await client().request('/api/driver/location', acceptedSchema, {
       method: 'PUT', signal, body: { latitude, longitude, accuracy,
         heading: heading !== null && heading >= 0 && heading < 360 ? heading : null,
@@ -45,7 +47,7 @@ function GpsSessionProvider({ children }: PropsWithChildren) {
     if (result.accepted) { setLastSent(result.recordedAt ?? new Date().toISOString()); setPoint({ latitude, longitude }); }
     setError('');
     return { latitude, longitude };
-  }
+  }, [t]);
 
   useEffect(() => {
     if (!enabled || !foreground || !access.data?.enabled || user?.role !== 'driver') return;
@@ -55,7 +57,7 @@ function GpsSessionProvider({ children }: PropsWithChildren) {
     async function start() {
       try {
         const permission = await Location.requestForegroundPermissionsAsync();
-        if (!permission.granted) throw new Error('Autorisez la localisation pour partager votre position.');
+        if (!permission.granted) throw new Error(t("Autorisez la localisation pour partager votre position."));
         if (!active) return;
         const watcher = await Location.watchPositionAsync({ accuracy: Location.Accuracy.High, timeInterval: 5000, distanceInterval: 0 }, position => {
           if (sending.current || Date.now() - lastAttempt.current < 5000 || !active) return;
@@ -63,21 +65,21 @@ function GpsSessionProvider({ children }: PropsWithChildren) {
           void send(position, abort.signal).catch(failure => {
             if (!abort.signal.aborted) setError(errorMessage(failure));
           }).finally(() => { sending.current = false; });
-        }, reason => { if (active) setError(`Localisation interrompue : ${reason}`); });
+        }, reason => { if (active) setError(t("Localisation interrompue : {p0}", { p0: reason })); });
         if (!active) watcher.remove();
         else subscription = watcher;
       } catch (failure) { if (!abort.signal.aborted) setError(errorMessage(failure)); }
     }
     void start();
     return () => { active = false; abort.abort(); subscription?.remove(); };
-  }, [enabled, foreground, access.data?.enabled, user?.role]);
+  }, [enabled, foreground, access.data?.enabled, user?.role, send, t]);
 
   async function sendNow() {
-    if (!enabled || !foreground || !access.data?.enabled) throw new Error('Activez le partage GPS au premier plan.');
+    if (!enabled || !foreground || !access.data?.enabled) throw new Error(t("Activez le partage GPS au premier plan."));
     const permission = await Location.requestForegroundPermissionsAsync();
-    if (!permission.granted) throw new Error('Permission GPS refusee.');
+    if (!permission.granted) throw new Error(t("Permission GPS refusee."));
     const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-    if (position.coords.accuracy === null || position.coords.accuracy > 50) throw new Error('Precision GPS insuffisante (50 m maximum).');
+    if (position.coords.accuracy === null || position.coords.accuracy > 50) throw new Error(t("Precision GPS insuffisante (50 m maximum)."));
     return send(position);
   }
   return <Context.Provider value={{ enabled, setEnabled, error, lastSent, point, sendNow, access }}>{children}</Context.Provider>;

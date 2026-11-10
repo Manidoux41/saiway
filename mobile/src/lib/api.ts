@@ -1,3 +1,4 @@
+import { t } from './i18n';
 import { fetch } from 'expo/fetch';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
@@ -18,7 +19,7 @@ export function configuredOrigin() {
 }
 
 async function persist() {
-  if (Platform.OS === 'web') throw new Error('Cette application utilise le stockage natif. Lancez-la sur Android ou iOS.');
+  if (Platform.OS === 'web') throw new Error(t("Cette application utilise le stockage natif. Lancez-la sur Android ou iOS."));
   if (cookie && currentUser) {
     await SecureStore.setItemAsync(storageKey, JSON.stringify({ origin: configuredOrigin(), cookie, user: currentUser }),
       { keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY });
@@ -29,7 +30,7 @@ async function persist() {
 
 export async function restoreSession() {
   configuredOrigin();
-  if (Platform.OS === 'web') throw new Error('Utilisez Android ou iOS. Le site Next.js reste l’interface web.');
+  if (Platform.OS === 'web') throw new Error(t("Utilisez Android ou iOS. Le site Next.js reste l’interface web."));
   const saved = await SecureStore.getItemAsync(storageKey);
   if (!saved) return null;
   const parsed = storedSchema.parse(JSON.parse(saved));
@@ -43,7 +44,7 @@ export async function restoreSession() {
 }
 
 export async function rememberUser(user: User) {
-  if (!cookie) throw new Error('Le serveur n’a pas retourne de cookie de session.');
+  if (!cookie) throw new Error(t("Le serveur n’a pas retourne de cookie de session."));
   currentUser = user;
   await persist();
 }
@@ -55,7 +56,7 @@ export async function forgetSession() {
 }
 
 export function authenticatedSource(path: string) {
-  if (!path.startsWith('/api/') || path.includes('\\') || !cookie) throw new Error('Session ou chemin invalide.');
+  if (!path.startsWith('/api/') || path.includes('\\') || !cookie) throw new Error(t("Session ou chemin invalide."));
   return { uri: `${configuredOrigin()}${path}`, headers: { Cookie: cookie } };
 }
 
@@ -67,7 +68,7 @@ export function client() {
 }
 
 export async function restoreGuestSession() {
-  if (Platform.OS === 'web') throw new Error('Utilisez Android ou iOS.');
+  if (Platform.OS === 'web') throw new Error(t("Utilisez Android ou iOS."));
   const origin = configuredOrigin();
   const saved = await SecureStore.getItemAsync(guestKey);
   if (saved) {
@@ -91,6 +92,6 @@ export function guestClient() {
 }
 
 export function errorMessage(error: unknown) {
-  if (error instanceof z.ZodError) return 'Les donnees du serveur sont incompatibles avec cette version de l’application.';
-  return error instanceof Error ? error.message : 'Une erreur inattendue est survenue.';
+  if (error instanceof z.ZodError) return t("Les donnees du serveur sont incompatibles avec cette version de l’application.");
+  return error instanceof Error ? error.message : t("Une erreur inattendue est survenue.");
 }

@@ -1,14 +1,15 @@
+import { t } from './i18n.ts';
 export class ApiError extends Error {
   readonly status: number;
   constructor(message: string, status: number) { super(message); this.status = status; }
 }
 
 export function apiOrigin(value: string, development: boolean) {
-  if (!value.trim()) throw new Error('Configurez EXPO_PUBLIC_API_URL dans mobile/.env.');
+  if (!value.trim()) throw new Error(t("Configurez EXPO_PUBLIC_API_URL dans mobile/.env."));
   const url = new URL(value);
   if (url.username || url.password || url.pathname !== '/' || url.search || url.hash ||
     (url.protocol !== 'https:' && !(development && url.protocol === 'http:'))) {
-    throw new Error('EXPO_PUBLIC_API_URL doit etre une origine HTTPS (HTTP autorise seulement en developpement).');
+    throw new Error(t("EXPO_PUBLIC_API_URL doit etre une origine HTTPS (HTTP autorise seulement en developpement)."));
   }
   return url.origin;
 }
@@ -32,7 +33,7 @@ type Dependencies = {
 export function createTransport(deps: Dependencies) {
   async function response(path: string, options: Options = {}) {
     if (!path.startsWith('/api/') || path.includes('\\') || new URL(path, deps.origin).origin !== deps.origin) {
-      throw new Error('Chemin API non autorise.');
+      throw new Error(t("Chemin API non autorise."));
     }
     const controller = new AbortController();
     const abort = () => controller.abort();
@@ -56,7 +57,7 @@ export function createTransport(deps: Dependencies) {
       if (next !== undefined) await deps.saveCookie(next);
       if (!result.ok) {
         const content = await result.text();
-        let message = `Erreur API (${result.status}).`;
+        let message = t("Erreur API ({p0}).", { p0: result.status });
         if (result.headers.get('content-type')?.includes('application/json')) {
           const error: unknown = JSON.parse(content);
           if (error && typeof error === 'object' && 'error' in error && typeof error.error === 'string') message = error.error;
@@ -65,7 +66,7 @@ export function createTransport(deps: Dependencies) {
       }
       return result;
     } catch (error) {
-      if (controller.signal.aborted && !options.signal?.aborted) throw new ApiError('Le serveur ne repond pas. Reessayez.', 0);
+      if (controller.signal.aborted && !options.signal?.aborted) throw new ApiError(t("Le serveur ne repond pas. Reessayez."), 0);
       throw error;
     } finally {
       clearTimeout(timeout);
@@ -76,7 +77,7 @@ export function createTransport(deps: Dependencies) {
     response,
     async request<T>(path: string, decoder: Decoder<T>, options?: Options): Promise<T> {
       const result = await response(path, options);
-      if (!result.headers.get('content-type')?.includes('application/json')) throw new ApiError('Reponse API invalide : JSON attendu.', result.status);
+      if (!result.headers.get('content-type')?.includes('application/json')) throw new ApiError(t("Reponse API invalide : JSON attendu."), result.status);
       return decoder.parse(await result.json());
     },
   };

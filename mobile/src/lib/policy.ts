@@ -1,3 +1,4 @@
+import { t } from './i18n.ts';
 import type { Booking } from './contracts';
 
 export const closedStatuses = ['TRIP_COMPLETED', 'CANCELLED', 'NO_SHOW', 'REFUNDED'];
@@ -17,32 +18,32 @@ export function trustedCheckout(value: string) {
   const url = new URL(value);
   if (url.protocol !== 'https:' || url.username || url.password || url.port ||
     !['checkout.payway.com.kh', 'checkout-sandbox.payway.com.kh', 'checkout-uat.payway.com.kh'].includes(url.hostname)) {
-    throw new Error('Adresse de paiement non autorisee.');
+    throw new Error(t("Adresse de paiement non autorisee."));
   }
   return url.href;
 }
 
 export function pickupIso(date: string, time: string) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) throw new Error('Date ou heure invalide.');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) throw new Error(t("Date ou heure invalide."));
   const value = new Date(`${date}T${time}:00+07:00`);
   const local = new Date(value.getTime() + 7 * 3600000).toISOString();
-  if (local.slice(0, 10) !== date || local.slice(11, 16) !== time) throw new Error('Date ou heure invalide.');
-  if (value.getTime() <= Date.now()) throw new Error('Choisissez une prise en charge dans le futur.');
+  if (local.slice(0, 10) !== date || local.slice(11, 16) !== time) throw new Error(t("Date ou heure invalide."));
+  if (value.getTime() <= Date.now()) throw new Error(t("Choisissez une prise en charge dans le futur."));
   return value.toISOString();
 }
 
 export function integer(value: string, min: number, max: number, label: string) {
   const number = Number(value);
   if (!value.trim() || !Number.isInteger(number) || number < min || number > max) {
-    throw new Error(`${label} : valeur entiere entre ${min} et ${max}.`);
+    throw new Error(t("{p0} : valeur entiere entre {p1} et {p2}.", { p0: label, p1: min, p2: max }));
   }
   return number;
 }
 
 export function cents(value: string) {
-  if (!/^\d+([.,]\d{1,2})?$/.test(value.trim())) throw new Error('Montant invalide (deux decimales maximum).');
+  if (!/^\d+([.,]\d{1,2})?$/.test(value.trim())) throw new Error(t("Montant invalide (deux decimales maximum)."));
   const result = Math.round(Number(value.replace(',', '.')) * 100);
-  if (!Number.isSafeInteger(result) || result > 10000000) throw new Error('Montant trop eleve.');
+  if (!Number.isSafeInteger(result) || result > 10000000) throw new Error(t("Montant trop eleve."));
   return result;
 }
 

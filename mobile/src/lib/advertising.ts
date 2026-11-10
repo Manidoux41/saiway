@@ -1,3 +1,4 @@
+import { t } from './i18n.ts';
 import { z } from 'zod';
 
 export type AdPlacement = 'HOME' | 'BOOKING' | 'DRIVER';
@@ -6,7 +7,7 @@ export const advertisementSchema = z.object({
   targetUrl: z.url().refine(value => {
     const url = new URL(value);
     return url.protocol === 'https:' && !url.username && !url.password;
-  }, 'Lien publicitaire non autorisé.'),
+  }, t("Lien publicitaire non autorisé.")),
   endsAt: z.iso.datetime({ offset: true }),
   image: z.object({ updatedAt: z.string() }).nullable(),
 });
@@ -26,6 +27,6 @@ export function nextAdvertisement(ads: Advertisement[], now: number) {
 }
 
 export function advertisementImagePath(ad: Advertisement) {
-  if (!ad.image) throw new Error('Cette publicité ne possède pas d’image.');
+  if (!ad.image) throw new Error(t("Cette publicité ne possède pas d’image."));
   return `/api/advertising/${encodeURIComponent(ad.id)}/image?version=${encodeURIComponent(ad.image.updatedAt)}`;
 }

@@ -1,7 +1,10 @@
+import { formatDateTime, formatMoney, t } from '@/lib/i18n';
+import { useLanguage } from '@/providers/language';
 import type { PropsWithChildren } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AngkorBackground, BrandLogo } from './brand';
+import { LanguageSelector } from './language-selector';
 
 export const colors = {
   primary: '#032EA1', dark: '#021F73', gold: '#DFB56B', background: '#F3F6FC',
@@ -40,6 +43,7 @@ export function Page({ title, subtitle, children, refreshing, onRefresh }: Props
         refreshControl={onRefresh ? <RefreshControl refreshing={Boolean(refreshing)} onRefresh={onRefresh} tintColor={colors.primary} /> : undefined}>
         <View style={{ gap: 6 }}>
           <BrandLogo />
+          <LanguageSelector />
           <Text style={styles.eyebrow}>SAIWAY / SIEM REAP</Text>
           <Text accessibilityRole="header" style={styles.title}>{title}</Text>
           {subtitle && <Text style={styles.muted}>{subtitle}</Text>}
@@ -72,25 +76,27 @@ export function Choices<T extends string>({ value, options, onChange, disabled }
   return <View style={styles.row}>{options.map(option => <Pressable key={option.value} accessibilityRole="radio"
     accessibilityState={{ checked: value === option.value, disabled }} disabled={disabled} onPress={() => onChange(option.value)}
     style={[styles.badge, { paddingVertical: 12, backgroundColor: value === option.value ? colors.primary : colors.soft }]}>
-    <Text style={{ color: value === option.value ? '#FFFFFF' : colors.dark, fontWeight: '600' }}>{option.label}</Text>
+    <Text style={{ color: value === option.value ? '#FFFFFF' : colors.dark, fontWeight: '600', lineHeight: 24 }}>{option.label}</Text>
   </Pressable>)}</View>;
 }
 export function Notice({ error, message }: { error?: string; message?: string }) {
-  return <>{error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
-    {message ? <Text accessibilityLiveRegion="polite" style={styles.success}>{message}</Text> : null}</>;
+  const { t } = useLanguage();
+  return <>{error ? <Text accessibilityRole="alert" style={styles.error}>{t(error)}</Text> : null}
+    {message ? <Text accessibilityLiveRegion="polite" style={styles.success}>{t(message)}</Text> : null}</>;
 }
-export function Loading() { return <ActivityIndicator size="large" color={colors.primary} accessibilityLabel="Chargement" />; }
+export function Loading() {
+  const { t } = useLanguage(); return <ActivityIndicator size="large" color={colors.primary} accessibilityLabel={t("Chargement")} />; }
 export function confirm(title: string, message: string) {
   return new Promise<boolean>(resolve => Alert.alert(title, message, [
-    { text: 'Annuler', style: 'cancel', onPress: () => resolve(false) },
-    { text: 'Confirmer', onPress: () => resolve(true) },
+    { text: t("Annuler"), style: 'cancel', onPress: () => resolve(false) },
+    { text: t("Confirmer"), onPress: () => resolve(true) },
   ], { cancelable: true, onDismiss: () => resolve(false) }));
 }
 export function money(cents: number, currency = 'USD') {
-  return new Intl.NumberFormat('fr-FR', { style: 'currency', currency }).format(cents / 100);
+  return formatMoney(cents, currency);
 }
 export function dateTime(value: string) {
-  return new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Phnom_Penh' }).format(new Date(value));
+  return formatDateTime(value);
 }
 export const statusLabels: Record<string, string> = {
   PENDING_PAYMENT: 'Demande reçue', CONFIRMED: 'Confirmée', DRIVER_ASSIGNMENT_PENDING: 'Recherche chauffeur',

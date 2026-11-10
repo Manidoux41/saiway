@@ -1,3 +1,4 @@
+import { useLanguage } from '@/providers/language';
 import { Text } from 'react-native';
 import type { Point } from '@/lib/contracts';
 
@@ -7,5 +8,6 @@ export type RouteMapProps = {
   onPick?: (point: Point) => void;
 };
 export default function RouteMap(_props: RouteMapProps) {
-  return <Text>La carte native est disponible sur Android et iOS.</Text>;
+  const { t } = useLanguage();
+  return <Text>{t("La carte native est disponible sur Android et iOS.")}</Text>;
 }

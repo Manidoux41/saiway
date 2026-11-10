@@ -1,3 +1,4 @@
+import { useLanguage } from '@/providers/language';
 import { createContext, useCallback, useContext, useEffect, useState, type PropsWithChildren } from 'react';
 import { client, errorMessage, forgetSession, rememberUser, restoreSession } from '@/lib/api';
 import { authSchema, bookingsSchema, userSchema, type User } from '@/lib/contracts';
@@ -15,6 +16,7 @@ const Context = createContext<Session | null>(null);
 const logoutSchema = z.object({ signedOut: z.boolean() });
 
 export function SessionProvider({ children }: PropsWithChildren) {
+  const { t } = useLanguage();
   const [user, setUser] = useState<User | null>(null);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState('');
@@ -59,7 +61,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
     await forgetSession(); setUser(null); setError('');
   }
   async function updateName(name: string) {
-    if (!user) throw new Error('Connexion requise.');
+    if (!user) throw new Error(t("Connexion requise."));
     const updated = userSchema.parse({ ...user, name });
     await rememberUser(updated); setUser(updated);
   }

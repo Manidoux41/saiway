@@ -1,3 +1,4 @@
+import { useLanguage } from '@/providers/language';
 import { useState } from 'react';
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { Text } from 'react-native';
@@ -9,9 +10,10 @@ import { availabilitySchema, bookingsSchema, bookingResultSchema, walkupQuoteSch
 import { cents, integer } from '@/lib/policy';
 import { AddressField } from '@/components/address-field';
 import RouteMap from '@/components/route-map';
-import { Button, Card, Choices, confirm, Field, money, Notice, Page, styles } from '@/components/native-ui';
+import { Button, Card, Choices, confirm, Field, Notice, Page, styles } from '@/components/native-ui';
 
 export default function Walkup() {
+  const { t, money } = useLanguage();
   const { user } = useSession();
   const { guestId } = useLocalSearchParams<{ guestId?: string }>();
   const driver = user?.role === 'driver';
@@ -36,8 +38,8 @@ export default function Walkup() {
   if (!driver) return <Redirect href="/(main)/trips" />;
   function preview() {
     void operation.run(async () => {
-      if (!pickup.trim() || !toAddress.trim() || !selectedVehicle) throw new Error('Départ, destination et véhicule sont obligatoires.');
-      if (guestId && (!guest || guest.status !== 'DRIVER_ARRIVED')) throw new Error('Marquez la prise en charge invité comme arrivée avant de choisir sa destination.');
+      if (!pickup.trim() || !toAddress.trim() || !selectedVehicle) throw new Error(t("Départ, destination et véhicule sont obligatoires."));
+      if (guestId && (!guest || guest.status !== 'DRIVER_ARRIVED')) throw new Error(t("Marquez la prise en charge invité comme arrivée avant de choisir sa destination."));
       const result = await client().request('/api/driver/bookings', walkupQuoteSchema, {
         method: 'POST', body: { action: 'preview', selection: { fromAddress: pickup.trim(), toAddress: toAddress.trim(), vehicleId: selectedVehicle } },
       });
@@ -46,12 +48,12 @@ export default function Walkup() {
   }
   function start() {
     void operation.run(async () => {
-      if (!currentQuote || currentQuote.expiresAt <= Date.now()) throw new Error('Recalculez le trajet : devis absent ou expiré.');
+      if (!currentQuote || currentQuote.expiresAt <= Date.now()) throw new Error(t("Recalculez le trajet : devis absent ou expiré."));
       const outside = currentQuote.priceCents === null;
       const agreedPriceCents = outside ? cents(agreedPrice) : undefined;
-      if (outside && reason.trim().length < 3) throw new Error('Indiquez le motif du prix convenu hors zone.');
+      if (outside && reason.trim().length < 3) throw new Error(t("Indiquez le motif du prix convenu hors zone."));
       const body = {
-        quoteToken: currentQuote.token, passengers: guest ? guest.passengers : integer(passengers, 1, 50, 'Passagers'),
+        quoteToken: currentQuote.token, passengers: guest ? guest.passengers : integer(passengers, 1, 50, t("Passagers")),
         ...(guest ? { guestBookingId: guest.id } : {
           ...(passengerName.trim() ? { passengerName: passengerName.trim() } : {}),
           ...(customerEmail.trim() ? { customerEmail: customerEmail.trim().toLowerCase() } : {}),
@@ -59,37 +61,37 @@ export default function Walkup() {
         }),
         ...(outside ? { agreedPriceCents, priceReason: reason.trim() } : {}),
       };
-      if (!await confirm('Démarrer la course maintenant', `${money(currentQuote.priceCents ?? agreedPriceCents ?? 0)} · le passager doit accepter le trajet et son prix.`)) return;
+      if (!await confirm(t("Démarrer la course maintenant"), t("{p0} · le passager doit accepter le trajet et son prix.", { p0: money(currentQuote.priceCents ?? agreedPriceCents ?? 0) }))) return;
       const result = await client().request('/api/driver/bookings', bookingResultSchema, { method: 'POST', body });
       setQuote(null);
       router.push({ pathname: '/trip/[id]', params: { id: result.booking.id } });
     });
   }
-  return <Page title={guestId ? 'Destination de l’invité' : 'Course immédiate'} subtitle="Trajet et tarif calculés par le serveur.">
+  return <Page title={guestId ? t("Destination de l’invité") : t("Course immédiate")} subtitle={t("Trajet et tarif calculés par le serveur.")}>
     <Notice error={vehicles.error || bookings.error} />
     <Card>
-      <AddressField label="Départ" value={pickup} onChange={setFromAddress} disabled={Boolean(guestId) || operation.pending} />
-      <AddressField label="Destination" value={toAddress} onChange={setToAddress} disabled={operation.pending} />
+      <AddressField label={t("Départ")} value={pickup} onChange={setFromAddress} disabled={Boolean(guestId) || operation.pending} />
+      <AddressField label={t("Destination")} value={toAddress} onChange={setToAddress} disabled={operation.pending} />
       {!guestId && <Choices value={selectedVehicle} onChange={setVehicleId} disabled={operation.pending}
         options={(vehicles.data?.vehicles ?? []).map(vehicle => ({ value: vehicle.id, label: `${vehicle.name} · ${vehicle.plate}` }))} />}
-      <Button title="Calculer le trajet" disabled={operation.pending || Boolean(guestId && !guest)} onPress={preview} />
+      <Button title={t("Calculer le trajet")} disabled={operation.pending || Boolean(guestId && !guest)} onPress={preview} />
       {currentQuote && <>
         <RouteMap from={currentQuote.route.from} to={currentQuote.route.to} route={currentQuote.route.coordinates} />
-        <Text style={styles.text}>{(currentQuote.route.distanceMeters / 1000).toFixed(1)} km · {Math.ceil(currentQuote.route.durationSeconds / 60)} min</Text>
-        <Text style={styles.price}>{currentQuote.priceCents === null ? 'Prix à convenir hors zone' : money(currentQuote.priceCents)}</Text>
+        <Text style={styles.text}>{(currentQuote.route.distanceMeters / 1000).toFixed(1)} {' '}{t("km ·")}{' '}{Math.ceil(currentQuote.route.durationSeconds / 60)} {' '}{t("min")}</Text>
+        <Text style={styles.price}>{currentQuote.priceCents === null ? t("Prix à convenir hors zone") : money(currentQuote.priceCents)}</Text>
         {currentQuote.priceCents === null && <>
-          <Field label="Prix convenu (USD)" value={agreedPrice} onChangeText={setAgreedPrice} keyboardType="decimal-pad" />
-          <Field label="Motif du prix" value={reason} onChangeText={setReason} multiline maxLength={2000} />
+          <Field label={t("Prix convenu (USD)")} value={agreedPrice} onChangeText={setAgreedPrice} keyboardType="decimal-pad" />
+          <Field label={t("Motif du prix")} value={reason} onChangeText={setReason} multiline maxLength={2000} />
         </>}
       </>}
     </Card>
     {!guestId && <Card>
-      <Field label="Nombre de passagers" value={passengers} onChangeText={setPassengers} keyboardType="number-pad" />
-      <Field label="Nom du passager (facultatif)" value={passengerName} onChangeText={setPassengerName} maxLength={200} />
-      <Field label="Email d’un client existant (facultatif)" value={customerEmail} onChangeText={setCustomerEmail} keyboardType="email-address" autoCapitalize="none" />
-      <Field label="Téléphone (facultatif)" value={contactPhone} onChangeText={setContactPhone} keyboardType="phone-pad" maxLength={50} />
+      <Field label={t("Nombre de passagers")} value={passengers} onChangeText={setPassengers} keyboardType="number-pad" />
+      <Field label={t("Nom du passager (facultatif)")} value={passengerName} onChangeText={setPassengerName} maxLength={200} />
+      <Field label={t("Email d’un client existant (facultatif)")} value={customerEmail} onChangeText={setCustomerEmail} keyboardType="email-address" autoCapitalize="none" />
+      <Field label={t("Téléphone (facultatif)")} value={contactPhone} onChangeText={setContactPhone} keyboardType="phone-pad" maxLength={50} />
     </Card>}
     <Notice error={operation.error} />
-    <Button title="Démarrer la course" disabled={operation.pending || !currentQuote} onPress={start} />
+    <Button title={t("Démarrer la course")} disabled={operation.pending || !currentQuote} onPress={start} />
   </Page>;
 }

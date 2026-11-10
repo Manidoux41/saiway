@@ -78,9 +78,44 @@ origine HTTPS et les réglages PayWay existants restent ceux du serveur.
   permis, QR WhatsApp/Telegram, QR ABA et changement du mot de passe.
 - Profil client, statut professionnel et liens vers l'aide et les pages légales.
 
-L'interface native est actuellement en français ; les contenus des courses et
-les messages métier proviennent de l'API. Les dates de réservation sont
-interprétées au Cambodge (UTC+7), indépendamment du fuseau du téléphone.
+## Langues
+
+Le sélecteur **Français / English / ខ្មែរ** est présent en haut de chaque écran,
+avant et après connexion, y compris le parcours invité et la page web d'ouverture.
+Le choix s'applique immédiatement sans déconnexion ni remise à zéro des formulaires.
+Il est conservé sur l'appareil (SecureStore natif, stockage local sur la page web)
+et reste indépendant du compte. Le français est utilisé à la première ouverture.
+Une erreur de lecture ou d'enregistrement de ce choix est affichée.
+
+Les interfaces client, chauffeur et invité, les onglets, formulaires, validations,
+confirmations, statuts, contrôles publicitaires et libellés d'accessibilité sont
+traduits en anglais et en khmer. Les dates et devises utilisent la langue choisie ;
+les heures restent au Cambodge (UTC+7) et les valeurs envoyées à l'API restent ISO
+et non traduites. Les noms, adresses, instructions des utilisateurs et contenus
+publicitaires restent ceux du serveur. Les erreurs API connues sont traduites ;
+un nouveau message serveur inconnu est conservé tel quel pour ne pas le masquer.
+Les dialogues de permission et les interfaces système suivent la langue du système,
+pas nécessairement celle choisie dans SAIWAY.
+
+Les traductions sont dans `src/lib/translations.ts`. Le français sert de clé ;
+chaque entrée doit contenir l'anglais et le khmer avec les mêmes paramètres.
+Le formatage réutilise le module pur `../lib/locale-format.ts` du site et les
+notes d'historique générées réutilisent `../components/i18n/booking-history-note.ts`
+et son dictionnaire, sans les modifier ni importer de code serveur.
+`metro.config.js` rend ces dossiers visibles à Metro, notamment pour le repli
+khmer des moteurs Intl incomplets. Les observations et motifs libres sont conservés.
+Les tests vérifient les clés, les paramètres, les formats et l'absence de textes
+statiques non traduits dans les écrans actifs. Une relecture par un locuteur khmer
+est recommandée avant diffusion sur les stores.
+
+## Informations légales
+
+Une page publique accessible depuis la connexion et le compte regroupe les liens
+vers les conditions, la confidentialité, l'annulation et le contact existants.
+Les documents s'ouvrent sur le site Next.js, qui propose déjà ces pages et leurs
+traductions. Les nouvelles mentions de propriété ne sont pas publiées tant que
+le texte officiel, l'identité juridique, le rôle du directeur et l'adresse
+professionnelle ne sont pas validés. Aucune adresse privée n'est déduite.
 
 ## Thème et publicités
 

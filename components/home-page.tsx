@@ -8,9 +8,12 @@ import { defaultHeroBackground } from "@/lib/site";
 import { FeaturedBlog } from "@/components/blog/blog-public";
 import type { BlogCardData } from "@/lib/blog-client";
 import styles from "./home-page.module.css";
+import { mobileAppCopy } from "@/components/i18n/mobile-app-copy";
+import { AndroidLogo, AppleLogo } from "@/components/branding/platform-logos";
 
 export default function HomePage({ background = defaultHeroBackground, featuredPosts = [], featuredError = false }: { background?: string; featuredPosts?: BlogCardData[]; featuredError?: boolean }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const mobile = mobileAppCopy[language];
   const heroBackground = background;
   const trustItems = [t("home.fixedPrice"), t("home.professionalDriver"), t("home.doorToDoor"), t("home.flightDetails"), t("home.liveTracking"), t("home.securePayment")];
   const experiences = [
@@ -55,6 +58,21 @@ export default function HomePage({ background = defaultHeroBackground, featuredP
           </div>
 
           <BookingWidget />
+        </div>
+      </section>
+
+      <section aria-labelledby="mobile-apps-title" className="mx-auto max-w-7xl px-4 pt-8 sm:px-6 lg:px-8">
+        <div className="rounded-3xl border border-blue-100 bg-white/90 p-6 sm:p-8">
+          <h2 id="mobile-apps-title" className="text-2xl font-bold text-[var(--color-primary-dark)]">{mobile.title}</h2>
+          <p className="mt-3 text-slate-600">{mobile.description}</p>
+          <div className="mt-5 flex flex-wrap gap-3">
+            {[{ name: "Android", Logo: AndroidLogo }, { name: "iOS", Logo: AppleLogo }].map(({ name, Logo }) => (
+              <div key={name} className="flex items-center gap-3 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-[var(--color-primary-dark)]">
+                <Logo />
+                <div><p className="font-bold">{name}</p><p className="text-sm">{mobile.soon}</p></div>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
