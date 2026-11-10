@@ -38,7 +38,7 @@ export default function HomePage({ background = defaultHeroBackground, featuredP
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row">
-              <Link href="/booking" className="inline-flex min-w-[220px] items-center justify-center rounded-full bg-[var(--color-primary)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-primary-dark)]">
+              <Link href="/booking" className="saiway-action inline-flex min-w-[220px] items-center justify-center rounded-full bg-[var(--color-primary)] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[var(--color-primary-dark)]">
                 {t("home.book")}
               </Link>
               <Link href="/booking/track" className="inline-flex min-w-[180px] items-center justify-center rounded-full border border-[var(--color-primary)] bg-white px-5 py-3 text-sm font-semibold text-[var(--color-primary)] transition hover:bg-[var(--color-primary)]/5">
@@ -54,7 +54,7 @@ export default function HomePage({ background = defaultHeroBackground, featuredP
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
         <div className="grid gap-6 md:grid-cols-3">
           {experiences.map(({ icon: Icon, title, description }) => (
-            <article key={title} className="saiway-experience min-w-0 rounded-3xl border border-black/5 bg-white p-6 shadow-sm">
+            <article key={title} className="saiway-reveal saiway-experience min-w-0 rounded-3xl border border-black/5 bg-white p-6 shadow-sm">
               <span className="inline-flex rounded-2xl bg-[var(--color-primary)]/5 p-3 text-[var(--color-primary)]"><Icon size={24} aria-hidden="true" /></span>
               <h2 className="mt-5 text-xl font-bold">{t(title)}</h2>
               <p className="mt-3 leading-7 text-slate-600">{t(description)}</p>
@@ -64,7 +64,7 @@ export default function HomePage({ background = defaultHeroBackground, featuredP
       </section>
 
       <section className="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[1.2fr_0.8fr] lg:px-8">
-        <div className="rounded-[30px] bg-[var(--color-primary-dark)] p-8 text-white shadow-sm">
+        <div className="saiway-reveal saiway-cultural-panel rounded-[30px] bg-[var(--color-primary-dark)] p-8 text-white shadow-sm">
             <p className="text-sm font-semibold uppercase tracking-[0.18em] text-white/70">{t("home.why")}</p>
           <h2 className="mt-4 text-3xl font-bold">{t("home.whyTitle")}</h2>
           <p className="mt-4 max-w-lg text-white/80">
@@ -79,7 +79,7 @@ export default function HomePage({ background = defaultHeroBackground, featuredP
           </div>
         </div>
 
-        <div className="rounded-[30px] border border-black/5 bg-white p-8 shadow-sm">
+        <div className="saiway-reveal saiway-experience rounded-[30px] border border-black/5 bg-white p-8 shadow-sm">
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--color-primary)]">{t("home.fromAirport")}</p>
           <h3 className="mt-4 text-2xl font-bold text-[var(--color-text)]">{t("home.toDoor")}</h3>
           <div className="mt-8 space-y-5">
@@ -102,7 +102,7 @@ export default function HomePage({ background = defaultHeroBackground, featuredP
       <FeaturedBlog posts={featuredPosts} error={featuredError} />
 
       <section aria-labelledby="partnerships-title" className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <div className="grid gap-8 rounded-[30px] bg-[var(--color-primary-dark)] p-6 text-white sm:p-8 lg:grid-cols-2 lg:p-10">
+        <div className="saiway-reveal saiway-cultural-panel grid gap-8 rounded-[30px] bg-[var(--color-primary-dark)] p-6 text-white sm:p-8 lg:grid-cols-2 lg:p-10">
           <div className="min-w-0">
             <Handshake size={32} aria-hidden="true" className="text-white/80" />
             <p className="mt-5 text-sm font-semibold uppercase tracking-[0.18em] text-white/70">{t("home.partnersEyebrow")}</p>

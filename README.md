@@ -54,9 +54,10 @@ autorisations ou des migrations dans l’environnement déployé.
 | 🗃️ **Archivage des courses** | Retrait réversible des listes administrateur, y compris courses terminées ; annulation atomique des courses non commencées ; protection des courses en service ; restauration sans réactivation, finances et historique conservés. |
 | 📝 **Blog touristique** | Création/modification/suppression d’articles, brouillons et publication, langue de rédaction FR/EN/KM, photos/légendes/remplacement, liaison privée à une course terminée ; jusqu’à trois articles publiés à la une sur l’accueil. |
 | ✉️ **Contact & partenariats** | Page contact avec QR WhatsApp/Telegram du chauffeur de contact sélectionné et email administrable ; invitations aux hôtels, agences et chauffeurs partenaires, sans fausses statistiques ni partenariats inventés. |
+| 📣 **Publicités & contrats** | Rubrique administrateur dédiée : annonceur, coordonnées privées, montant USD, conditions et notes, dates/heure du Cambodge, image, lien HTTPS et contrat PDF SAIWAY à signer ; modification versionnée, archivage motivé et audit. Activation manuelle, emplacements sélectionnables accueil/blog/réservation/chauffeur, tri et filtres ; six annonces maximum par emplacement, ordre par priorité croissante. Aucun paiement ni écriture comptable automatique. |
 | 📱 **Installation mobile** | PWA, manifeste, service worker, icônes Android/iOS, favicon et écrans de lancement utilisant la marque du header ; mise à jour des ressources statiques sans cache des données privées/API. |
 | 🌍 **Langues & ergonomie** | Interface en anglais, français et khmer, dates/nombres localisés, horaires métier au Cambodge, navigation responsive, formulaires conservés dans les rubriques repliées et interactions accessibles au clavier. |
-| 🎨 **Décor & interactions** | Paysage vectoriel local inspiré de Siem Reap, arrière-plan de marque sur l’application, parallaxe CSS progressif sur grand écran compatible, cartes interactives au survol et focus visibles ; respect de la réduction des animations. |
+| 🎨 **Décor & interactions** | Bleu/rouge du Cambodge, silhouette locale d’Angkor et motifs dorés dans l’espace public ; administration sobre sur fond gris-bleu et espace chauffeur distinct. Parallaxe CSS progressive sur grand écran compatible, cartes qui se soulèvent au survol et apparition au défilement dans les navigateurs compatibles ; contenu accessible sans animations, respect de la réduction des mouvements et focus clavier visibles. |
 | ⚙️ **Exploitation** | Prisma/PostgreSQL, pool borné de connexions, API avec permissions, contrôle des versions concurrentes et transactions métier ; tâches planifiées authentifiées pour livraison push et rétention GPS, activables/configurables selon leur documentation. |
 
 ## 🛣️ Parcours et espaces
@@ -69,7 +70,7 @@ autorisations ou des migrations dans l’environnement déployé.
 | `/account` | Réservations, paiements et profil du client connecté. |
 | `/booking/track` | Suivi de la course du client autorisé. |
 | `/driver` | Espace chauffeur : disponibilité, GPS, courses, carburant, paie et documents. |
-| `/admin` | Répartition, comptes, flotte/gestion, blog/photos et sécurité ; API réservées aux administrateurs actifs. |
+| `/admin` | Répartition, comptes, flotte/gestion, blog/photos, publicités/contrats et sécurité ; API réservées aux administrateurs actifs. |
 | `/blog` et `/blog/<postId>` | Journal public et articles publiés ; les brouillons/photos privées ne sont pas publics. |
 | `/contact` | Contacts de réservation configurés par l’administration. |
 | `/about`, `/help`, `/install` | Présentation, aide et installation mobile. |
@@ -233,6 +234,44 @@ card. The review shows the exact selected transfer type, including private and
 hotel transfers. Existing booking steps and server-side pricing are preserved.
 
 ## Database and administration
+
+### Advertising contracts and selectable placements
+
+Administration → **Publicités et partenaires / Advertising & partners** manages
+internal agreements with agencies and other providers. Set the advertiser,
+contact person, optional email/phone, agreed USD amount, Cambodia start/end
+date-times, private notes and contractual terms. The downloadable, branded PDF
+includes the agreement, employer settings and signature spaces; enabling a
+campaign is not an electronic signature, invoice or payment confirmation.
+
+Each contract selects one or more locations: homepage, blog/articles, booking
+page and driver workspace. Save as a draft, then explicitly enable it. Public
+queries only select enabled, non-archived contracts with
+`startsAt <= now < endsAt`. Cards are placed after the main content and before
+the footer, clearly labelled sponsored, with HTTPS destination links opening in
+a new tab (`sponsored noopener noreferrer`). There are no tracking pixels,
+autoplay, third-party scripts or automatic accounting entries.
+
+Up to six cards appear per location, ordered by ascending priority, then newest
+contract and ID. Open pages refresh placements every 60 seconds and when
+returning to the foreground; cards are removed locally at their end time.
+Contact details, amounts, internal notes and terms never appear in the public
+API. Images use checked, uncached endpoints and stop being available publicly
+when the contract is paused, expires or is archived.
+
+An optional JPEG/PNG/WebP image (5 MB maximum original) can be added after saving.
+Large images are reduced in the browser to at most 2000 px and 3 MB before
+upload; the server validates, resizes to at most 1200×800, converts to WebP and
+removes metadata. Editing, image changes and motivated archival are audited and
+protected by optimistic timestamps. Archival retains contractual history.
+Filters cover status and placement; dates, advertiser, status, amount and
+priority can be sorted in either direction.
+
+Deployment requires additive migration
+`20261110040000_advertising_contracts` after a verified backup and explicit
+approval. Generate the matching Prisma client and deploy the application;
+include the local PDF fonts in the deployment (configured in `next.config.ts`).
+No new environment variable, payment provider or scheduled task is required.
 
 ### Tourism journal and homepage articles
 

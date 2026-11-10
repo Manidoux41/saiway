@@ -311,6 +311,55 @@ model VehicleIconImage {
   uploadedAt DateTime @default(now())
 }
 
+enum AdvertisingStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ENDED
+}
+
+enum AdvertisingPlacement {
+  HOME
+  BLOG
+  BOOKING
+  DRIVER
+}
+
+model AdvertisingContract {
+  id           String                 @id @default(cuid())
+  reference    String                 @unique
+  advertiser   String
+  contactName  String
+  contactEmail String?
+  contactPhone String?
+  title        String
+  description  String
+  targetUrl    String
+  placements   AdvertisingPlacement[]
+  status       AdvertisingStatus      @default(DRAFT)
+  startsAt     DateTime
+  endsAt       DateTime
+  amountCents  Int
+  currency     String                 @default("USD")
+  priority     Int                    @default(0)
+  notes        String?
+  terms        String?
+  deletedAt    DateTime?
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+  image        AdvertisingImage?
+
+  @@index([status, startsAt, endsAt])
+}
+
+model AdvertisingImage {
+  id         String               @id @default(cuid())
+  contractId String               @unique
+  contract   AdvertisingContract  @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  data       Bytes
+  updatedAt  DateTime             @updatedAt
+}
+
 model Hub {
   id        String   @id @default(cuid())
   name      String

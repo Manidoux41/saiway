@@ -15,7 +15,7 @@ export function BlogImage({ photo, cover = false, admin = false }: { photo: { id
 
 export function BlogCards({ posts }: { posts: BlogCardData[] }) {
   const { t, language } = useLanguage();
-  return <div className="grid min-w-0 gap-6 md:grid-cols-2 xl:grid-cols-3">{posts.map((post) => <article lang={post.language} key={post.id} className="min-w-0 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+  return <div className="grid min-w-0 gap-6 md:grid-cols-2 xl:grid-cols-3">{posts.map((post) => <article lang={post.language} key={post.id} className="saiway-reveal saiway-experience min-w-0 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
     {(post.coverPhoto ?? post.photos[0]) && <BlogImage key={`${(post.coverPhoto ?? post.photos[0]).id}-${(post.coverPhoto ?? post.photos[0]).updatedAt}`} photo={post.coverPhoto ?? post.photos[0]} cover />}
     <div className="mt-4 flex flex-wrap gap-3 text-xs text-slate-500"><span>{post.language.toUpperCase()}</span>{post.publishedAt && <time dateTime={post.publishedAt}>{localizedDate(language, { dateStyle: "medium", timeZone: "Asia/Phnom_Penh" }).format(new Date(post.publishedAt))}</time>}</div>
     <h2 className="mt-3 break-words text-xl font-bold"><Link href={`/blog/${post.id}`}>{post.title}</Link></h2>

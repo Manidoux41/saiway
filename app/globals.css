@@ -40,9 +40,22 @@ body {
   pointer-events: none;
   background:
     radial-gradient(ellipse at 5% 12%, #032ea112, transparent 48%),
-    radial-gradient(ellipse at 95% 70%, #249d8612, transparent 42%),
-    linear-gradient(150deg, #f3f6fc 25%, #f5faf9 65%, #fff7ed);
+    radial-gradient(ellipse at 95% 70%, #e0002510, transparent 42%),
+    linear-gradient(150deg, #edf2ff 12%, #fff 48%, #fff3f1 85%, #fdf2d9);
 }
+
+.saiway-app-shell { position: relative; isolation: isolate; }
+.saiway-angkor-decor { position: fixed; right: 0; bottom: 0; width: min(660px, 85vw); pointer-events: none; z-index: -1; opacity: .35; }
+[data-app-space="public"] > header { box-shadow: 0 4px 24px #032ea10a; }
+[data-app-space="public"] > header::before { content: ""; display: block; height: 4px; background: linear-gradient(90deg, #032ea1 0% 28%, #e00025 28% 72%, #032ea1 72%); }
+[data-app-space="admin"] { background: #edf1f7; }
+[data-app-space="admin"] .saiway-atmosphere, [data-app-space="admin"] .saiway-angkor-decor { display: none; }
+[data-app-space="admin"] > header { border-bottom-color: #c4cfdf; box-shadow: 0 2px 12px #0f172a0a; }
+[data-app-space="admin"] main { background: linear-gradient(180deg, #e4eaf3, #f1f5f9 300px); }
+[data-app-space="driver"] { background: #f0f7f6; }
+[data-app-space="admin"] tbody tr:hover { background-color: #eaf0fc; }
+.saiway-cultural-panel { position: relative; overflow: hidden; border-top: 4px solid #e00025; }
+.saiway-cultural-panel::after { content: ""; position: absolute; width: 120px; height: 120px; border: 20px double #dfb56b30; border-radius: 30px; right: -40px; top: -50px; rotate: 45deg; pointer-events: none; }
 
 .saiway-hero-landscape {
   position: absolute;
@@ -71,16 +84,37 @@ body {
 
 @media (hover: hover) and (prefers-reduced-motion: no-preference) {
   .saiway-experience {
-    transition: translate 200ms ease, box-shadow 200ms ease;
+    transition: translate 200ms ease, box-shadow 200ms ease, border-color 200ms ease;
   }
   .saiway-experience:hover {
     translate: 0 -4px;
     box-shadow: 0 12px 30px #032ea112;
+    border-color: #032ea133;
   }
+  [data-app-space="public"] :where(a, button).saiway-action { transition: translate 180ms ease, box-shadow 180ms ease; }
+  [data-app-space="public"] :where(a, button).saiway-action:hover { translate: 0 -3px; box-shadow: 0 8px 20px #032ea122; }
+  .saiway-experience :where(svg, img) { transition: scale 240ms ease; }
+  .saiway-experience:hover :where(svg, img) { scale: 1.025; }
   :where(button, a, summary):not(:disabled) {
     transition: background-color 160ms ease, color 160ms ease, box-shadow 160ms ease;
   }
 }
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .saiway-reveal {
+      animation: saiway-reveal linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 75%;
+    }
+  }
+}
+
+@keyframes saiway-reveal {
+  from { opacity: .3; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.saiway-reveal:focus-within { animation: none; }
 
 @supports (animation-timeline: scroll()) {
   @media (min-width: 1024px) and (prefers-reduced-motion: no-preference) {
@@ -165,7 +199,7 @@ fieldset {
 }
 
 @media print {
-  .saiway-atmosphere { display: none; }
+  .saiway-atmosphere, .saiway-angkor-decor { display: none; }
   @page {
     size: A4;
     margin: 10mm;

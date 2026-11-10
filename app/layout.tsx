@@ -9,6 +9,7 @@ import { ServiceWorkerRegister } from "@/components/pwa/service-worker-register"
 import { currentAccount } from "@/lib/access";
 import type { UserRole } from "@/lib/roles";
 import { appleStartupImages } from "@/lib/pwa-assets.mjs";
+import { AppExperience } from "@/components/layout/app-experience";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -40,12 +41,10 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         <LanguageProvider>
           <AuthProvider initialUser={initialUser}>
             <ServiceWorkerRegister />
-            <div className="saiway-atmosphere" aria-hidden="true" />
-            <div className="flex min-h-screen flex-col">
+            <AppExperience footer={<Footer />}>
               <Header />
               <main className="flex-1">{children}</main>
-              <Footer />
-            </div>
+            </AppExperience>
           </AuthProvider>
         </LanguageProvider>
       </body>
