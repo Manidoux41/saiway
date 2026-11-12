@@ -609,6 +609,17 @@ redeploy the matching branch on Vercel after applying it.
 
 ### Push notifications
 
+Native Android/iOS clients now reuse this queue through the optional Expo
+channel, without replacing Web Push. Apply additive migration
+`20261111090000_native_push` **before deploying this backend**. Keep VAPID keys
+unchanged; set server-only `NATIVE_PUSH_ENABLED=true` and
+`EXPO_PUSH_ACCESS_TOKEN` only after configuring Expo enhanced push security and
+FCM/APNs credentials. See [mobile setup and store checklist](mobile/README.md#notifications-natives-android-et-ios).
+The migration also adds verified manual deletion requests. Users request deletion
+in the mobile account or through `/account-deletion`; administrators process them
+in the Accounts section. Recording a resolution does not itself erase data.
+Privacy operator details and retention periods still require legal validation.
+
 Signed-in customers, drivers and administrators can use the bell in the header
 to enable push **on each device**, disable it or send a test (maximum one test
 per minute). Consent is required; there is no unsolicited permission prompt.

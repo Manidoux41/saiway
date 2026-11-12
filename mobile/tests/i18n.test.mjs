@@ -79,9 +79,9 @@ test('all static translation calls are catalogued and active screens have no unt
   const root = fileURLToPath(new URL('../src/', import.meta.url));
   const brands = new Set(['SAIWAY', 'TRANSFER', 'SAIWAY / SIEM REAP', 'SAIWAY Transfer', 'WhatsApp', 'Telegram']);
   const active = name => name.startsWith('app/') ||
-    /^components\/(native-ui|address-field|advertising-popup|driver-duty|private-image|route-map|brand|language-selector)/.test(name);
+    /^components\/(native-ui|address-field|advertising-popup|driver-duty|private-image|route-map|brand|language-selector|notification-settings|account-deletion)/.test(name);
   for (const name of readdirSync(root, { recursive: true }).filter(name => /\.[jt]sx?$/.test(name))) {
-    if (/^(lib\/(?:i18n|translations)|providers\/language)/.test(name)) continue;
+    if (/^(lib\/(?:i18n|translations|shared\/)|providers\/language)/.test(name)) continue;
     const text = readFileSync(path.join(root, name), 'utf8');
     const source = ts.createSourceFile(name, text, ts.ScriptTarget.Latest, true, name.endsWith('tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
     function visit(node) {

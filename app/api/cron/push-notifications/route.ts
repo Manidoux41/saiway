@@ -1,6 +1,7 @@
 import { authorizedCron, cronDryRun, cronHead, cronOptions } from "@/lib/cron-auth";
 import { dispatchPush, pushConfiguration } from "@/lib/push-delivery";
 import { prisma } from "@/lib/prisma";
+import { nativePushConfigured } from "@/lib/native-push";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -12,7 +13,7 @@ export async function GET(request: Request) {
   if (dryRun === null) return Response.json({ error: "Invalid query; only dryRun=true or dryRun=false is supported" }, { status: 400, headers: { "Cache-Control": "no-store" } });
   try {
     if (dryRun) {
-      if (!pushConfiguration()) return Response.json({ error: "Push not configured" }, { status: 503, headers: { "Cache-Control": "no-store" } });
+      if (!pushConfiguration() && !nativePushConfigured()) return Response.json({ error: "Push not configured" }, { status: 503, headers: { "Cache-Control": "no-store" } });
       const now = new Date();
       const pending = await prisma.pushDelivery.count({ where: {
         sentAt: null, failedAt: null, expiresAt: { gt: now }, availableAt: { lte: now },

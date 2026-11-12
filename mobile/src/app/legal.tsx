@@ -13,8 +13,10 @@ export default function Legal() {
       {[
         ['terms', t('Conditions générales')],
         ['privacy', t('Confidentialité')],
+        ['mobile-privacy', t('Confidentialité mobile')],
         ['cancellation-policy', t('Annulation')],
         ['contact', t('Contacter SAIWAY')],
+        ['account-deletion', t('Supprimer mon compte et mes données')],
       ].map(([path, label]) => <Button key={path} title={label} secondary disabled={operation.pending}
         onPress={() => void operation.run(async () => { await Linking.openURL(`${configuredOrigin()}/${path}`); })} />)}
       <Notice error={operation.error} />

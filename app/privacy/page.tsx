@@ -3,6 +3,7 @@
 import { localizedDate } from "@/lib/locale-format";
 import { useLanguage } from "@/components/i18n/language-provider";
 import { legalCopy } from "@/components/i18n/legal-copy";
+import { MobilePrivacy } from "@/components/mobile-privacy";
 
 const sections = [
   {
@@ -56,6 +57,7 @@ export default function PrivacyPage() {
         <p className="mt-3 text-sm text-slate-500">{copy?.updated ?? "Last updated"}: {updated}</p>
         <p className="mt-8 rounded-2xl border border-[var(--color-accent)]/30 bg-[var(--color-accent)]/10 p-4 text-sm leading-6 text-[var(--color-text)]">{copy?.privacy.notice ?? "This notice is a practical draft for SAIWAY's Cambodian service and should be reviewed by qualified Cambodian counsel before publication. Replace the operator placeholders with the final legal entity and contact details."}</p>
         <div className="mt-8 space-y-8">
+          <MobilePrivacy />
           {translatedSections.map((section) => <section key={section.title}><h2 className="text-xl font-bold text-[var(--color-text)]">{section.title}</h2><p className="mt-3 leading-7 text-slate-600">{section.body}</p></section>)}
         </div>
       </div>

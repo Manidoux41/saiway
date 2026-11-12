@@ -1,7 +1,7 @@
 import { translations, type Language } from './translations.ts';
-import { localizedDate, localizedNumber } from '../../../lib/locale-format.ts';
-import { bookingHistoryNote } from '../../../components/i18n/booking-history-note.ts';
-import { interfaceCopy } from '../../../components/i18n/interface-copy.ts';
+import { localizedDate, localizedNumber } from './shared/locale-format.ts';
+import { bookingHistoryNote } from './shared/booking-history-note.ts';
+import { interfaceCopy } from './shared/interface-copy.ts';
 
 export type { Language } from './translations.ts';
 export type Parameters = Record<string, string | number>;
@@ -62,6 +62,17 @@ const serverErrorSources: Record<string, string> = {
   'Payment already started; administrator review required': 'Le paiement a commencé. Contactez l’administration.',
   'Pickup must be in the future': 'Choisissez une prise en charge dans le futur.',
   'Booking service unavailable': 'Le service de réservation est indisponible.',
+  'Sign in required': 'Veuillez vous reconnecter.',
+  'Native push not configured': 'Les notifications natives ne sont pas configurées sur le serveur.',
+  'Push not configured': 'Les notifications natives ne sont pas configurées sur le serveur.',
+  'Notification service unavailable': 'Le service de notifications est indisponible. Réessayez.',
+  'Invalid native push subscription': 'L’inscription aux notifications est invalide. Réactivez les notifications.',
+  'Device unavailable or account device limit reached': 'Cet appareil est indisponible ou la limite des appareils est atteinte.',
+  'Device subscription changed; retry': 'L’inscription aux notifications a changé. Réessayez.',
+  'Subscription not found': 'Activez les notifications sur cet appareil.',
+  'Wait one minute before another test': 'Attendez une minute avant un nouveau test.',
+  'Account deletion service unavailable': 'Le service de suppression du compte est indisponible. Réessayez.',
+  'Invalid deletion request': 'La demande de suppression est invalide. Vérifiez le mot de passe et la confirmation.',
 };
 let language: Language = 'fr';
 const listeners = new Set<() => void>();

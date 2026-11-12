@@ -1,9 +1,10 @@
 import { useLanguage } from '@/providers/language';
 import { createContext, useCallback, useContext, useEffect, useState, type PropsWithChildren } from 'react';
-import { client, errorMessage, forgetSession, rememberUser, restoreSession } from '@/lib/api';
+import { client, configuredOrigin, errorMessage, forgetSession, rememberUser, restoreSession } from '@/lib/api';
 import { authSchema, bookingsSchema, userSchema, type User } from '@/lib/contracts';
 import { z } from 'zod';
 import { ApiError } from '@/lib/transport';
+import { savedPushRegistration, clearPushRegistration, invalidatePushOperations, withPushLock } from '@/lib/native-push';
 
 type Session = {
   user: User | null; ready: boolean; error: string;
@@ -46,19 +47,30 @@ export function SessionProvider({ children }: PropsWithChildren) {
   }, [revision]);
   const retry = useCallback(() => setRevision(value => value + 1), []);
   async function signIn(form: { email: string; password: string; role: string; name?: string }, register = false) {
-    const result = await client().request(`/api/auth/${register ? 'register' : 'login'}`, authSchema, {
-      method: 'POST', body: { ...form, email: form.email.trim().toLowerCase() },
+    invalidatePushOperations();
+    await withPushLock(async () => {
+      const result = await client().request(`/api/auth/${register ? 'register' : 'login'}`, authSchema, {
+        method: 'POST', body: { ...form, email: form.email.trim().toLowerCase() },
+      });
+      await rememberUser(result.user);
+      setUser(result.user);
     });
-    await rememberUser(result.user);
-    setUser(result.user);
   }
   async function signOut() {
-    try {
-      await client().request('/api/auth/logout', logoutSchema, { method: 'POST', body: {} });
-    } catch (failure) {
-      if (!(failure instanceof ApiError) || (failure.status !== 401 && failure.status !== 403)) throw failure;
-    }
-    await forgetSession(); setUser(null); setError('');
+    invalidatePushOperations();
+    await withPushLock(async () => {
+      const push = await savedPushRegistration();
+      try {
+        if (push?.previousToken && push.userId === user?.id && push.origin === configuredOrigin()) {
+          await client().request('/api/notifications/native', z.object({ disabled: z.literal(true) }), { method: 'DELETE', body: { token: push.previousToken } });
+        }
+        await client().request('/api/auth/logout', logoutSchema, { method: 'POST', body: push?.userId === user?.id && push?.origin === configuredOrigin() ? { pushEndpoint: push.token } : {} });
+      } catch (failure) {
+        if (!(failure instanceof ApiError) || (failure.status !== 401 && failure.status !== 403)) throw failure;
+      }
+      await clearPushRegistration();
+      await forgetSession(); setUser(null); setError('');
+    });
   }
   async function updateName(name: string) {
     if (!user) throw new Error(t("Connexion requise."));

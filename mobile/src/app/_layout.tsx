@@ -5,10 +5,14 @@ import { SessionProvider } from '@/providers/session';
 import { GpsProvider } from '@/providers/gps';
 import { colors } from '@/components/native-ui';
 import { AdvertisingPopup } from '@/components/advertising-popup';
+import { NotificationsProvider } from '@/providers/notifications';
 
 export default function RootLayout() {
+  return <LanguageProvider><AppLayout /></LanguageProvider>;
+}
+function AppLayout() {
   const { t } = useLanguage();
-  return <LanguageProvider><SessionProvider><GpsProvider>
+  return <SessionProvider><NotificationsProvider><GpsProvider>
     <StatusBar style="dark" />
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
       <Stack.Screen name="index" />
@@ -18,5 +22,5 @@ export default function RootLayout() {
       <Stack.Screen name="trip/[id]" options={{ headerShown: true, title: t("Votre course"), headerTintColor: colors.primary }} />
     </Stack>
     <AdvertisingPopup />
-  </GpsProvider></SessionProvider></LanguageProvider>;
+  </GpsProvider></NotificationsProvider></SessionProvider>;
 }

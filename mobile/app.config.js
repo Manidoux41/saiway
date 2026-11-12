@@ -1,9 +1,7 @@
 module.exports = ({ config }) => ({
   ...config,
-  plugins: [
-    ...(config.plugins ?? []),
-    ['react-native-maps', {
-      androidGoogleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY,
-    }],
-  ],
+  android: {
+    ...config.android,
+    ...(process.env.GOOGLE_SERVICES_JSON ? { googleServicesFile: process.env.GOOGLE_SERVICES_JSON } : {}),
+  },
 });

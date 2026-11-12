@@ -90,6 +90,19 @@ model User {
   auditLogs     AuditLog[]
   customerSessions CustomerSession[]
   pushSubscriptions PushSubscription[]
+  deletionRequests AccountDeletionRequest[]
+}
+
+model AccountDeletionRequest {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status      String   @default("PENDING")
+  createdAt   DateTime @default(now())
+  resolvedAt  DateTime?
+  resolution  String?
+
+  @@index([userId, status])
 }
 
 model PushSubscription {
@@ -100,6 +113,8 @@ model PushSubscription {
   p256dh    String
   auth      String
   language  String   @default("en")
+  channel   String   @default("WEB")
+  platform  String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   deliveries PushDelivery[]
@@ -126,6 +141,10 @@ model PushDelivery {
   sentAt         DateTime?
   failedAt       DateTime?
   lastError      String?
+  pushTicketId   String?
+  receiptCheckedAt DateTime?
+
+  @@index([pushTicketId, receiptCheckedAt])
 
   @@unique([subscriptionId, eventKey])
   @@index([sentAt, failedAt, availableAt])

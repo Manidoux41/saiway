@@ -49,17 +49,15 @@ function CampaignPopup({ placement, consumed, onShow }: {
   const [dismissed, setDismissed] = useState(consumed);
   const operation = useOperation();
   const candidate = campaigns.data ? nextAdvertisement(campaigns.data.advertisements, now) : null;
-  useEffect(() => {
-    if (selected || !candidate || dismissed) return;
-    const timer = setTimeout(() => setSelected(candidate), 1200);
-    return () => clearTimeout(timer);
-  }, [candidate, selected, dismissed]);
   const current = selected && campaigns.data?.advertisements.find(ad => ad.id === selected.id && Date.parse(ad.endsAt) > now);
   function close() { setDismissed(true); }
   useEffect(() => {
     if (campaigns.error) console.warn(t("Publicités SAIWAY indisponibles :"), campaigns.error);
   }, [campaigns.error, t]);
-  if (!current || dismissed || campaigns.error) return null;
+  if (dismissed || campaigns.error) return null;
+  if (!current) return candidate && !consumed && !selected ? <SafeAreaView edges={['bottom']} style={{ padding: 12 }}>
+    <Button title={t('Voir une offre partenaire')} secondary onPress={() => setSelected(candidate)} />
+  </SafeAreaView> : null;
   return <Modal transparent animationType="fade" visible onRequestClose={close} onShow={() => onShow(placement)} statusBarTranslucent>
     <SafeAreaView style={popupStyles.backdrop}>
       <View style={popupStyles.dialog} accessibilityViewIsModal accessibilityLabel={t("Publicité SAIWAY")}>

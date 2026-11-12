@@ -7,6 +7,8 @@ import { useApi, useOperation } from '@/hooks/use-api';
 import { client, configuredOrigin } from '@/lib/api';
 import { okSchema, professionalSchema, profileSchema } from '@/lib/contracts';
 import { Button, Card, confirm, Field, Notice, Page, styles } from '@/components/native-ui';
+import { NotificationSettings } from '@/components/notification-settings';
+import { AccountDeletion } from '@/components/account-deletion';
 
 export default function Account() {
   const { t } = useLanguage();
@@ -62,12 +64,14 @@ export default function Account() {
       <Text style={styles.muted}>{professional.data.professional.address}</Text>
       <Text style={styles.muted}>{professional.data.professional.contactName} · {professional.data.professional.contactPhone}</Text>
     </Card>}
+    <NotificationSettings />
     <Card><Text style={styles.heading}>{t("Informations et assistance")}</Text>
       <Button title={t('Informations légales')} secondary onPress={() => router.push('/legal')} />
       {[['contact', t("Contacter SAIWAY")], ['help', t("Aide")], ['terms', t("Conditions générales")], ['privacy', t("Confidentialité")], ['cancellation-policy', t("Annulation")]].map(([path, label]) =>
         <Button key={path} title={label} secondary onPress={() => void operation.run(async () => { await Linking.openURL(`${configuredOrigin()}/${path}`); })} />)}
-      <Text style={styles.muted}>{t("L’application fonctionne en ligne. Les notifications push natives et le GPS en arrière-plan ne sont pas activés ; gardez l’application au premier plan pendant le service.")}</Text>
+      <Text style={styles.muted}>{t("Les notifications peuvent arriver lorsque l’application est fermée. Le GPS ne fonctionne qu’au premier plan : gardez SAIWAY ouvert pendant une course au compteur.")}</Text>
     </Card>
+    <AccountDeletion />
     <Button title={t("Se déconnecter")} danger disabled={operation.pending} onPress={() => void operation.run(async () => {
       if (!await confirm(t("Déconnexion"), t("Arrêter le partage GPS et fermer cette session sur cet appareil ?"))) return;
       await session.signOut();

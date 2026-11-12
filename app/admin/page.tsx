@@ -25,6 +25,7 @@ const RecordEditor = dynamic(() => import("@/components/admin/record-editor").th
 const AccountProfile = dynamic(() => import("@/components/admin/account-profile-editor").then((module) => module.AccountProfile));
 const EmployerSettingsForm = dynamic(() => import("@/components/admin/employer-settings-form").then((module) => module.EmployerSettingsForm));
 const ProfessionalsPanel = dynamic(() => import("@/components/admin/professionals-panel").then((module) => module.ProfessionalsPanel));
+const AccountDeletionRequests = dynamic(() => import("@/components/admin/account-deletion-requests").then((module) => module.AccountDeletionRequests));
 
 export default function AdminPage() {
   const { t } = useLanguage();
@@ -58,6 +59,7 @@ export default function AdminPage() {
     <div hidden={section !== "operations"}><FleetSupervision /><AdminBookings management={data} disabled={loading || Boolean(error)} /></div>
     {section === "professionals" && <ProfessionalsPanel />}
     {visited.accounts && <div hidden={section !== "accounts"} className="space-y-4">
+      <AccountDeletionRequests />
       <DashboardSection id="admin-create-account-section" title={t("dashboard.createAccount")}>
         <div className={styles.views} role="group" aria-label={t("records.users")}>{(["CUSTOMER", "DRIVER", "ADMIN"] as const).map((role) => <button key={role} type="button" aria-pressed={accountRole === role} onClick={() => setAccountRole(role)}>{t(role === "CUSTOMER" ? "courses.createCustomer" : role === "DRIVER" ? "admin.createDriver" : "admin.createAdministrator")}</button>)}</div>
         <div className={styles.accountForm}><AccountCreationForm key={accountRole} role={accountRole} disabled={loading || Boolean(error)} onCreated={refresh} /></div>
