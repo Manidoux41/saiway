@@ -17,7 +17,7 @@
       "supportsTablet": true
     },
     "android": {
-      "package": "com.saiway.app",
+      "package": "com.saiway.transfert",
       "adaptiveIcon": {
         "backgroundColor": "#032EA1",
         "foregroundImage": "./assets/images/saiway-icon.png"

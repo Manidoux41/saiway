@@ -12,6 +12,11 @@ test('cloud build profiles embed the public HTTPS API without local environment 
   }
   assert.equal(config.build.preview.android.buildType, 'apk');
   assert.equal(config.build.preview.distribution, 'internal');
+  assert.equal(config.build.production.distribution, 'store');
+  assert.equal(config.build.production.environment, 'production');
+  assert.equal(config.build.production.android.buildType, 'app-bundle');
+  assert.equal(config.cli.appVersionSource, 'remote');
+  assert.equal(config.build.production.autoIncrement, true);
 });
 
 test('standalone shared history dictionary has complete translations', () => {
@@ -37,7 +42,9 @@ test('native notification configuration excludes unnecessary sensitive Android p
     process.env.GOOGLE_SERVICES_JSON = '/private-fixture/google-services.json';
     const generated = config({ config: expo });
     assert.equal(generated.android.googleServicesFile, '/private-fixture/google-services.json');
-    assert.equal(generated.android.package, 'com.saiway.app');
+    assert.equal(generated.android.package, 'com.saiway.transfert');
+    assert.equal(generated.ios.bundleIdentifier, 'com.saiway.app');
+    assert.equal(generated.extra.eas.projectId, 'f6f7db0f-840e-4bfa-9345-a0d9fc648781');
     assert.deepEqual(generated.android.blockedPermissions, expo.android.blockedPermissions);
   } finally {
     if (original === undefined) delete process.env.GOOGLE_SERVICES_JSON;

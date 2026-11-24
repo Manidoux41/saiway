@@ -178,7 +178,62 @@ La popup native réutilise les campagnes existantes sans changer leur présentat
 
 ## Builds natifs
 
-`app.json` contient les identifiants `com.saiway.app` et le schéma `saiway`.
+### Google Play : tests fermés
+
+Depuis `mobile/`, vérifier `npx eas-cli@latest project:info` : le projet doit être
+`saiway-mobile`, ID `f6f7db0f-840e-4bfa-9345-a0d9fc648781`, et non le projet Expo
+créé à la racine Next.js. Le package Android est `com.saiway.transfert`,
+conformément à la fiche Google Play existante.
+
+Vérifier sur ce même projet EAS la variable fichier `GOOGLE_SERVICES_JSON` dans
+l'environnement **production**, ainsi que la clé FCM v1. Puis lancer :
+
+```bash
+npx eas-cli@latest build --platform android --profile production
+```
+
+Le profil production génère explicitement un **Android App Bundle (.aab)** pour
+le store, avec incrément du numéro de build. À la première compilation, configurer
+la clé d'upload via EAS. Si le package a déjà été distribué sur Play, conserver la
+clé d'upload existante ; ne pas en générer une autre sans procédure de rotation.
+Après chaque nouveau build, vérifier que le versionCode dépasse celui déjà envoyé.
+
+Avant le premier build de ce package sur ce projet EAS, depuis `mobile/` :
+
+```bash
+npx eas-cli@latest credentials --platform android
+npx eas-cli@latest build:version:get --platform android --profile production
+```
+
+Dans les identifiants Android, sélectionner le profil production et vérifier la
+clé d'importation : son empreinte SHA-1/SHA-256 doit correspondre au **certificat
+de clé d'importation** affiché dans l'intégrité de l'application sur Play Console,
+pas nécessairement au certificat de signature géré par Google. Réutiliser le
+keystore d'importation existant si nécessaire. Si cette clé est perdue, suivre la
+procédure Play de réinitialisation avant de poursuivre.
+
+La version Android est gérée à distance par EAS. Si le numéro distant est absent
+ou inférieur au plus grand versionCode déjà importé dans Play pour ce package,
+l'initialiser avec `npx eas-cli@latest build:version:set --platform android --profile production`.
+Le prochain build production l'incrémente ; vérifier le résultat avant l'import.
+
+Télécharger l'AAB depuis le lien EAS. Dans Google Play Console, créer/sélectionner
+SAIWAY, activer Play App Signing et ouvrir **Tests → Tests fermés**. Créer une
+piste, configurer les testeurs (emails ou Google Group), créer une version,
+importer l'AAB, renseigner les notes puis enregistrer et soumettre au contrôle
+selon les étapes proposées par la console. Une fois la version disponible,
+partager le lien d'inscription aux testeurs ; ils doivent utiliser leur compte
+Google autorisé pour accepter le test et installer depuis Play.
+
+La première soumission est à faire manuellement dans Play Console. Un build EAS
+réussi ne crée pas une version de test Google Play automatiquement. Compléter
+aussi la fiche, l'accès examinateur client/chauffeur, les annonces, Data safety,
+la classification, les URL de confidentialité/suppression et les coordonnées
+requises. Les textes légaux encore en brouillon restent à finaliser avant la
+soumission ; les tests fermés ne dispensent pas des politiques Google.
+
+`app.json` contient le package Android `com.saiway.transfert`, l'identifiant iOS
+`com.saiway.app` et le schéma `saiway`.
 Confirmer les identifiants auprès du propriétaire des comptes Apple/Google avant
 publication. `eas.json` fournit des profils preview et production.
 La signature, les comptes stores et les builds de distribution restent à configurer.
@@ -201,11 +256,15 @@ chauffeur. Aucun nouveau suivi GPS en arrière-plan n'est activé.
    Activer aussi la sécurité renforcée du Push Service dans les paramètres Expo
    du projet et créer le jeton autorisé correspondant. Ne jamais utiliser un
    nom `EXPO_PUBLIC_*` pour ce secret.
-3. Android : enregistrer `com.saiway.app` dans Firebase et récupérer son
+3. Android : enregistrer `com.saiway.transfert` dans Firebase et récupérer son
    `google-services.json`. Sur EAS, créer une variable **de type fichier**
    `GOOGLE_SERVICES_JSON` contenant ce fichier, dans l'environnement du profil
    utilisé. `app.config.js` référence le chemin fourni. En local, définir cette
    variable vers un fichier privé existant.
+   Après un changement de package, remplacer cette variable fichier : le JSON
+   doit contenir un client Android correspondant exactement au nouveau package.
+   Si le projet Firebase reste le même, la clé de service FCM v1 peut rester
+   identique ; vérifier son association aux credentials Android du projet EAS.
 4. Configurer séparément la **clé de service FCM v1** avec
    `eas credentials --platform android`, rubrique Push Notifications. Ne pas
    confondre cette clé serveur avec `google-services.json`. Ne versionner aucun

@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "54201578-f090-426d-a3e1-9fb75b3c7c14"
+      }
+    },
+    "android": {
+      "package": "com.saiway.sr"
+    }
+  }
+}
